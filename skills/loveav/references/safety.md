@@ -1,70 +1,72 @@
 # 安全与确认规则
 
-当前版本默认是离线本地模式。Telegram、123AV、MissAV、Bad.news、海角和 Raindrop 的网络访问均默认禁止；后文网络相关条目只是未来兼容 adapter 的安全边界，不代表当前执行许可。
+当前版本是离线本地模式。Telegram、123AV、MissAV、Bad.news、海角和 Raindrop 的网络访问均默认禁止；后文涉及网络的条目只是未来兼容适配器的安全边界，不是当前执行许可。
 
-## Secrets 与隐私
+## 凭据与隐私
 
-禁止要求用户粘贴或上传：
+不得要求用户粘贴或上传以下敏感信息：
 
 - Telegram API hash；
 - Bot Token；
 - OTP；
-- password；
+- 密码；
 - Session；
-- cookies；
-- browser storage；
+- cookie；
+- 浏览器存储；
 - Raindrop token；
-- 含上述内容的数据库。
+- 含上述信息的数据库。
 
-宿主可以读取预先配置好的 secure store，但 Skill 只能看到 capability result 与 sanitized error。
+宿主可以读取预先配置的安全存储，但 Skill 只能看到能力结果和脱敏后的错误信息。
 
-禁止把 secrets 或 raw Telegram text 写入 logs、packages、generated source 或长期回复内容。只有用户明确要求当前会话摘录时，才允许短暂展示最小必要原文。
+不得把 Secret 或原始 Telegram 正文写入日志、数据包、生成源码或长期回复记录。只有用户明确要求临时片段时，才可在当前回复中展示最小必要内容。
 
-## Network boundaries
+## 网络边界
 
-Manual mode 不执行 Telegram、MissAV、Bad.news、海角、Twitter、Raindrop 或 123AV network requests。
+手动模式不得发起 Telegram、MissAV、Bad.news、海角、Twitter、Raindrop 或 123AV 网络请求。
 
-Browser script 默认只生成，不执行；只有用户明确要求且宿主存在受支持的 browser action 时，才可以运行。
+浏览器脚本默认只是输出给用户，不自动执行。只有用户明确要求，并且当前宿主确实支持对应浏览器动作时，才可执行。
 
-任何 connected network action 前都必须明确说明：
+执行任何已连接网络动作前，必须说明：
 
-- destination；
-- purpose；
-- scope；
-- expected side effect。
+- 目标站点；
+- 操作目的；
+- 操作范围；
+- 预期副作用。
 
-HTTP 200 不能证明页面有效或远端写入成功。必须检查文档定义的成功证据，并分别识别 access challenge、login page、404、429、403、timeout 与 rate limit。
+HTTP 200 不能单独证明页面有效或远程写入成功。必须检查文档规定的成功证据，并把登录页、404、429、403、超时、访问挑战和限流分别处理。
 
-## Account 与 browser actions
+## 账号与浏览器操作
 
-以下操作必须在最后负责时刻取得明确确认：
+以下操作必须在最终负责时刻再次取得确认：
 
-- Telegram login；
-- mark read；
-- 123AV favorite/follow；
-- 其他会改变 remote account state 的动作。
+- Telegram 登录；
+- 标记消息已读；
+- 123AV 收藏或关注；
+- 其他会改变远程账号状态的操作。
 
-出现 CAPTCHA、未知 login state 或无法确认成功状态的页面时必须停止。禁止继续点击不明确页面，也禁止读取 password、cookie、Local Storage 或 Session Storage。
+遇到 CAPTCHA、未知登录状态或无法确认成功的页面时立即停止。不得在含糊页面上继续点击，也不得读取密码、cookie、Local Storage 或 Session Storage。
 
-123AV account work 必须 single-lane per site。普通网络失败或 `Error 1015` 时等待 10 秒，再从最后一个确认成功项恢复；如果 side effect 状态未知，不得盲目重试。
+123AV 账号操作同一站点必须串行执行。正常网络错误或 `Error 1015` 出现时，等待 10 秒后从最后确认成功的项目继续。未知副作用不得盲目重试。
 
-## Data mutation
+## 数据修改
 
-以下操作执行前必须先 preview：
+执行以下操作前必须先预览并确认：
 
-- delete；
-- restore；
-- overwrite；
-- migration commit；
-- rule commit；
-- package import。
+- 删除；
+- 恢复；
+- 覆盖；
+- 迁移提交；
+- 正式规则提交；
+- 数据包导入。
 
-Preview 必须展示受影响数量与 conflict/invalid 明细，并取得一次性确认。随后先创建 snapshot，再使用一个 transaction 完成；任一错误必须 rollback。若存在已发生的 remote side effect，要单独报告，不得伪装成整体原子事务。
+确认前应展示影响数量和冲突情况，并创建快照。写入应使用单个事务；任一错误则回滚。
 
-## AI uncertainty
+如果已经发生远程副作用，而后续本地步骤失败，必须单独说明哪些外部动作已经发生，不能把整次操作模糊地描述为成功或失败。
 
-禁止把一次性的“智能猜测”直接升级成 permanent filter。
+## AI 不确定性
 
-不确定格式必须进入 review list，解释证据，并且只有在用户明确确认 + 回归样本满足要求后才能添加规则。
+不得把一次性的智能猜测直接变成永久过滤规则。
 
-用户要求纯列表时，禁止把解释文字或猜测值混入 plain-text block。
+格式不确定时，应进入 `review` 列表并解释证据。只有用户明确确认且存在回归样本后，才允许新增正式规则。
+
+用户要求纯列表时，不得把解释文字或猜测值混入纯文本代码块。
