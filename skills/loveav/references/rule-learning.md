@@ -19,7 +19,7 @@ tool,suggestion_id,pattern,match_type,decision,scope,evidence,positive_examples,
 missav,rl-0001,030515-821,code_shape,accept,answer_text,source label and detail path,030515-821,030515-821号,review,2026-08-27T00:00:00Z,
 ```
 
-`status` 使用 `review`、`accepted`、`rejected`、`promoted`。建议记录不是精选历史，也不是黑名单；不能因为同一候选再次出现就自动升级。
+`status` 使用 `review`、`accepted`、`rejected`、`promoted`。建议记录不是 MissAV 主体库历史，也不是黑名单；不能因为同一候选再次出现就自动升级。
 
 ## 晋级条件
 
@@ -29,7 +29,7 @@ missav,rl-0001,030515-821,code_shape,accept,answer_text,source label and detail 
 - 已运行回归检查，旧样本的误报和漏检没有恶化；
 - 生成新的规则版本和变更说明，保留旧版本可回滚。
 
-如果用户只确认某个结果，最多把该结果加入精选库，不得宣称学会了通用规则。拒绝的例子也要保留为防误报样本，但不要生成永久黑名单，除非用户明确要求。
+如果用户只确认某个结果，最多把该结果加入 MissAV 主体库，不得宣称学会了通用规则。拒绝的例子也要保留为防误报样本，但不要生成永久黑名单，除非用户明确要求。
 
 ## 回复格式
 

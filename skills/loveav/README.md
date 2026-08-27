@@ -10,8 +10,8 @@
 
 1. 将整个 `loveav` 文件夹作为 Skill 安装或上传。
 2. 在对话中使用 `$loveav`，上传 Telegram Desktop 的 HTML/JSON、TXT/CSV/MD/LOG，或直接粘贴文本。
-3. 说明要运行的工具、时间范围、是否排除精选库已有记录和需要的输出。默认只做本地或对话内解析，不连接 Telegram。
-4. 预览完成后，只勾选你要长期保留的结果入库；未选择的候选不会进入精选历史库。
+3. 说明要运行的工具、时间范围、是否排除 MissAV 主体库已有记录和需要的输出。默认只做本地或对话内解析，不连接 Telegram。
+4. 预览完成后，只确认你要长期保留的 MissAV 结果；它们合并进唯一 `missav-library.csv`，未选择的候选不会进入主体库。
 
 ## 语言规范
 
@@ -21,19 +21,34 @@
 
 ## v0.5.13 初始化
 
-如需从 v0.5.13 旧库初始化，可运行 `scripts/migrate_v0513_library.py`。它只读打开旧 SQLite，生成 `seen-index.csv`、精选候选、待复核候选、女优 Tag 候选和旧 Raindrop 元数据；默认不会生成正式精选库。只有你明确确认后，才使用 `--activate-ok` 激活 `status=ok` 的候选。
+如需从 v0.5.13 旧库初始化，可运行 `scripts/migrate_v0513_library.py`。它只读打开旧 SQLite，生成可复核的番号、Tag 和非敏感 Raindrop 元数据候选；候选还要按 `references/curated-library.md` 的唯一主体库契约预览后才能合并，迁移不会修改现有规则数据。
 
 ## 包含的 v0.5.13 能力
 
 - MissAV、Twitter、Bad.news、海角四个基线过滤器，并对未知格式提供可疑项复核和确认后学习。
-- MissAV 番号规范化、详情链接、浏览器脚本、参考女优 Tag、两层黑名单和三目录 Raindrop 导出。
+- MissAV 番号规范化、详情链接、浏览器脚本、参考女优 Tag、两层黑名单和三目录 Raindrop CSV 导出。
 - 四个前置工具统一接受 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG、多文件和粘贴文本；支持时间筛选、选择、查重和历史语义。
-- 精选结果库、查重索引、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
+- 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
 - Telegram Desktop 文件解析、消息规范化和时间筛选；个人 API、Bot、历史回拉、检查点和标记已读不启用。
 
-详细规则位于 `references/`。自适应规则学习见 `references/rule-learning.md`，精选资料库契约见 `references/curated-library.md`。
+详细规则位于 `references/`。自适应规则学习见 `references/rule-learning.md`，MissAV 主体库与 Raindrop CSV 契约见 `references/curated-library.md`。
+
+## 长期数据设计
+
+- Whos.tv 保持既有固定目录、状态与 Markdown 流程，不移动。
+- MissAV 只维护一个 `missav-library.csv` 主体库，并用行级标记记录“来自 Raindrop”和“来自 Skill 新增”。
+- 每批 MissAV 结果默认只保存可导入 Raindrop 的 CSV；番号、链接和浏览器脚本在对话中返回，不额外落盘。
+- 主体库、批次 CSV 和私人备份可由用户自行使用 Google Drive 同步，但不得提交 GitHub。
+
+主体库导入默认只预览：
+
+```powershell
+python scripts/manage_missav_library.py --library <missav-library.csv> --input <Raindrop或脚本结果.csv>
+```
+
+确认预览后才可使用 `--commit --confirm WRITE_MISSAV_LIBRARY`。脚本会先备份现有主体库，再执行原子替换；不会生成摘要 JSON 文件。
 
 Skill 只决定流程、规则和输出；本版本不包含 Telegram、Work/cloud 或远程账号执行器。
 

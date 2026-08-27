@@ -49,7 +49,7 @@
 - 这是第五个启用工具，属于批量采集与文档生成工作流，不是 Telegram 文本过滤器。
 - 必须使用 `scripts/` 下的确定性生成器和整理器。
 - 动态截止点和 Markdown 输出契约以 `references/whostv-solved-answers.md` 为准。
-- Whos.tv 成功结果不会自动进入 MissAV 精选库。提取到的番号只有在用户明确选择后，才能入库。
+- Whos.tv 成功结果不会自动进入 MissAV 主体库。提取到的番号只有在用户明确选择后，才能入库。
 
 ## 123AV
 

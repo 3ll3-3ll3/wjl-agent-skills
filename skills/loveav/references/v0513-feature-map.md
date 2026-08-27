@@ -1,6 +1,6 @@
 # v0.5.13 功能对照
 
-本表用于防止迁移时漏掉旧版能力。当前项目只启用离线手动输入、精选库和确定性输出；联网账号操作列为历史兼容参考，不属于当前范围。
+本表用于防止迁移时漏掉旧版能力。当前项目只启用离线手动输入、MissAV 主体库和确定性输出；联网账号操作列为历史兼容参考，不属于当前范围。
 
 | v0.5.13 能力 | Skill 中的位置 | 是否需要宿主适配器 |
 | --- | --- | --- |
@@ -16,8 +16,8 @@
 | Telegram HTML/JSON/TXT/粘贴输入 | `input-output.md` | 文件上传由宿主提供 |
 | 多文件、时间范围、消息多选 | `input-output.md` | UI/文件选择由宿主提供 |
 | 永久历史查重与编辑/删除语义 | `data-contract.md` | 需要持久化适配器才能跨会话保存 |
-| 任务、结果、规则、历史包 | `input-output.md`、`data-contract.md` | 下载/导入由宿主提供 |
-| 精选库增删改、备份、恢复 | `curated-library.md`、`data-contract.md` | 需要本地文件/小型库适配器 |
+| 对话结果、规则包、主体库 CSV | `input-output.md`、`data-contract.md` | 下载/导入由宿主提供 |
+| 主体库增删改、备份、恢复 | `curated-library.md`、`data-contract.md` | 需要本地文件/小型库适配器 |
 | v0.5.13 业务库迁移 | `data-contract.md` | 需要一次性的本地迁移适配器 |
 | 个人 Telegram API 登录、历史、增量 | `legacy-parity.md` | 必须使用安全 MTProto 适配器 |
 | Bot 更新、offset、来源分发 | `legacy-parity.md` | 必须使用 Bot 适配器 |

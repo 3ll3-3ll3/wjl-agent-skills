@@ -1,11 +1,11 @@
 ---
 name: loveav
-description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、精选资料库、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
+description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
 ---
 
 # 目标
 
-让 Codex 或其他兼容 Agent 以本地优先方式完成 TG 文本与导出文件的解析、过滤、查重、精选入库、规则复核和结果输出，同时保持与既定 v0.5.13 规则语义兼容。
+让 Codex 或其他兼容 Agent 以本地优先方式完成 TG 文本与导出文件的解析、过滤、查重、MissAV 精华入库、规则复核和结果输出，同时保持与既定 v0.5.13 规则语义兼容。
 
 # 触发条件
 
@@ -18,7 +18,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - Twitter 创作者；
 - Bad.news 链接；
 - 海角链接；
-- 精选资料库记录；
+- MissAV 主体库记录；
 - 自适应规则复核；
 - Whos.tv 已解决答案数据。
 
@@ -31,7 +31,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 3. 在正式处理前解析来源绑定。
 4. 对每个已选工具应用确定性的基线规则。
 5. 把陌生、冲突或证据不足的候选送入自适应复核。
-6. 将规范化结果与精选资料库、历史索引和黑名单比较。
+6. 将规范化结果与唯一 MissAV 主体库和两个既有黑名单比较。
 7. 优先返回立即可用、可复制的结果。
 8. 只持久化用户明确选择的派生记录，或用户明确确认的规则变更。
 9. 准确报告失败、未完成步骤和部分完成状态。
@@ -43,16 +43,16 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 开始处理前按请求确定模式：
 
 - **手动模式（默认）**：接受粘贴文本，以及 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG 文件。不连接 Telegram，不索要 API 凭据，也不标记消息已读。
-- **本地资料库模式**：预览完成后，只把用户明确选择保留的行加入本地精选库。精选库用于未来查重和参考判断；不能把每一次处理的全部候选都当成永久历史。
-- **管理模式**：用于编辑精选记录、参考 Tag、两个 MissAV 黑名单、备份、迁移或冲突复核。大表格编辑优先使用小型本地编辑器。
+- **本地资料库模式**：预览完成后，只把用户明确选择保留的 MissAV 行加入唯一 `missav-library.csv`。主体库用于未来查重和参考判断；不能把每一次处理的全部候选都当成永久历史。
+- **管理模式**：用于编辑 MissAV 主体库、参考 Tag、两个 MissAV 黑名单、备份、迁移或冲突复核。大表格编辑优先使用小型本地编辑器。
 
 Telegram personal API、Bot API、Work/cloud、后台同步、远程 Raindrop 写入和 123AV 账号操作不属于当前默认启用范围。不得因为旧版兼容文档存在就主动索要这些凭据或建议执行这些联网操作。
 
 ## 本地状态
 
-把 Skill 旁边的 `loveav-data/`，或用户明确配置的目录，视为运行状态目录。精选 CSV、规则文件和本地索引属于用户私有数据，不得随 Skill 发布。
+只有用户明确配置后，才能把指定目录视为私人数据目录。MissAV 主体库、每批 Raindrop CSV、现有规则文件和 Whos.tv 数据都属于用户私有数据，不得随 Skill 发布。
 
-如果本地资料库不存在，则从空库开始并明确说明。升级旧安装时，只有用户明确指出 `tg-toolbox-data/` 时，才能把它识别为旧数据目录；禁止静默移动或删除。
+如果 `missav-library.csv` 不存在，则从空库开始并明确说明。不得擅自创建、移动、删除或猜测用户尚未提供的数据目录。Whos.tv 保持其既有固定目录和状态，不迁入 MissAV 数据目录。
 
 即使宿主存在已连接适配器，默认仍使用手动模式。不能仅因为输入看起来像 Telegram 导出就自动切换为联网模式。
 
@@ -116,15 +116,15 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 如果当前宿主没有写入适配器，则把规则建议以可复制形式返回；不得声称已经学习或保存。
 
-## 精选资料库与历史
+## MissAV 主体库与历史
 
-先用精选资料库比较规范化结果键，再报告是否为新结果。
+处理 MissAV 时，先用唯一 `missav-library.csv` 比较规范化番号，再报告是否为新结果。不得再维护第二份 `seen-index.csv` 作为长期历史真源。
 
-如果 `seen-index.csv` 中已有某个键，但精选库中没有，则应标记为“以前见过但未精选”，不能静默抑制。
+主体库同时合并用户提供的 Raindrop 官方 CSV 和 LoveAV 处理后确认保留的 Raindrop 导入 CSV；物理上每个规范番号只有一行，逻辑上分别维护 `loveav_in_raindrop` 与 `loveav_in_skill_added`。同一番号两种来源都有时，两项都为 `true`，不能重复建行或丢失差异字段。
 
-只有用户明确选择入库的行，才能进入精选历史。
+任何新 CSV 导入必须先展示新增、重复、补全、冲突、无效、范围外和待复核数量。用户确认后才能备份并原子更新主体库。详细字段、Raindrop 目录过滤和合并规则见 `references/curated-library.md`。
 
-精选库、已见索引、规则建议和黑名单必须保持不同语义，不能互相混用。
+主体库、规则建议和黑名单必须保持不同语义。现有规则、参考 Tag 与两层黑名单不得因主体库导入而移动、覆盖或自动生成。
 
 ## MissAV 两层黑名单
 
@@ -133,7 +133,7 @@ Whos.tv 使用单独的返回 JSON 工作流。
 - 参考 Tag 黑名单：只取消对应 Tag 的参考匹配资格；
 - Raindrop 导出黑名单：只阻止对应结果进入 Raindrop 导出。
 
-命中黑名单不能静默删除精选记录，必须保留适当的排除原因。
+命中黑名单不能静默删除主体库记录，必须保留适当的排除原因。
 
 ## 输出规则
 
@@ -141,11 +141,11 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 不同类型的主值和链接要分开：
 
-- **MissAV**：番号列表与 URL 列表分开；
+- **MissAV**：番号列表与 URL 列表分开；默认长期落盘仅保存本批最终 Raindrop 导入 CSV，浏览器脚本在对话代码块中返回；
 - **Twitter**：创作者/handle 列表与主页 URL 列表分开；
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
-- **通用导出**：支持 UTF-8 TXT、带公式注入防护的 CSV、JSON，以及版本化结果包、资料库包和规则包。
+- **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
 条件允许时，应报告：输入数量、时间排除数量、无效数量、重复数量、历史数量、新结果数量、`review` 数量和错误数量。
 
@@ -155,13 +155,15 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 不得把每次运行的全部记录、Telegram 原文或临时预览永久保存。
 
-只保存用户明确保留的派生行，以及必要的最小元数据，例如：
+只保存用户明确保留的派生行，以及主体库合并所需的最小元数据，例如：
 
 - 规范化键；
 - Tags；
 - 规则版本；
 - 来源哈希；
 - 时间戳。
+
+MissAV 每批默认不保存代码 TXT、链接 TXT、浏览器脚本或摘要 JSON。用户需要这些内容时先在对话中以独立代码块返回；只有用户另行明确要求才生成额外文件。
 
 ## 失败报告
 
@@ -180,6 +182,13 @@ Whos.tv 使用单独的返回 JSON 工作流。
 # Whos.tv 已解决答案
 
 把抓取、继续抓取、校验、整理、分类或更新 Whos.tv 已解决答案视为第五个主功能。执行前读取 `references/whostv-solved-answers.md`。
+
+## Whos.tv 页面读取与脚本生成的模型要求
+
+- 在“读取 whos.tv 页面结构并生成或修复抓取脚本”这一步，必须使用 GPT-5.6 **Sol** 模型，并把推理强度设为“极高”（或宿主界面中含义相同的最高档位）。
+- 该要求覆盖页面结构判断、选择器设计、增量截止点核对、脚本校验和脚本生成；不要求也不允许 Agent 代替用户运行浏览器控制台脚本。
+- 如果当前宿主无法选择 Sol 或极高推理强度，必须明确告知用户模型档位无法强制，再停止生成脚本或等待用户切换；不得假装已经满足要求。
+- 生成的脚本始终只交给用户，由用户在已登录的 whos.tv 页面 Console 手动运行；Agent 不得通过浏览器自动执行、`javascript:` URL、原始 CDP 或其他绕过方式运行。
 
 生成抓取脚本时使用：
 
@@ -205,7 +214,7 @@ node scripts/organize_whos_answers.js <JSON路径>
 - 不创建最终 Markdown；
 - 不把失败结果当成成功记录。
 
-Whos.tv 文档与 MissAV 精选历史必须分开。只有用户另外选择，才能把 Whos.tv 中提取出的番号加入精选库。
+Whos.tv 文档与 MissAV 主体库必须分开。只有用户另外选择，才能把 Whos.tv 中提取出的番号加入主体库。
 
 # 宿主逻辑操作
 
@@ -220,9 +229,21 @@ results.query / results.copy / results.export
 script.generate(codes, reference_tags, both_blacklists)
 whostv.script.generate(mode, pages_or_cutoff)
 whostv.answers.validate / whostv.answers.organize / whostv.state.update
-library.preview_import / library.commit_selected / library.query / library.update / library.remove
-library.export / library.backup / library.verify
+library.preview_import / library.commit_confirmed / library.query / library.update / library.remove
+library.backup / library.verify / library.raindrop_filter
 rules.export / rules.import_preview
+```
+
+当前宿主允许运行本地 Python 时，MissAV 主体库预览使用：
+
+```powershell
+python scripts/manage_missav_library.py --library <missav-library.csv> --input <输入.csv>
+```
+
+只有用户看过预览并明确确认后，才允许追加：
+
+```powershell
+--commit --confirm WRITE_MISSAV_LIBRARY
 ```
 
 如果宿主只能分析而不能写入，仍要在对话中完成解析、过滤和输出，并明确说明用户还需要通过哪个入口保存派生数据。不得假装数据库写入成功。
@@ -233,7 +254,7 @@ rules.export / rules.import_preview
 
 以下操作尤其需要确认：
 
-- 导入或覆盖精选数据；
+- 导入、合并或覆盖 MissAV 主体库数据；
 - 删除资料库行；
 - 修改正式规则；
 - 恢复备份；
@@ -248,7 +269,7 @@ rules.export / rules.import_preview
 
 UI 不是日常工作入口。只有以下情况才优先使用 UI：
 
-- 大批量精选库编辑；
+- 大批量 MissAV 主体库编辑；
 - 规则或黑名单维护；
 - 备份与恢复；
 - v0.5.13 迁移；
@@ -261,8 +282,8 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - 不得因为存在兼容适配器就自动切换为联网模式。
 - 不得因为格式陌生就直接丢弃候选。
 - 不得把一次智能猜测固化为永久规则。
-- 不得把未选择的候选当作精选历史。
-- 不得把 Telegram 原文写入长期历史、日志、备份、结果包、规则包或遥测。
+- 不得把未选择的候选当作主体库历史。
+- 不得把 Telegram 原文写入长期历史、日志、备份、规则包或遥测。
 - 不得在网络写入、上传、数据库写入或其他外部动作失败时声称成功。
 - 不得把 HTTP 200 本身当成业务成功证据。
 - 不得绕过登录、CAPTCHA、访问挑战或未知账号状态。
@@ -275,9 +296,9 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 2. 未绑定来源已得到用户选择；
 3. 每个工具独立应用自己的规则；
 4. 陌生候选没有被静默丢弃；
-5. 精选库、历史、黑名单和规则建议没有混淆；
+5. MissAV 主体库、来源标记、黑名单和规则建议没有混淆；
 6. 可复制结果中没有混入解释文字；
-7. 只保存了用户明确选择的派生数据；
+7. 只保存了用户明确选择的派生数据，且 MissAV 默认只落盘本批 Raindrop 导入 CSV；
 8. 所有失败和未完成步骤都被准确报告；
 9. 没有泄露或持久化敏感凭据和 Telegram 原文。
 
@@ -299,8 +320,8 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 
 - `references/tool-rules.md`：MissAV、Twitter、Bad.news、海角和 123AV 规则；
 - `references/input-output.md`：输入容器、规范化、选择和输出契约；
-- `references/data-contract.md`：历史、CRUD、数据包、迁移和隐私字段；
-- `references/curated-library.md`：精选资料库、去重、黑名单和原子更新；
+- `references/data-contract.md`：长期数据边界、写入、迁移、同步和隐私字段；
+- `references/curated-library.md`：MissAV 唯一主体库、两种 Raindrop CSV、目录过滤、查重和原子合并；
 - `references/legacy-parity.md`：v0.5.13 兼容能力对照；
 - `references/v0513-feature-map.md`：旧版功能映射；
 - `references/safety.md`：凭据、网络、账号操作、破坏性操作和恢复；
@@ -314,4 +335,4 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 python scripts/migrate_v0513_library.py
 ```
 
-该脚本只读打开旧库并生成预览；只有用户明确批准时，才能使用 `--activate-ok` 将符合条件的旧库行晋级到精选库。
+该脚本只读打开旧库并生成预览；旧库候选仍必须按 `references/curated-library.md` 的新主体库契约复核后才能合并。不得借迁移过程修改现有规则数据。

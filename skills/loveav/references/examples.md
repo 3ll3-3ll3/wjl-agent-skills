@@ -8,7 +8,7 @@
 
 ```text
 使用 LoveAV 处理我上传的三个 Telegram HTML。
-MissAV 来源提取番号，Twitter 来源提取博主；排除精选库已有记录，返回番号、番号链接、博主名和主页链接。
+MissAV 来源提取番号，Twitter 来源提取博主；排除 MissAV 主体库已有记录，返回番号、番号链接、博主名和主页链接。
 ```
 
 预期行为：

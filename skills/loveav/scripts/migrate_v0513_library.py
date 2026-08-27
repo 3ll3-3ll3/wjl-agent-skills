@@ -1,17 +1,8 @@
 #!/usr/bin/env python3
-"""Read a v0.5.13 SQLite database and create local Skill library candidates.
+"""只读提取 v0.5.13 SQLite 中可用于 LoveAV 主体库复核的候选数据。
 
-The source database is opened read-only.  By default this script creates:
-  - indexes/seen-index.csv: every legacy code identity and status;
-  - preview/curated-candidates.csv: legacy rows eligible for user selection;
-  - preview/review-candidates.csv: rows that need manual review;
-  - preview/observed-actress-tags.csv: tags observed in the old database;
-  - legacy/raindrop-metadata.csv: non-secret legacy bookmark fields;
-  - rules/*-blacklist.csv: optional copies of old blacklist text files;
-  - manifest.json and MIGRATION_PREVIEW.md.
-
-Pass --activate-ok only after the user explicitly confirms that legacy `ok`
-rows should become the initial curated library.
+本脚本永远不直接创建或覆盖正式 ``missav-library.csv``，也不读取、复制或修改
+规则与黑名单。输出仅用于后续按 ``references/curated-library.md`` 预览和确认合并。
 """
 
 from __future__ import annotations
@@ -22,7 +13,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import sqlite3
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
@@ -96,19 +86,6 @@ def write_csv(path: Path, fieldnames: list[str], rows: Iterable[dict[str, object
         temporary.unlink(missing_ok=True)
         raise
     return count
-
-
-def read_blacklist_file(path: Path) -> list[str]:
-    if not path.exists() or not path.is_file():
-        return []
-    output: list[str] = []
-    seen: set[str] = set()
-    for raw in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
-        value = re.sub(r"\s+", " ", raw).strip()
-        if value and value not in seen:
-            seen.add(value)
-            output.append(value)
-    return output
 
 
 def build_rows(connection: sqlite3.Connection) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
@@ -219,9 +196,7 @@ def write_legacy_metadata(connection: sqlite3.Connection, output: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path, help="v0.5.13 missav_data.db (opened read-only)")
-    parser.add_argument("--output", required=True, type=Path, help="private output directory, normally loveav/user-data/...")
-    parser.add_argument("--blacklist-dir", type=Path, help="optional old missav-blacklists directory")
-    parser.add_argument("--activate-ok", action="store_true", help="explicitly activate legacy status=ok candidates as curated-results.csv")
+    parser.add_argument("--output", required=True, type=Path, help="私人迁移预览目录；不得指向正式主体库文件")
     args = parser.parse_args()
 
     source = args.source.resolve()
@@ -243,79 +218,36 @@ def main() -> int:
         observed_rows = [row for row in review_and_observed if "tag" in row]
         review_rows = [row for row in review_and_observed if "tag" not in row]
         files: dict[str, int] = {}
-        files["indexes/seen-index.csv"] = write_csv(
-            output / "indexes/seen-index.csv",
+        files["preview/v0513-seen-candidates.csv"] = write_csv(
+            output / "preview/v0513-seen-candidates.csv",
             ["tool", "canonical_key", "primary_value", "status", "legacy_id", "source"],
             seen_rows,
         )
-        files["preview/curated-candidates.csv"] = write_csv(
-            output / "preview/curated-candidates.csv",
+        files["preview/v0513-library-candidates.csv"] = write_csv(
+            output / "preview/v0513-library-candidates.csv",
             ["tool", "canonical_key", "primary_value", "secondary_value", "status", "tags", "genres", "folder", "first_seen_at", "last_seen_at", "seen_count", "rule_version", "legacy_id", "selection_state", "notes"],
             candidate_rows,
         )
-        files["preview/review-candidates.csv"] = write_csv(
-            output / "preview/review-candidates.csv",
+        files["preview/v0513-review-candidates.csv"] = write_csv(
+            output / "preview/v0513-review-candidates.csv",
             ["tool", "canonical_key", "primary_value", "secondary_value", "status", "tags", "genres", "folder", "first_seen_at", "last_seen_at", "seen_count", "rule_version", "legacy_id", "selection_state", "notes"],
             review_rows,
         )
-        files["preview/observed-actress-tags.csv"] = write_csv(
-            output / "preview/observed-actress-tags.csv",
+        files["preview/v0513-observed-actress-tags.csv"] = write_csv(
+            output / "preview/v0513-observed-actress-tags.csv",
             ["tag", "code_count", "candidate_reference"],
             observed_rows,
         )
-        files["legacy/raindrop-metadata.csv"] = write_legacy_metadata(connection, output / "legacy/raindrop-metadata.csv")
+        files["preview/v0513-raindrop-metadata.csv"] = write_legacy_metadata(connection, output / "preview/v0513-raindrop-metadata.csv")
     finally:
         connection.close()
 
-    if args.activate_ok:
-        active = [dict(row, selection_state="active", status="active") for row in candidate_rows]
-        active_path = output / "library/curated-results.csv"
-        if active_path.exists():
-            backup_path = output / "backups" / f"curated-results-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.csv"
-            backup_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(active_path, backup_path)
-        files["library/curated-results.csv"] = write_csv(
-            active_path,
-            ["tool", "canonical_key", "primary_value", "secondary_value", "status", "tags", "genres", "folder", "first_seen_at", "last_seen_at", "seen_count", "rule_version", "legacy_id", "selection_state", "notes"],
-            active,
-        )
-        files["library/missav-codes.csv"] = write_csv(
-            output / "library/missav-codes.csv",
-            ["canonical_key", "code", "missav_url", "tags", "genres", "folder", "first_seen_at", "last_seen_at", "rule_version", "status"],
-            [
-                {
-                    "canonical_key": row["canonical_key"], "code": row["primary_value"],
-                    "missav_url": row["secondary_value"], "tags": row["tags"], "genres": row["genres"],
-                    "folder": row["folder"], "first_seen_at": row["first_seen_at"], "last_seen_at": row["last_seen_at"],
-                    "rule_version": row["rule_version"], "status": row["status"],
-                }
-                for row in active
-            ],
-        )
-        files["indexes/history-index.csv"] = write_csv(
-            output / "indexes/history-index.csv",
-            ["tool", "canonical_key", "primary_value", "status", "source"],
-            [
-                {"tool": row["tool"], "canonical_key": row["canonical_key"], "primary_value": row["primary_value"], "status": row["status"], "source": "curated-results.csv"}
-                for row in active
-            ],
-        )
-
-    blacklist_dir = args.blacklist_dir.resolve() if args.blacklist_dir else None
-    blacklist_files = {
-        "rules/reference-blacklist.csv": "1-参考女优Tag库黑名单.txt",
-        "rules/raindrop-export-blacklist.csv": "2-Raindrop导出黑名单.txt",
-    }
-    for relative, filename in blacklist_files.items():
-        values = read_blacklist_file(blacklist_dir / filename) if blacklist_dir else []
-        files[relative] = write_csv(output / relative, ["pattern", "match_type", "enabled", "note"], [{"pattern": value, "match_type": "exact_tag", "enabled": 1, "note": "migrated from v0.5.13"} for value in values])
-
     source_hash = sha256_file(source)
     manifest = {
-        "format_version": "tg-toolbox-library-migration-v1",
+        "format_version": "loveav-v0513-preview-v2",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source": {"name": source.name, "sha256": source_hash, "read_only": True},
-        "selection_policy": "Only explicitly selected curated-candidates become library/curated-results.csv; seen-index is not a curated library.",
+        "selection_policy": "Preview only. Merge confirmed rows into the single missav-library.csv using references/curated-library.md.",
         "counts": {"seen": len(seen_rows), "curated_candidates": len(candidate_rows), "review_candidates": len(review_rows), "observed_actress_tags": len(observed_rows)},
         "files": {},
     }
@@ -329,12 +261,12 @@ def main() -> int:
         f"- 源数据库：`{source.name}`",
         f"- 源 SHA-256：`{source_hash}`",
         f"- 已见番号：{len(seen_rows)}",
-        f"- `ok` 精选候选：{len(candidate_rows)}（{'已按显式参数激活' if args.activate_ok else '默认未激活'}）",
+        f"- `ok` 主体库候选：{len(candidate_rows)}（仅预览，未写正式主体库）",
         f"- 待复核候选：{len(review_rows)}",
         f"- 观察到的女优 Tag：{len(observed_rows)}（仅候选，不自动加入参考库）",
         "",
-        "`indexes/seen-index.csv` 用于判断旧库是否见过；只有用户明确选择的行才能进入 `library/curated-results.csv`。" if not args.activate_ok else "本次使用了显式 `--activate-ok`；仅旧库中状态为 `ok` 且能规范化的行进入 `library/curated-results.csv`，其余仍在待复核文件。",
-        "原始数据库未写入，凭据、Session、Telegram 原文未读取或导出。",
+        "这些 CSV 只是候选预览，不是第二套历史库。只有用户明确选择并确认后，才能按唯一主体库契约合并进 `missav-library.csv`。",
+        "原始数据库未写入；现有规则与黑名单未读取或修改；凭据、Session、Telegram 原文未读取或导出。",
     ]
     (output / "MIGRATION_PREVIEW.md").write_text("\n".join(report) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(output), "source_sha256": source_hash, "files": files}, ensure_ascii=False, indent=2))
