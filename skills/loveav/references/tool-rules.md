@@ -1,64 +1,64 @@
 # 工具规则
 
-这些规则继承自 Windows v0.5.13 的稳定基线。它们是行为规则，不代表 Skill 可以在没有用户明确请求的情况下访问对应网站。
-
-基线规则也不是封闭式拒绝列表：完成基线判断后，陌生候选必须进入 `rule-learning.md` 定义的 adaptive review lifecycle。
+以下规则来自 Windows v0.5.13 的稳定基线。它们是确定性行为要求，不代表可以在没有用户明确请求时访问对应网站，也不是封闭式拒绝清单。基线检查之后，陌生候选必须进入 `references/rule-learning.md` 定义的自适应复核流程。
 
 ## MissAV
 
-- 番号统一转为大写；空格或下划线分隔符规范化为 `-`；连续多个连字符压缩；FC2 变体统一为 `FC2-PPV-<digits>`。
-- 接受既定的字母数字番号形状，即 `letters-digits` 加可选、已验证 suffix。
-- 明确排除普通说明文字、无关网站 URL、日期、栏目标签和明显噪声。
-- 输入中存在可信 MissAV detail URL 时应保留；只有当前 host rule adapter 支持时，才在缺少详情链接时生成规范化 MissAV URL。
-- 边界形状或新形状必须进入 `review` 并附证据，禁止静默丢弃。
-- 类似 `https://missav.ai/dm558/110223-001` 与 `https://missav.ai/dm166/pondo-030326_001` 的 URL 应视为 detail-page candidate；可信 detail path 已提供 identifier 时，不强制要求短 `AA-999` 形状。
-- Browser script 必须来自已验证用户模板。只允许注入规范化后的 `CODE_TEXT`、当前 reference actress tags 和 export blacklist。注入前必须转义 backticks 与 `${`。如果模板缺少必要 placeholder，不得自行编造替代脚本。
-- Reference Tag blacklist 只取消该 Tag 的参考匹配资格，不删除 source library 中的 Tag，也不阻止影片进入非参考输出目录。
-- Raindrop export blacklist 与 reference blacklist 独立；命中后设置 `include_in_import=false`，阻止进入生成的 Raindrop HTML/CSV，但 audit/report 仍保留被排除记录与原因。
-- Bookmark output 固定创建三个 folder：`参考女优Tag命中`、`需要查找`、`其他`。对于 not-found、access-challenge 和 unresolved metadata，`需要查找` 优先级最高，避免不确定项被 Tag 命中掩盖。
-- Actress Tag reference HTML 提取读取 bookmark `TAGS`，去除系统/类型边界 Tag 和重复项，识别既定日文/中文/拉丁姓名形式；先 preview，用户确认后才替换 reference library。
-- Skill 默认不得直接调用 MissAV 网站。Browser script 是默认网络机制。
+- 番号统一转为大写；空格和下划线分隔符规范化为 `-`；连续多个连字符折叠为一个；FC2 变体统一规范为 `FC2-PPV-<digits>`。
+- 接受既有字母数字番号形状，以及经过验证的可选后缀。明确排除普通句子、无关网站 URL、日期、栏目标签和明显噪声。
+- 输入中已经存在可信 MissAV 详情页 URL 时优先保留；只有宿主的规则适配器明确支持时，才为缺失 URL 的番号生成规范详情链接。
+- 边界格式或新格式必须进入 `review`，不得静默丢弃。
+- 类似 `https://missav.ai/dm558/110223-001` 和 `https://missav.ai/dm166/pondo-030326_001` 的地址可作为详情页候选。可信详情页路径可以提供标识，不要求一定是短 `AA-999` 形式。
+- 浏览器脚本必须基于已经验证的用户模板生成。只允许注入规范化后的番号文本、当前参考女优标签和导出黑名单。
+- 注入前必须转义反引号和 `${`。模板缺少必需占位符时，禁止凭空编造替代脚本。
+- 参考标签黑名单只取消该标签参与参考匹配的资格，不删除来源资料库中的标签，也不阻止对应作品进入非参考输出目录。
+- Raindrop 导出黑名单与参考标签黑名单相互独立。命中后只把对应结果设为不参与导入，同时在审计或报告中保留该记录和排除原因。
+- 生成书签输出时固定使用三个目录：`参考女优Tag命中`、`需要查找`、`其他`。未找到、访问挑战和元数据未解决的项目优先进入 `需要查找`，避免被参考标签命中掩盖。
+- 从参考标签 HTML 中提取内容时，应读取书签的 `TAGS` 值，移除系统或类型边界标签和重复项，并识别既有日文、中文、拉丁字母姓名形式。先展示预览，只有确认后才替换参考资料库。
+- Skill 本身不得直接访问 MissAV 网站。默认网络机制是生成浏览器脚本，由用户或受支持宿主执行。
 
 ## Twitter
 
-- 优先把每条消息中的 ASCII `#tag` 作为 creator signal。
-- `@handle` 和 `x.com` / `twitter.com` profile URL 作为 fallback。
-- Handle 只能包含 1–15 个 ASCII letters、digits 或 underscore。
-- 排除明显保留路径：`home`、`explore`、`search`、`settings`、`login`、`messages`、`notifications`。
-- 排除明显短 topic tag 和推广/门户 Tag，尤其是紧跟“传送门”的 Tag。
-- 边界 handle 进入 `review`，不得静默排除。
-- mention fallback 时排除以 `_bot` 结尾的 handle。
+- 优先把每条消息中的 ASCII `#tag` 作为创作者线索。
+- 合法 `@handle` 和 `x.com` / `twitter.com` 个人主页 URL 可作为后备证据。
+- handle 只能包含 1–15 位 ASCII 字母、数字或下划线。
+- 明确排除 `home`、`explore`、`search`、`settings`、`login`、`messages`、`notifications` 等保留路径。
+- 明确排除明显主题标签、推广标签或门户标签，尤其是紧跟“传送门”出现的短标签。
+- 边界 handle 必须进入 `review`，不得静默拒绝。
+- 作为提及后备线索时，排除以 `_bot` 结尾的 handle。
 - 去重时忽略大小写，但保留首次出现顺序。
-- creator name 与 profile URL 必须分开返回；主页 URL 使用 `https://x.com/<handle>`。
+- 创作者名称列表与个人主页 URL 列表必须分开返回。主页地址使用 `https://x.com/<handle>`。
 
 ## Bad.news
 
-- 只接受 canonical host 下的 `https://bad.news/t/<digits>`。
-- 规范化时去除 optional query、fragment 和 trailing path。
-- 排除已确认的 `/app`、category page、home page、tracking URL、advertisement 与 non-post link。
-- 按 canonical URL 精确去重，并保留首次出现顺序。
-- 陌生但看起来可能有效的 post path 进入 `review`。
+- 只接受规范主机上的 `https://bad.news/t/<digits>`。
+- 查询参数、片段和多余尾部路径应规范化移除。
+- 明确排除 `/app`、栏目页、首页、跟踪链接、广告和其他非帖子链接。
+- 按规范 URL 精确去重并保留首次出现顺序。
+- 陌生但合理的帖子路径进入 `review`，不得直接判无效。
 
-## Haijiao
+## 海角
 
-- 只接受以下七个 category 下的 numeric direct post：`hjjd`、`hjmz`、`hjyc`、`hjfn`、`hjsz`、`hjrq`、`hjhj`。
-- 规范化为 `https://www.haijiaolove.xyz/<category>/<digits>.html`。
-- 排除已确认的 old domains、category pages、ads、redirects、tracking parameters 与其他 site paths。
-- 新的 numeric direct-post shape 必须先结合 URL evidence 复核，再决定是否排除。
+- 只接受以下七个分类下的数字直达帖子：`hjjd`、`hjmz`、`hjyc`、`hjfn`、`hjsz`、`hjrq`、`hjhj`。
+- 统一规范为 `https://www.haijiaolove.xyz/<category>/<digits>.html`。
+- 明确排除旧域名、分类页、广告、重定向、跟踪参数和其他站内路径。
+- 新出现的数字直达帖子形状必须结合 URL 证据复核后再决定是否排除。
 
-## Whos.tv solved answers
+## Whos.tv 已解决答案
 
-- 这是第五个启用工具，属于 batch collection + document generation workflow，不是 Telegram text filter。
-- 必须使用 `scripts/` 中的 deterministic generator 与 organizer。
-- dynamic cutoff 与 Markdown 契约以 `whostv-solved-answers.md` 为准。
-- Whos.tv 成功结果不得自动进入 MissAV curated library；提取出的番号只有在用户明确选择后才能入库。
+- 这是第五个启用工具，属于批量采集与文档生成工作流，不是 Telegram 文本过滤器。
+- 必须使用 `scripts/` 下的确定性生成器和整理器。
+- 动态截止点和 Markdown 输出契约以 `references/whostv-solved-answers.md` 为准。
+- Whos.tv 成功结果不会自动进入 MissAV 精选库。提取到的番号只有在用户明确选择后，才能入库。
 
-## 123AV（仅 legacy connected mode）
+## 123AV
 
-- query、account action 与 export 必须分开处理。
-- Query 必须从 page title/body 验证 exact code evidence，不能把“只拿到 URL”当成成功。
-- missing、access challenge、login required、timeout、network error 必须分开分类。
-- Account action 必须 single-lane per site。
-- 支持模式仅包括 Chrome extension、in-app serial assistant 与 export-only。
-- 禁止读取 password、cookie、Local/Session Storage 或完整 page HTML。
-- 普通网络失败或 `Error 1015` 时等待 10 秒再继续；未知 login/CAPTCHA state 必须变成 `verify_required` 并停止 side effect。
+123AV 目前只保留旧版联网兼容规则，不属于默认启用范围。
+
+- 查询、账号操作和导出必须分开。
+- 查询必须从页面标题或正文验证精确番号证据，不能把“有 URL”本身当成成功。
+- 缺失、访问挑战、需要登录、超时和网络错误必须分别分类。
+- 账号操作同一站点必须串行执行。
+- 允许的旧版方式包括 Chrome 扩展、应用内串行助手和仅导出模式。
+- 禁止读取密码、cookie、Local Storage、Session Storage 或完整页面 HTML。
+- 正常网络错误或 `Error 1015` 时等待 10 秒再继续；未知登录或 CAPTCHA 状态必须进入 `verify_required` 并停止副作用。
