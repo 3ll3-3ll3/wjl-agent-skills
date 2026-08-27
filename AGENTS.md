@@ -1,76 +1,99 @@
-# AGENTS.md
+# Repository Policy
 
-This repository is a monorepo for personal Codex / agent Skills.
+本仓库是个人 Codex / Agent Skills 的 monorepo。
 
 ## Repository layout
 
-- Each Skill lives under `skills/<skill-name>/`.
-- Each Skill must have its own `SKILL.md` as its operational source of truth.
-- Supporting scripts, references, assets, tests, and docs stay inside that Skill unless they are genuinely shared by multiple Skills.
+- 每个 Skill 位于 `skills/<skill-name>/`。
+- 每个 Skill 必须有自己的 `SKILL.md`，作为该 Skill 的执行真源。
+- 只属于某个 Skill 的 scripts、references、assets、tests 和 docs 保留在该 Skill 目录内。
+- 只有两个或更多 Skill 确实复用同一实现时，才考虑抽取到 `shared/`。
 
 ## Editing rules
 
-1. When a task targets one Skill, keep changes inside that Skill unless a root-level change is explicitly required.
-2. Do not silently change behavior in unrelated Skills.
-3. Preserve existing Skill-specific safety, data, template, and compatibility rules.
-4. Do not commit runtime/private data, credentials, tokens, sessions, browser profiles, local databases, Telegram exports, or generated user records.
-5. Prefer deterministic scripts for mechanical work and keep `SKILL.md` focused on workflow and decision rules.
-6. Add shared code to `shared/` only after at least two Skills actually need the same implementation; avoid premature abstraction.
-7. New personal Skills should normally be added to `skills/<skill-name>/` rather than created as standalone repositories.
-8. Before declaring a migration or refactor complete, verify every affected Skill still contains its `SKILL.md` and required assets/tests.
-9. For every new Skill and every edit to an existing Skill, apply the repository-wide Skill authoring language policy below. This policy also applies to Skills created in nested directories or future Skill collections inside this repository.
+1. 任务只针对某个 Skill 时，修改范围应尽量限制在该 Skill 内，除非确实需要根级调整。
+2. 不得顺带改变无关 Skill 的行为。
+3. 必须保留现有 Skill 的安全边界、数据规则、模板约束和兼容性要求。
+4. 不提交运行时私有数据、凭据、Token、Session、浏览器资料、本地数据库、Telegram 导出或用户生成记录。
+5. 机械、确定性的工作优先放到脚本；`SKILL.md` 重点描述工作流、决策、约束和验收标准。
+6. 新的个人 Skill 默认添加到 `skills/<skill-name>/`，而不是新建独立仓库。
+7. 迁移、重构或大规模改写完成前，必须确认所有受影响 Skill 仍包含 `SKILL.md` 和必要 assets/tests。
 
-## Skill authoring language policy
+## Skill language convention
 
-This is a repository-wide operational convention for all current and future Skills.
+所有当前和未来的 `SKILL.md` 统一采用：
 
-### Machine-facing structure: English
+> **English skeleton + 中文业务规则**
 
-Use English for machine-facing, integration-facing, and routing-sensitive content, including:
+### Machine-facing content: English
 
-- Skill `name` and `description` metadata.
-- Trigger and routing descriptions.
-- Tool names, function names, class names, variable names, file paths, commands, environment variables, JSON keys, API fields, schemas, and code.
-- Short structural headings or workflow labels when English improves consistency with agent/tool conventions.
+以下内容优先使用英文：
+
+- YAML metadata 中的 `name`、`description`
+- `Goal`、`Trigger`、`Workflow`、`Business Rules`、`Edge Cases`、`Final Checks`、`Examples`、`References` 等结构性章节名
+- trigger / routing 描述
+- tool names、function names、class names、variable names
+- file paths、commands、environment variables
+- JSON keys、API fields、schemas、code
+
+机器相关标识必须保持原始拼写，不为了中文化而翻译或重命名。
 
 ### Business rules: Simplified Chinese
 
-Use Simplified Chinese for nuanced human-authored operational content where precision and maintainability matter most, including:
+以下内容优先使用简体中文：
 
-- Complex business rules and domain-specific constraints.
-- Exception handling and edge-case explanations.
-- Prohibited actions, safety boundaries, and compatibility caveats.
-- Acceptance criteria, final checks, and detailed validation requirements.
-- Domain knowledge or instructions that would lose precision if unnecessarily translated into English.
+- 复杂业务规则与领域约束
+- 异常处理与边界情况
+- 禁止事项与安全边界
+- 验收标准和最终检查
+- 容易误解、容易出错、需要精确表达的细节
 
-### Examples and mixed-language rules
+如果某条规则用中文能表达得更准确，就不要为了“全英文”而强行翻译。
 
-1. Examples should match the language users are actually expected to use; Chinese examples are preferred for Chinese workflows, while exact technical identifiers remain unchanged.
-2. Avoid chaotic Chinese-English mixing inside a single rule. Write the rule as a coherent sentence in one language and preserve only exact technical identifiers, field names, commands, paths, APIs, and code in their original form.
-3. Do not translate exact tool names, function names, placeholders, JSON/API fields, commands, environment variables, or file paths merely to make surrounding prose Chinese.
-4. A Skill does not need artificial bilingual duplication. Prefer one precise operational source of truth over duplicated Chinese/English rule sets that may drift apart.
-5. When an existing Skill uses a different language style, do not perform unrelated mass translation. Apply this policy when that Skill is materially edited, while preserving behavior and minimizing unnecessary diff noise.
+### Workflow structure
 
-### Recommended `SKILL.md` organization
+`Workflow` 应优先用简洁英文描述结构步骤，例如：
 
-When appropriate, prefer this default organization for new Skills:
+```text
+1. Identify input and mode.
+2. Select the approved template.
+3. Apply deterministic processing.
+4. Validate the result.
+5. Deliver or persist the approved output.
+```
 
-1. Metadata — English.
-2. Goal / scope — concise English or Chinese according to clarity.
-3. Trigger / routing — English.
-4. Workflow — English for structural steps; Chinese may be used where the step contains nuanced business logic.
-5. Business rules — Simplified Chinese.
-6. Edge cases / prohibitions — Simplified Chinese.
-7. Final checks / acceptance criteria — Simplified Chinese by default, preserving exact technical identifiers.
-8. Examples — match the real user-input language.
+若某一步内部包含复杂约束，可以在对应 `Business Rules` 中用中文展开，不要把结构步骤写成长篇中英混杂句。
 
-This is a default convention rather than a reason to rewrite stable content for style alone. Execution reliability, unambiguous instructions, and maintainability take priority.
+### Examples
 
-## Documentation language policy
+- 示例输入输出应贴近真实用户语言。
+- 中文用户工作流优先给中文示例。
+- exact tool names、paths、commands、placeholders、JSON/API fields 和 code 保持原样。
+- 不要求为了形式而做中英双份完全重复示例。
 
-1. Simplified Chinese is the default human-facing documentation language for this repository.
-2. Root `README.md` must remain Simplified Chinese. The secondary English version is `README.en.md`.
-3. For Skill-level human-facing README files, use `README.md` for Simplified Chinese and `README.en.md` for English whenever both versions are maintained.
-4. Update Chinese documentation first for important behavior, usage, compatibility, or boundary changes, then keep the English version synchronized.
-5. Do not rename the Chinese default README to `README.zh-CN.md`; GitHub's default landing README should stay Chinese.
-6. `SKILL.md` is an agent operational document and is exempt from mandatory bilingual duplication; execution reliability takes priority over presentation.
+### Avoid noisy mixed sentences
+
+禁止这种写法：
+
+> 如果 student mode 的 school_name too long 就 resize textbox 但是不要 change layout。
+
+推荐写法：
+
+> 若学生模式下 `school_name` 过长，应优先扩大文本框宽度；只有无法保持单行时，才允许最小幅度减小字号，不得改变整体版式。
+
+即：完整业务句子使用一种自然语言，只保留必要技术标识。
+
+## README language policy
+
+README 属于人类可读文档，继续采用中文优先：
+
+- 根 `README.md`：简体中文默认首页
+- 根 `README.en.md`：英文补充版
+- Skill 级 `README.md`：默认简体中文
+- Skill 级 `README.en.md`：需要时提供英文版
+
+README 的语言策略与 `SKILL.md` 的混合语言结构是两套不同规则，不要混淆。
+
+## Maintenance invariant
+
+当某个 Skill 被实质性修改时，应顺带把该 Skill 的 `SKILL.md` 调整到上述语言规范；但不要为了样式对完全无关、稳定的代码和历史文件做大规模无意义改动。行为正确性、规则精确性和可维护性优先。
