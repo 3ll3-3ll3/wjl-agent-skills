@@ -1,6 +1,6 @@
 # WJL Agent Skills
 
-这是我的 Codex / Agent Skills 统一仓库，采用 monorepo 方式管理：一个仓库下放置多个相对独立的 Skill，每个 Skill 保留自己的 `SKILL.md`、脚本、参考资料、资源、测试和局部文档。
+这是我的 Codex / Agent Skills 统一仓库，采用“单仓多 Skill”的方式管理：一个仓库下放置多个相对独立的 Skill，每个 Skill 保留自己的 `SKILL.md`、脚本、参考资料、资源、测试和局部文档。
 
 ## 仓库结构
 
@@ -20,8 +20,8 @@ wjl-agent-skills/
 - 新的个人 Skill 默认添加到 `skills/<skill-name>/`，不再为每个 Skill 单独创建仓库。
 - 每个 Skill 必须保留自己的 `SKILL.md`，并把只属于该 Skill 的脚本、参考资料、资源、测试和文档放在其目录内。
 - 只有两个或更多 Skill 确实复用同一套实现时，才考虑抽取到 `shared/`。
-- 不提交运行时私有数据、凭据、Token、Session、浏览器资料、本地数据库、Telegram 导出或用户生成记录。
-- 某个 Skill 只有在确实需要独立 Release、Issue、分发或单独维护生命周期时，才考虑重新拆成独立仓库。
+- 不提交运行时私有数据、凭据、令牌、会话、浏览器资料、本地数据库、Telegram 导出或用户生成记录。
+- 某个 Skill 只有在确实需要独立发布、问题跟踪、分发或单独维护生命周期时，才考虑重新拆成独立仓库。
 
 ## 语言规范
 
