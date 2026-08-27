@@ -7,6 +7,10 @@ description: "Use this skill as a local-first LoveAV content workbench for Teleg
 
 This Skill is the primary product surface. It makes Codex or another compatible AI execute the TG content workflow; a UI is only an occasional administration fallback. Use the current rules as a stable baseline, then apply the adaptive review loop in [rule learning](references/rule-learning.md) when an input is unfamiliar. Never silently invent, enable, or discard a new rule.
 
+## Language priority
+
+Use Simplified Chinese as the primary language for responses, questions, explanations, review reports, generated Markdown, and user-facing labels. English is secondary: add a concise English alias or translation only when it improves interoperability or the user asks for it; never replace the Chinese explanation or duplicate a copy-ready list in both languages. Preserve fixed machine fields, code, URLs,番号, filenames, and source error text exactly; explain them in Chinese. The user may explicitly request English-only output for a specific task.
+
 ## Operating modes
 
 Select one mode before doing work:

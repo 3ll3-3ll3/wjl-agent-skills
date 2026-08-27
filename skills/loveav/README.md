@@ -2,12 +2,20 @@
 
 这是面向桌面 Codex 及其他兼容 AI 工具的本地优先可复用 Skill。Skill 是产品主体；本目录默认不保存 Telegram 原文、数据库、Token、Session 或浏览器资料。
 
+## 唯一源码仓库
+
+本 Skill 的 GitHub 归档仓库是 [`3ll3-3ll3/wjl-agent-skills`](https://github.com/3ll3-3ll3/wjl-agent-skills)。`loveav/` 是其中的 Skill 目录；后续版本以该仓库为准，不再使用旧的独立 `loveav` 仓库作为发布入口。
+
 ## 使用
 
 1. 将整个 `loveav` 文件夹作为 Skill 安装或上传。
 2. 在对话中使用 `$loveav`，上传 Telegram Desktop 的 HTML/JSON、TXT/CSV/MD/LOG，或直接粘贴文本。
 3. 说明要运行的工具、时间范围、是否排除精选库已有记录和需要的输出。默认只做本地/对话内解析，不连接 Telegram。
 4. 预览完成后，只勾选你要长期保留的结果入库；未选择的候选不会进入历史查重库。
+
+## 语言约定
+
+默认以简体中文为主：操作说明、判断依据、确认问题、错误解释和生成的 Markdown 都优先使用中文。英文仅作为辅助别名或翻译，在用户要求或机器兼容需要时提供；代码、URL、番号、固定字段名、文件名和原始错误文本保持原样，不重复生成两份可复制列表。
 
 如需从 v0.5.13 旧库初始化，可运行 `scripts/migrate_v0513_library.py`。它只读打开旧 SQLite，生成 `seen-index.csv`、精选候选、待复核候选、女优 Tag 候选和旧 Raindrop 元数据；默认不会生成正式精选库。只有你明确确认后，才使用 `--activate-ok` 激活 `status=ok` 的候选。
 
