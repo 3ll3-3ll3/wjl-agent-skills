@@ -1,30 +1,25 @@
-# v0.5.13 兼容参考（联网适配器默认禁用）
+# v0.5.13 兼容能力参考
 
-本 Skill 保留 Windows v0.5.13 稳定版本中可复用的用户侧行为，但当前版本明确不启用 Telegram 连接、cloud execution、background queues 或 123AV account actions。
+本 Skill 保留 Windows v0.5.13 稳定版本中可复用的用户侧行为。当前版本有意不启用 Telegram 联网、云端执行、后台队列或 123AV 账号操作。下面的内容只用于防止未来迁移时遗漏旧能力，不代表当前允许索要凭据或执行网络副作用。
 
-下面的内容用于防止未来迁移时漏掉旧能力，不代表当前版本获得了索要凭据或执行联网副作用的权限。
-
-## 当前兼容宿主可直接复用
+## 可在兼容宿主中复用的能力
 
 - MissAV、Twitter、Bad.news、海角四个确定性文本过滤器。
-- 多文件与 pasted text 输入、source recognition、分钟级 time filtering、selection、稳定去重、permanent-history comparison 与 copy-ready output。
-- MissAV 番号规范化、detail-link candidates、reference Tag extraction、两层独立 blacklist、经过验证的 browser-script generation 与三目录 Raindrop HTML export。
-- 一个 source 可以绑定多个工具；同一消息只接收一次，但每个工具拥有独立 queue/status。某工具失败不得阻塞其他工具。
-- Incremental/history/manual-read 语义：
-  - `never`：永不改变 Telegram read state；
-  - `manual`：等待用户明确确认；
-  - `safe_auto`：只有 durable ingestion 成功且 checkpoint 有效后才允许标记已读；
-  - historical pull 永不自动 mark read。
-- rule versioning、preview/commit/rollback、package manifests、conflict-safe imports、CSV/JSON/TXT generation 与 privacy boundaries。
-- task/history/result views、error categories、host 提供时的 retry/resume、business CRUD、snapshots、recycle-bin recovery 与 v0.5.13 business-data migration。
+- 多文件与粘贴文本输入、来源识别、分钟级时间筛选、选择、稳定去重、永久历史比较和可复制输出。
+- MissAV 番号规范化、详情页候选、参考标签提取、两层独立黑名单、已验证浏览器脚本生成和三目录 Raindrop HTML 导出。
+- 一个来源可以绑定多个工具；同一消息只接收一次，各工具拥有独立处理队列和状态。一个工具失败不得阻塞另一个工具。
+- 增量、历史和手动标已读语义：`never` 不改变 Telegram 已读状态；`manual` 必须等待明确确认；`safe_auto` 只有在持久化成功且检查点有效时才允许标记已读。历史拉取不得自动标已读。
+- 规则版本、预览、提交、回滚、数据包清单、冲突安全导入、CSV/JSON/TXT 生成和隐私边界。
+- 任务、历史、结果视图，错误分类，以及宿主真实提供时的重试或续跑能力。
+- 业务数据增删改查、快照、回收站恢复和 v0.5.13 业务数据迁移。
 
-## 当前本地版不启用
+## 当前本地版本不启用的能力
 
-- Telegram personal API QR/phone/2FA login、dialog discovery、group/channel history pagination、manual read marking、checkpoints、edit/delete propagation 与 account-safe session storage。
-- Telegram Bot API updates、privacy-mode limitations、global offset handling、source discovery 与 source fan-out。
-- 123AV exact page verification、独立 lookup pipeline、Chrome extension bridge、in-app serial assistant、10-second rate-limit recovery 与 export-only mode。
+- Telegram 个人 API 的二维码、手机号、二次验证登录，聊天发现，群组或频道历史分页，手动标已读，检查点，编辑/删除传播和账号安全会话存储。
+- Telegram Bot API 更新、隐私模式限制、全局 offset 和群组/频道来源分发。
+- 123AV 精确页面核验、独立查询流程、Chrome 扩展桥接、应用内串行助手、10 秒限流恢复和仅导出模式。
 
-如果未来本地宿主增加这些能力，应以明确 capability 形式暴露，例如：
+未来宿主如果增加这些能力，应暴露类似以下操作：
 
 ```text
 telegram.sources.list
@@ -35,18 +30,16 @@ av123.lookup
 av123.account.serial_action
 ```
 
-其中 `telegram.mark_read` 仍必须要求 manual confirmation。
-
-在这些 adapter 真正存在前，始终保持 manual mode。禁止用网页抓取或不可信 AI 猜测来替代缺失 adapter。
+在这些适配器真正存在之前，保持手动模式。不得用网页抓取或不可靠的 AI 猜测替代缺失适配器。
 
 ## 环境差异
 
-- 兼容本地宿主可以提供 file access 与小型 local-library adapter。
-- 任何环境都不应维护第二套过滤规则。未来 executor 必须调用本 Skill 的 rule contract 或共享的 deterministic implementation。
+- 兼容本地主机可以提供文件访问和小型本地资料库适配器。
+- 任何环境都不应维护第二套过滤规则。未来执行器必须调用本 Skill 的规则契约或共享的确定性实现。
 
-## 明确不纳入兼容范围
+## 明确排除的能力
 
-- Work/cloud execution 或自动升级到付费云服务。
-- 静默执行 Telegram 或 Raindrop network writes。
-- Skill 内直接做 Raindrop API synchronization；默认只生成 import files，除非用户明确启用了独立、可确认的 adapter。
-- Skill package 内保存任何 secret、personal database、browser profile 或 raw message archive。
+- Work/cloud 执行或自动升级到付费云服务。
+- 静默执行 Telegram 或 Raindrop 网络写入。
+- 在 Skill 内直接进行 Raindrop API 同步；除非用户明确启用独立且已确认的适配器，否则只生成导入文件。
+- 把任何 Secret、个人数据库、浏览器资料或原始消息归档放进 Skill 包。
