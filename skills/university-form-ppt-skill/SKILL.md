@@ -1,45 +1,46 @@
 ---
 name: university-form-ppt-skill
-description: Identify a university and certification mode from a school name, email, domain, or related clue; verify official school and campus data; generate a short demo identity; fill the approved student or faculty PPT template; render-check the result; and archive the completed record to Google Drive.
+description: 根据学校名、邮箱、域名或其他学校线索识别学校与认证模式，核验官方学校和校区信息，生成简短演示身份，填充用户批准的学生或教师 PPT 模板，实际渲染检查，并把完整记录归档到 Google Drive。
 ---
 
-# Goal
+# 目标
 
 根据用户提供的学校、邮箱、域名或认证线索，生成符合既定模板规则的学生或教师认证 PPT，并完成学校信息核验、实际渲染验收和 Google Drive 归档。
 
-# Trigger
+# 触发条件
 
-Use this skill when the user asks to generate, redo, update, validate, or archive a student/faculty university certificate PPT, or when the user provides a clear university clue that belongs to this workflow.
+当用户出现以下任一请求或线索时使用本 Skill：
 
-Typical triggers include:
+- 请求生成、重做、更新、验证或归档学生/教师认证 PPT；
+- 提供中文或英文学校名；
+- 提供学生或教师邮箱；
+- 提供学生或教师邮箱域名，例如 `@stu.scu.edu.cn`；
+- 提供学院、系、Faculty、School 等明确学校线索；
+- 提供其他可以明确对应到某所大学的线索。
 
-- a Chinese or English university name;
-- a student or faculty email address;
-- a student/faculty email domain such as `@stu.scu.edu.cn`;
-- a school, college, faculty, or department name;
-- another clear clue tied to one university.
+选择模板前必须先判断认证模式：
 
-Determine the mode before selecting a template:
+- `student`：学生认证；
+- `faculty`：教师认证。
 
-- `student` = 学生认证
-- `faculty` = 教师认证
+如果学校已经确定，但角色确实无法可靠判断，只询问认证类型，不猜测。
 
-If the institution is clear but the role genuinely cannot be determined, ask only for the certification mode. Do not infer a person's real name from an email username or local-part.
+不得根据邮箱用户名或 local-part 推断用户真实姓名。
 
-# Workflow
+# 工作流
 
-1. Identify the university and certification mode.
-2. Verify the official Chinese name, official English full name, campus, address, postal code, and coordinates.
-3. Generate a short random pinyin demo identity and a fresh numeric ID.
-4. Select the latest approved student or faculty template.
-5. Replace only approved placeholders.
-6. Validate first-line flow, body text flow, signature line, and preserved markings.
-7. Render the final PPTX to PNG and perform visual QA.
-8. Prepare the required chat fields and artifacts.
-9. Archive matching MD/PPTX/PNG files to the correct Google Drive branch.
-10. Read the Drive folder back and only then report full completion.
+1. 识别学校和学生/教师认证模式。
+2. 核验学校官方中文名、官方英文全名、校区、地址、邮编和经纬度。
+3. 生成简短随机拼音演示姓名和新的数字 ID。
+4. 选择当前模式对应的最新批准模板。
+5. 只替换允许的占位符。
+6. 检查首行、正文自然顺排、右下角校名和演示/无效标识。
+7. 将最终 PPTX 实际渲染为 PNG，并进行视觉验收。
+8. 准备聊天交付文件和字段。
+9. 把同名 MD/PPTX/PNG 三件套自动归档到正确的 Google Drive 分支。
+10. 回读目标 Drive 文件夹，确认三件套真实存在后，才能声称完整完成。
 
-# Business Rules
+# 业务规则
 
 ## 学校信息核验
 
@@ -47,7 +48,7 @@ If the institution is clear but the role genuinely cannot be determined, ask onl
 
 1. 学校官网；
 2. 官方招生页面；
-3. 官方国际交流/交换页面；
+3. 官方国际交流或交换页面；
 4. 官方联系方式或信息公开页面；
 5. 在校区与地址已确认后，再使用可靠地图或地理来源补充坐标。
 
@@ -55,14 +56,16 @@ If the institution is clear but the role genuinely cannot be determined, ask onl
 
 - 学校官方中文名；
 - 学校官方英文全名；
-- 主要/代表性校区；
+- 主要或代表性校区；
 - `Address`；
 - `City`；
 - `State/Province`；
 - `Postal/Zip code`；
 - 校区经纬度。
 
-学校英文名必须使用核验后的官方英文全名。禁止自行翻译、缩写、裁剪或编造。所有 `{{school_name}}` 替换必须使用同一官方英文全名。
+学校英文名必须使用核验后的官方英文全名。禁止自行翻译、缩写、裁剪或编造。
+
+所有 `{{school_name}}` 替换必须使用同一个核验后的官方英文全名。
 
 ## 校区与坐标
 
@@ -75,237 +78,334 @@ If the institution is clear but the role genuinely cannot be determined, ask onl
 
 ## 随机身份与字段
 
-每次运行：
+每次运行都必须重新生成演示身份：
 
 - 生成正常的二字或三字中文姓名；
 - 转写为拼音；
-- 优先使用较短组合，保护 PPT 第一行；
-- 本项目固定约定：`First name` = 姓氏拼音，`Last name` = 名字拼音；
-- PPT `{{name}}` = `SurnamePinyin GivenNamePinyin`。
+- 优先选择较短组合，避免 PPT 第一行换行；
+- 项目约定：`First name` = 姓氏拼音；
+- 项目约定：`Last name` = 名字拼音；
+- PPT 中的 `{{name}}` = `SurnamePinyin GivenNamePinyin`。
 
-每次必须生成新的数字 ID：
+每次运行生成一个新的数字 ID：
 
-- 通常 7–8 位；
+- 通常为 7–8 位；
 - 除非用户明确要求，否则不使用固定学校前缀；
-- 学生模式写入 `{{student_id}}`；
-- 教师模式写入 `{{facultyid}}`；
-- 为兼容现有聊天/表单流程，两种模式默认都使用 `Student ID` 作为返回字段名，除非用户明确要求显示 `Faculty ID`。
+- 学生模式把同一个数字值写入 `{{student_id}}`；
+- 教师模式把同一个数字值写入 `{{facultyid}}`；
+- 为兼容既有聊天/表单流程，默认返回字段名仍为 `Student ID`；用户明确要求时，教师模式可以显示 `Faculty ID`。
 
-若第一行发生换行，处理优先级必须是：先换更短姓名，再换更短数字 ID，再重新渲染。禁止通过修改正文的字体、字号、行距、正文文本框大小或正文位置来解决第一行溢出。
+如果第一行换行，处理顺序必须是：
 
-## Approved templates
+1. 重新生成更短的姓名；
+2. 再尝试更短的数字 ID；
+3. 重新渲染检查。
 
-Use the latest user-approved template for the selected mode:
+禁止为了修复第一行换行去修改正文的字体、字号、行距、正文文本框尺寸或正文位置。
 
-- `student`: `assets/certificate_template.pptx`
-  - expected SHA-256: `3dfa888b44be1d1219bf07d6600f3f76ef20b13488d6b24ca5c09333102ab4e2`
-- `faculty`: `assets/teacher_certificate_template.pptx`
-  - expected SHA-256: `c0f315f563e96b4cd9696f8a6d9bd4f61efd5a9c241c34a1a07e880c3c5b47a9`
+## 学生与教师模板
 
-Expected placeholders:
+学生模板：
 
-### Student template
+```text
+assets/certificate_template.pptx
+```
 
-- `{{name}}`: 1
-- `{{student_id}}`: 1
-- `{{school_name}}`: 2
+当前 SHA-256：
 
-### Faculty template
+```text
+3dfa888b44be1d1219bf07d6600f3f76ef20b13488d6b24ca5c09333102ab4e2
+```
 
-- `{{name}}`: 1
-- `{{facultyid}}`: 1
-- `{{school_name}}`: 2
+学生模板预期占位符：
 
-只能替换当前模式允许的占位符。优先直接修改 PPTX XML，避免重建文本框。
+- `{{name}}`：1 处；
+- `{{student_id}}`：1 处；
+- `{{school_name}}`：2 处。
+
+教师模板：
+
+```text
+assets/teacher_certificate_template.pptx
+```
+
+当前 SHA-256：
+
+```text
+c0f315f563e96b4cd9696f8a6d9bd4f61efd5a9c241c34a1a07e880c3c5b47a9
+```
+
+教师模板预期占位符：
+
+- `{{name}}`：1 处；
+- `{{facultyid}}`：1 处；
+- `{{school_name}}`：2 处。
+
+只能替换当前模式允许的占位符。
+
+优先直接修改 PPTX XML 中的占位符文本，避免重建文本框。
 
 ## PPT 格式保护
 
-除获准占位符文字外，应尽可能保持模板原样，包括：
+除允许替换的占位符文本外，尽量完整保留模板原有内容，包括：
 
 - 页面尺寸；
-- 背景、图片、形状、主题；
+- 背景、图片、形状和主题；
 - 正文字体、字号、颜色；
-- 行距、段距；
-- 正文文本框大小和位置；
+- 行距和段距；
+- 正文文本框尺寸和位置；
 - 日期；
-- 学院/部门文字；
+- 学校/学院文字；
 - 专业/项目文字；
-- 其他非占位符文本；
+- 其他非占位符文字；
 - 整体版式。
 
-禁止从零重建整页 PPT。
+禁止从零重建整张幻灯片。
 
 ## 正文自然顺排与右下角校名
 
-- 第一行中的姓名 + 数字 ID 必须保持在同一行。
-- 后续正文必须像正常英文段落一样自然连续流动。
-- 若替换后出现“一行一个单词”、字段/单词孤立成行或后续文字不再按原段落顺序连续流动，则直接判定 QA 失败。
-- 禁止通过人为硬换行或硬拆词修复。
-- 正确效果是：替换后的后续单词继续按原段落顺序自然向后顺排。
-- 若正文文字流异常，只允许做最小必要的局部修复，例如规范化正文文字流，或最小调整正文文本框宽度、字间距或段落布局；不得改变整体视觉设计。
-- 右下角校名必须使用官方英文全名并保持单行。
-- 如右下角确需适配，只允许对该区域做最小必要的宽度、位置、字间距或字号调整。
-- 禁止把官方英文全名替换为简称。
+- 第一行姓名 + 数字 ID 必须保持单行。
+- 后续正文必须作为连续英文段落自然顺排。
+- 替换后如果出现“一行一个单词”、字段或单词孤立成行、或正文不再连续流动，直接判定验收失败。
+- 正确效果是替换后的后续单词继续按照原段落顺序自然向后流动。
+- 禁止人为插入硬换行。
+- 禁止硬拆单词。
+- 右下角学校英文名必须使用官方英文全名并保持单行。
+- 如果正文需要修复，只允许做恢复自然顺排所需的最小局部调整，例如规范化正文文字流、最小调整文本框宽度、字间距或段落布局。
+- 不得改变整体视觉设计。
+- 如果右下角学校名过长，只允许对右下角该区域做最小必要的宽度、位置、字间距或字号调整。
+- 禁止用学校简称代替官方英文全名。
 
-## 演示/无效标识
+## 演示与无效标识
 
-如果源模板存在 `SAMPLE / NOT VALID`、`仅供演示，不具效力` 或其他明确演示/无效标识，必须保持清晰可见。禁止删除、隐藏、裁剪、覆盖或弱化到不可见。
+如果源模板中存在以下或类似标识：
 
-## Chat delivery fields
+- `SAMPLE / NOT VALID`；
+- `仅供演示，不具效力`；
+- 其他明确的演示、样例或无效声明；
 
-Student and faculty modes use the same user-facing field order:
+必须保持清晰可见。
 
-1. actual PNG rendered from the final PPT;
-2. PPTX file;
-3. Chinese university name;
-4. `Official English Name`;
-5. `First name`;
-6. `Last name`;
-7. `Student ID`;
-8. `Address`;
-9. `City`;
-10. `State/Province`;
-11. `Postal/Zip code`;
-12. coordinates last.
+不得删除、隐藏、裁剪、遮盖或弱化到不可见。
 
-每个表单字段必须单独放在可复制代码块中。除非用户明确要求，否则不输出 `Country/Region`、`Address line 2` 或 `VAT/GST ID`。
+# 实际渲染与视觉验收
 
-## Google Drive archive
+每次生成后必须把最终 PPT 实际渲染为 PNG。AI 生成图片不能代替真实 PPT 渲染结果。
 
-Every generation must archive automatically in the same workflow.
+必须检查：
 
-Permanent paths:
+1. 姓名 + 数字 ID 仍在第一行；
+2. ID 没有单独掉到下一行；
+3. 后续正文自然顺排，没有“一行一个单词”或替换造成的孤立碎片；
+4. 正文中的学校名是核验后的官方英文全名；
+5. 右下角学校名与正文使用同一个官方英文全名；
+6. 右下角学校名保持单行；
+7. 非占位符内容没有被意外修改；
+8. 整体布局与格式正常；
+9. 源模板中的演示/无效标识仍然清楚可见。
 
-- `student`: `大学PPT生成记录/学生认证/<中文学校名>/`
-- `faculty`: `大学PPT生成记录/教师认证/<中文学校名>/`
+任何一项失败，都必须修复后重新渲染，再次验收。
 
-Each run stores exactly three matching files:
+# 聊天交付顺序与字段
 
-- `<record_stem>.md`
-- `<record_stem>.pptx`
-- `<record_stem>.png`
+学生与教师模式使用同一套聊天字段和顺序：
 
-`record_stem` 使用本地生成时间，精确到 1 分钟：`YYYY-MM-DD_HH-mm`。如果同一学校、同一认证类型在同一分钟再次生成，才追加 `_<student_id>` 防止冲突。
+1. 最终 PPT 实际渲染得到的 PNG；
+2. PPTX 文件；
+3. 学校中文名；
+4. `Official English Name`；
+5. `First name`；
+6. `Last name`；
+7. `Student ID`；
+8. `Address`；
+9. `City`；
+10. `State/Province`；
+11. `Postal/Zip code`；
+12. 最后输出经纬度。
 
-MD 至少包含：
+每个表单字段必须放在独立、可复制的代码块中。
 
-- 认证类型（`学生认证` 或 `教师认证`）；
-- 使用的模板；
+除非用户明确要求，否则不输出：
+
+- `Country/Region`；
+- `Address line 2`；
+- `VAT/GST ID`。
+
+# Google Drive 自动归档
+
+每次生成都必须在同一工作流中自动归档，不能等用户再次提醒。
+
+固定目录：
+
+```text
+大学PPT生成记录/学生认证/<中文学校名>/
+大学PPT生成记录/教师认证/<中文学校名>/
+```
+
+每次生成保存完全同名的三件套：
+
+```text
+<record_stem>.md
+<record_stem>.pptx
+<record_stem>.png
+```
+
+PNG 必须由最终 PPT 实际渲染得到。
+
+## 记录命名
+
+使用本地生成时间，精确到分钟：
+
+```text
+YYYY-MM-DD_HH-mm
+```
+
+如果同一学校、同一认证模式在同一分钟再次生成，才追加 `_<student_id>` 防止冲突。
+
+## Markdown 记录内容
+
+记录至少包含：
+
+- 认证类型：学生认证或教师认证；
+- 使用模板；
 - 学校中文名；
-- 官方英文全名；
+- 学校官方英文全名；
 - 用户原始输入；
 - `First name`；
 - `Last name`；
 - 完整随机拼音姓名；
-- `Student ID`；
+- `Student ID`，即本次模板实际使用的数字 ID；
 - `Address`；
 - `City`；
 - `State/Province`；
 - `Postal/Zip code`；
 - 所选校区；
-- 坐标；
-- PPT QA 结果；
+- 经纬度；
+- PPT 验收结果；
 - 真实 Google Drive PPT URL；
 - 真实 Google Drive PNG URL。
 
-禁止预先拼接或伪造 Drive URL。
+禁止伪造或预先拼接 Drive URL。
 
-归档是强制完成门槛：必须确认正确模式目录和学校子目录存在，上传最终 PPTX 和实际渲染 PNG，用真实返回链接生成/更新 MD，再上传 MD，最后回读目标学校文件夹确认三件套真实存在。任一外部步骤失败，都必须明确说明：`该步骤当前没有成功完成。` 禁止在没有真实结果时声称上传、渲染、GitHub 写入、commit、替换或回读成功。
+## 完成门槛
 
-## REDO
+Google Drive 归档是强制完成门槛。必须按顺序完成：
 
-若任何生成记录有误，必须执行完整 REDO：
+1. 确认正确的学生或教师目录存在；
+2. 确认学校子目录存在；
+3. 上传最终 PPTX；
+4. 上传最终实际渲染 PNG；
+5. 使用真实返回的 PPT/PNG Drive URL 创建或更新 MD；
+6. 上传 MD；
+7. 回读目标学校文件夹；
+8. 确认预期 MD/PPTX/PNG 三件套真实存在。
+
+任一步失败，都不能声称任务完整完成。
+
+外部步骤失败时，必须明确说明：
 
 ```text
-PPT regenerate/fix text flow
--> PNG render
--> visual QA
--> replace/update Drive PPTX
--> replace/update Drive PNG
--> update Drive MD
--> Drive readback verification
+该步骤当前没有成功完成。
 ```
 
-禁止只修聊天里的文件而保留错误的 Drive 版本。
+除非真实成功，否则不得声称上传、渲染、GitHub 写入、提交、替换或回读已经完成。
 
-## Repository role
+# 重做规则
 
-GitHub 只保存可复用工作流，不保存具体学校的生成记录。仓库中维护：
+如果已生成记录有误，必须完整重做：
 
-- `SKILL.md`
-- README/docs
-- research/PPT/output/archive rules
-- identity generation code
-- student/faculty PPT generation code
-- archive helper code
-- tests
-- latest approved student template
-- latest approved faculty template
+```text
+重新生成/修复 PPT
+-> 实际渲染 PNG
+-> 视觉验收
+-> 替换或更新 Drive PPTX
+-> 替换或更新 Drive PNG
+-> 更新 Drive MD
+-> Drive 回读确认
+```
+
+不得只修复聊天里的文件，却留下错误的 Drive 版本。
+
+# GitHub 仓库职责
+
+GitHub 只保存可复用工作流，不保存具体学校的生成记录。
+
+仓库应维护：
+
+- `SKILL.md`；
+- 中文 README 和规则文档；
+- 学校核验规则；
+- PPT 替换与输出规则；
+- 身份生成代码；
+- 学生/教师 PPT 生成代码；
+- 归档辅助代码；
+- 测试；
+- 最新用户批准的学生模板；
+- 最新用户批准的教师模板。
 
 具体学校的 MD/PPTX/PNG 记录只进入 Google Drive。
 
-# Edge Cases
+# 规则同步
 
-- 学校已确定但认证角色不明确：只询问 `student` 或 `faculty`，不要猜。
-- 邮箱用户名像真实姓名：仍不得据此推断本人真实姓名。
-- 多校区来源冲突：先确定真实主校区，再决定表单地址和坐标。
-- 第一行换行：先缩短随机姓名，再缩短数字 ID；不要动正文格式。
-- 正文出现单词逐行掉落：判定 QA 失败，做最小局部文字流修复后重新渲染。
-- 右下角官方英文名过长：只调整右下角局部区域，且必须保持官方全名。
-- Drive 上传部分成功：不得声称任务整体完成，必须报告缺失步骤。
-- 模板 SHA 与预期不符：模板同步不完整，不能继续假装使用了已批准模板。
+用户永久修改本工作流时，应按实际影响同步：
 
-# Final Checks
+1. `SKILL.md`；
+2. 相关中文文档；
+3. 相关脚本；
+4. 相关测试；
+5. 用户明确替换时，同步学生或教师模板二进制。
 
-Before delivery, verify all applicable items:
+如果任何必要仓库更新无法完成，必须明确报告未同步部分。禁止假装已经提交。
 
-- `name + numeric ID` remains on the first line.
-- The numeric ID is not stranded on a new line.
-- 正文保持正常连续顺排，不出现一词一行或替换导致的孤立片段。
-- 正文学校名是核验后的官方英文全名。
-- 右下角学校名与正文一致，且保持单行。
-- 未批准的非占位符内容没有被意外修改。
-- 整体版式和格式正常。
-- 源模板中的演示/无效标识仍然可见。
-- The PPTX was actually rendered to PNG; AI-generated images are not a substitute.
-- Drive 中预期的 MD/PPTX/PNG 三件套已通过回读确认。
+# 异常与边界
 
-Any failed check requires a fix and a new render before delivery.
+- 学校已确定但角色不确定时，只询问认证类型，不猜测。
+- 不得从邮箱用户名推断真实姓名。
+- 不得自行翻译或缩写学校官方英文名。
+- 不得编造校区、地址、邮编或经纬度。
+- 不得重建整张幻灯片来绕过占位符替换问题。
+- 不得用硬换行或硬拆词解决正文布局。
+- 不得为了右下角单行要求使用学校简称。
+- 不得删除或遮盖演示/无效标识。
+- 不得用 AI 生成图片冒充实际 PPT 渲染结果。
+- 不得在 Drive 上传或回读失败时声称归档成功。
 
-# Examples
+# 最终验收
+
+任务完整完成前必须确认：
+
+1. 学校和认证模式已可靠识别；
+2. 官方中文名和官方英文全名已核验；
+3. 地址、校区、邮编和坐标互相对应；
+4. 使用了正确的最新批准模板；
+5. 只替换了允许的占位符；
+6. 姓名 + 数字 ID 保持第一行单行；
+7. 正文自然顺排；
+8. 右下角官方英文全名保持单行；
+9. 演示/无效标识保持可见；
+10. 已实际渲染 PNG 并通过视觉检查；
+11. 聊天字段顺序正确；
+12. Drive 中的 MD/PPTX/PNG 三件套已真实上传；
+13. 已回读 Drive 目录确认三件套存在。
+
+# 默认完整流程
 
 ```text
-用户：190311055@stu.xpu.edu.cn
+识别学校
+-> 判断学生/教师模式
+-> 核验官方中英文校名
+-> 选择代表校区
+-> 核验地址和邮编
+-> 核验经纬度
+-> 生成简短随机拼音姓名
+-> 生成 7–8 位数字 ID
+-> 选择对应最新模板
+-> 只替换允许的占位符
+-> 检查首行、正文自然顺排和右下角校名
+-> 实际渲染 PNG
+-> 视觉验收
+-> 准备聊天交付文件和字段
+-> 自动归档 MD/PPTX/PNG 到正确 Drive 目录
+-> 回读 Drive 目录
+-> 确认全部成功后再声称完整完成
 ```
-
-Expected behavior:
-
-1. Identify the university and student mode.
-2. Verify official school and campus data.
-3. Generate the short demo identity and numeric ID.
-4. Fill only the approved student placeholders.
-5. Render, QA, deliver fields, archive to Drive, and read back the folder.
-
-```text
-用户：这是教师邮箱，请按教师认证重新生成。
-```
-
-Expected behavior:
-
-1. Select `faculty` mode.
-2. Use `assets/teacher_certificate_template.pptx`.
-3. Write the numeric ID into `{{facultyid}}`.
-4. Preserve all shared layout, rendering, delivery, and archive rules.
-
-# References
-
-- `docs/PPT_RULES.md`
-- `docs/OUTPUT_SCHEMA.md`
-- `docs/RECORDS_POLICY.md`
-- `docs/RESEARCH_POLICY.md`
-- `docs/MAINTAINER_GUIDE.md`
-- `assets/README.md`
-
-# Maintenance Invariant
-
-当用户永久修改该工作流时，应同步更新相关 `SKILL.md`、业务文档、脚本、测试，以及用户明确替换的模板。只有真实 GitHub 写入成功后才能声称仓库同步完成。
