@@ -1,4 +1,4 @@
 interface:
   display_name: "LoveAV"
   short_description: "用中文处理 TG 文本、番号、链接与 Whos.tv 答案"
-  default_prompt: "使用 $loveav 处理这些文件，并先用中文返回可复制结果。"
+  default_prompt: "使用 $loveav 处理这些文件，并按 Skill 规定返回可复制结果。"
