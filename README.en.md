@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-This is my unified Codex / Agent Skills repository. It follows a common monorepo layout: multiple independent Skills live in one repository, and each Skill keeps its own `SKILL.md`, scripts, references, assets, tests, and local documentation.
+This is my unified Codex / Agent Skills monorepo. Multiple relatively independent Skills live under one repository, and each Skill keeps its own `SKILL.md`, scripts, references, assets, tests, and local documentation.
 
 ## Repository structure
 
@@ -16,29 +16,50 @@ wjl-agent-skills/
 └── README.en.md
 ```
 
-Each directory under `skills/` is a relatively self-contained Skill that can be installed or used independently.
-
 ## Management conventions
 
-- New personal Skills should normally be added under `skills/<skill-name>/` instead of creating a separate repository for every Skill.
-- Each Skill must keep its own `SKILL.md`, together with Skill-specific scripts, references, assets, tests, and documentation.
-- Shared code should only be extracted to a future `shared/` directory after two or more Skills genuinely reuse the same implementation.
+- New personal Skills normally go under `skills/<skill-name>/` rather than getting a separate repository.
+- Each Skill owns its own `SKILL.md` and Skill-specific support files.
+- Shared code should only be extracted after two or more Skills genuinely reuse the same implementation.
 - Runtime/private data, credentials, tokens, sessions, browser profiles, local databases, Telegram exports, and generated user records must not be committed.
-- A Skill should be split back into a standalone repository only when independent releases, issues, distribution, or lifecycle management clearly justify it.
+- Split a Skill into a standalone repository only when independent releases, issues, distribution, or lifecycle management clearly justify it.
 
-## Documentation language policy
+## Skill language convention
 
-This repository uses the following language order:
+`SKILL.md` files use an **English skeleton + Chinese business rules** convention.
 
-1. **Simplified Chinese is the default language.** `README.md` is written in Simplified Chinese and is the primary GitHub landing page.
-2. **English is the secondary language.** English documentation uses `README.en.md`.
-3. When human-facing documentation needs both languages, prefer the `README.md` + `README.en.md` naming pattern.
-4. Chinese and English versions should stay structurally and semantically aligned. Important features, boundaries, and usage notes should be updated in Chinese first, then synchronized to English.
-5. `SKILL.md` is an operational instruction file for agents and may use whichever language is most reliable for execution; duplicate translations are not required merely for presentation.
+Use English for machine-facing or routing-sensitive content such as:
+
+- YAML metadata: `name`, `description`
+- `Trigger` and `Workflow` structure
+- tool/function/class/variable names
+- file paths, commands, environment variables
+- JSON keys, API fields, schemas, and code
+
+Use Simplified Chinese for nuanced operational content such as:
+
+- business rules and domain constraints
+- exception handling and edge cases
+- prohibited actions and safety boundaries
+- acceptance criteria and final checks
+- details that are easier to maintain precisely in Chinese
+
+Examples should match the actual expected user language. Exact technical identifiers should remain unchanged instead of being translated for appearance.
+
+Avoid noisy sentence-level Chinese-English mixing. Prefer a coherent sentence in one language while preserving only exact identifiers such as `school_name`, commands, paths, API fields, and placeholders.
+
+## README language
+
+Human-facing documentation remains Chinese-first:
+
+- `README.md`: Simplified Chinese and the default GitHub landing page
+- `README.en.md`: secondary English documentation
+
+This is separate from the mixed-language convention used inside operational `SKILL.md` files.
 
 ## Current Skills
 
 - `skills/loveav`
 - `skills/university-form-ppt-skill`
 
-After migration, this repository is the primary source of truth for these Skills. New Skills should also be added here by default.
+This repository is the primary source of truth for these Skills.
