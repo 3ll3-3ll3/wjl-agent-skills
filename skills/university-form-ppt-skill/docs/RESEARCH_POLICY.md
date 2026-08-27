@@ -1,12 +1,37 @@
-# School and role research policy
+# 学校与认证角色核验规则
 
-Verify the institution through official university sources first. For email/domain input, verify both the university and, when possible, whether the address/domain is clearly student-facing or faculty/staff-facing.
+## Source priority
 
-Mode selection:
-- clear student evidence -> student certification;
-- clear faculty/staff/teacher evidence -> faculty certification;
-- institution clear but role genuinely ambiguous -> ask only for certification type instead of guessing.
+学校信息按以下优先级核验：
 
-Use the university's official English full name, never a self-translated or abbreviated alternative.
+1. 学校官网；
+2. 官方招生页面；
+3. 官方国际交流/交换页面；
+4. 官方联系方式或信息公开页面；
+5. 在真实校区和地址确认后，再使用可靠地图/地理来源补充坐标。
 
-Campus address, postal code, and coordinates must correspond to real campuses. For multiple campuses, return at most the two most representative. Prefer WGS84 coordinates and normalize Chinese map coordinate systems when needed.
+## 认证模式
+
+输入为邮箱或域名时，除确认学校归属外，还应尽量通过官方页面判断该邮箱/域名是否明显属于学生或教师/教职工体系。
+
+模式判断：
+
+- 明显学生证据 -> `student`
+- 明显教师/教职工证据 -> `faculty`
+- 学校已确定但角色确实无法可靠判断 -> 只询问认证类型，不猜测
+
+禁止根据邮箱 username/local-part 推断本人真实姓名。
+
+## 官方英文名
+
+学校英文名必须使用核验后的官方英文全名，不得自行翻译、缩写、裁剪或编造。
+
+正文和右下角所有 `{{school_name}}` 替换必须使用同一官方英文全名。
+
+## 校区、地址与坐标
+
+- `Address`、`Postal/Zip code` 与坐标必须对应真实校区。
+- 多校区时最多输出两个最具代表性的校区。
+- 表单地址应对应选定主校区。
+- 坐标默认优先 WGS84。
+- 禁止编造地址、邮编、校区或经纬度。
