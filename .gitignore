@@ -1,0 +1,29 @@
+# Python / Node caches
+**/__pycache__/
+**/*.py[cod]
+**/node_modules/
+
+# Local environments
+**/.venv/
+**/venv/
+
+# Runtime/private data
+**/*-data/
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.session
+**/*.session-journal
+**/.env
+**/.env.*
+
+# User exports / generated local output
+**/exports/
+**/output/
+**/outputs/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
