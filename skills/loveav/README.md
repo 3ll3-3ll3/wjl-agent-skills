@@ -1,5 +1,7 @@
 # LoveAV
 
+[简体中文](README.md) | [English](README.en.md)
+
 这是面向桌面 Codex 及其他兼容 AI 工具的本地优先可复用 Skill。Skill 是产品主体；本目录默认不保存 Telegram 原文、数据库、Token、Session 或浏览器资料。
 
 ## 唯一源码仓库
