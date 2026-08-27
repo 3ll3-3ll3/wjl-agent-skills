@@ -2,65 +2,66 @@
 
 ## 接受的输入
 
-可以接受任意组合：
+可以接受以下任意组合：
 
-- pasted plain text；
+- 直接粘贴的纯文本；
 - 一个或多个 Telegram Desktop HTML 导出文件；
 - Telegram Desktop JSON；
 - TXT、CSV、MD、LOG 文本文件。
 
-MissAV、Twitter、Bad.news 和海角都接受上述相同容器，不要求某个工具必须使用专门文件类型。同一文件可以同时交给多个选定工具处理，各工具独立应用自己的提取与复核规则。
+MissAV、Twitter、Bad.news 和海角都接受上述相同输入容器，不要求某个工具必须使用特定文件类型。同一个文件可以同时交给多个已选工具处理，每个工具独立应用自己的提取与复核规则。
 
-对于 HTML，应读取可见消息文字、链接、日期、message ID 和导出 chat title。
+HTML 输入应读取可见消息文本、链接、日期、消息 ID 和导出聊天标题。
 
-对于 JSON，应支持官方 message/text-array 结构，并在存在时保留明确的 chat/container identity。
+JSON 输入应支持 Telegram 官方消息与文本数组结构，并在存在时保留明确的聊天或容器身份。
 
-对于 pasted text，应根据 input label 与 content hash 创建临时 source identity；不得把纯文本伪装成 Telegram chat。
+纯文本输入应根据输入标签和内容哈希生成临时来源身份，不得把普通文本伪装成 Telegram 聊天。
 
-## Preview 与选择
+## 预览与选择
 
-Preview 必须报告：
+预览至少报告：
 
-- file count；
-- parsed count；
-- included count；
-- excluded-by-time count；
-- source count；
-- parsing errors。
+- 文件数量；
+- 成功解析数量；
+- 时间范围内包含数量；
+- 因时间范围排除的数量；
+- 来源数量；
+- 解析错误数量。
 
-用户可见的时间筛选以分钟精度包含边界。没有日期的消息默认保留，除非当前 host 明确规定其他策略。
+面向用户的时间筛选按分钟精度处理，并包含边界时刻。没有日期的消息默认保留，除非宿主明确采用其他规则。
 
-每个 source 必须独立展示：
+每个来源必须独立展示标题、类型、数量、稳定键和当前绑定工具。
 
-- title；
-- kind；
-- count；
-- stable key；
-- current bound tools。
+用户可以：
 
-用户可以选择单条消息、当前过滤结果或全部 preview messages。选定来源缺少 binding 时，必须在任何数据库写入前停止处理并让用户选择。
+- 搜索或筛选消息；
+- 选择单条消息；
+- 选择当前筛选结果；
+- 选择全部预览消息。
 
-同一导出 chat 的 multipart HTML 应按稳定 chat/export key 合并。禁止仅因为文件名相似就合并。
+已选来源缺少工具绑定时，必须在任何数据库写入前停止正式处理并要求用户确认。
 
-## Message identity 与临时隐私
+同一聊天导出的多段 HTML 应按稳定聊天/导出键合并。不得只因为文件名相似就合并。
 
-Connected Telegram source 使用：
+## 消息身份与临时隐私
+
+对于已连接的 Telegram 来源，稳定身份可使用：
 
 ```text
 account_id + chat_id + message_id
 ```
 
-官方导出文件使用能取得的最强 export-chat key + message ID。
+对于官方导出，使用可获得的最强聊天键配合消息 ID。
 
-Pasted text 使用 source label + deterministic content index/hash。
+对于粘贴文本，使用来源标签配合确定性的内容索引或哈希。
 
-内容编辑应更新同一 identity，而不是静默生成新消息身份。
+消息内容被编辑时，应更新同一身份，而不是创建全新消息身份。
 
-Raw text 只允许临时存在于当前 preview，或用户明确要求的当前回复摘录中。禁止把 raw text 写入 permanent history、logs、backups、result packages、rule packages 或 telemetry。
+原始正文只允许临时存在。只有用户明确要求可复制片段时，才可在当前预览或当前回复中展示。原始正文不得进入永久历史、日志、备份、结果包、规则包或遥测。
 
-## Result shape
+## 结果结构
 
-每条派生结果建议包含：
+每条派生记录应携带类似以下字段：
 
 ```json
 {
@@ -75,18 +76,19 @@ Raw text 只允许临时存在于当前 preview，或用户明确要求的当前
 }
 ```
 
-返回结果时：
+这些字段名属于机器接口，保持原样即可；面向用户的解释使用中文。
 
-- primary 与 secondary list 必须分开；
-- 保留稳定顺序；
-- 报告数量；
-- 不能因为输入文件是新的就直接把结果标成 `new`，必须先用 canonical key 对比 permanent history。
+回复必须把主值列表和辅助链接列表分开，保持原始顺序，并报告数量。
 
-## Generated files
+结果不能仅因为来自“新文件”就判定为新增；必须把规范键与永久历史比较。
 
-- `TXT`：UTF-8，一行一个值；可复制列表中不放解释性表头。
-- `CSV`：UTF-8，带 header，正确引用单元格；对以 `=`、`+`、`-`、`@` 开头的单元格做 formula-injection protection。
-- `JSON`：使用带版本的 envelope，包含 counts、rule version、source summary 与 rows；不得包含 raw message body。
-- MissAV script：使用已验证模板，并安全注入 code/tag blocks。
-- Raindrop HTML：转义 title/URL/tags，保持三个固定 folder，并输出第二层黑名单排除报告。
-- Result/history/rule packages：包含 manifest version、created time、record count、SHA-256、rule version 和 conflict-safe import preview。
+## 生成文件
+
+- TXT：UTF-8，一行一个值，可复制列表中不加入解释性表头。
+- CSV：UTF-8，带表头，正确引用单元格，并对以 `=`、`+`、`-`、`@` 开头的单元格做公式注入防护。
+- JSON：使用带版本的外层结构，包含数量、规则版本、来源摘要和结果行；不得包含原始消息正文。
+- MissAV 脚本：基于已验证模板生成，只注入安全转义后的番号和标签数据。
+- Raindrop HTML：正确转义标题、URL 和标签，并保留第二层黑名单排除报告。
+- 结果包、历史包和规则包：包含清单版本、创建时间、记录数量、SHA-256、规则版本和冲突安全的导入预览。
+
+所有可复制结果都应避免混入额外解释文字。
