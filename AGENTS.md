@@ -18,3 +18,12 @@ This repository is a monorepo for personal Codex / agent Skills.
 6. Add shared code to `shared/` only after at least two Skills actually need the same implementation; avoid premature abstraction.
 7. New personal Skills should normally be added to `skills/<skill-name>/` rather than created as standalone repositories.
 8. Before declaring a migration or refactor complete, verify every affected Skill still contains its `SKILL.md` and required assets/tests.
+
+## Documentation language policy
+
+1. Simplified Chinese is the default human-facing documentation language for this repository.
+2. Root `README.md` must remain Simplified Chinese. The secondary English version is `README.en.md`.
+3. For Skill-level human-facing README files, use `README.md` for Simplified Chinese and `README.en.md` for English whenever both versions are maintained.
+4. Update Chinese documentation first for important behavior, usage, compatibility, or boundary changes, then keep the English version synchronized.
+5. Do not rename the Chinese default README to `README.zh-CN.md`; GitHub's default landing README should stay Chinese.
+6. `SKILL.md` is an agent operational document and is exempt from mandatory bilingual duplication; execution reliability takes priority over presentation.
