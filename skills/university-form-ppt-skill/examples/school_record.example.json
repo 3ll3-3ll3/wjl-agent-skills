@@ -1,0 +1,12 @@
+{
+  "input": "student@example.edu.cn",
+  "school_name": "Example University",
+  "campus": "Main Campus",
+  "address": "No. 1 Example Road",
+  "city": "Example City",
+  "state_province": "Example Province",
+  "postal_code": "000000",
+  "latitude": 31.2304,
+  "longitude": 121.4737,
+  "coordinate_system": "WGS84"
+}

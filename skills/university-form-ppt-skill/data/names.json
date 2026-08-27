@@ -1,0 +1,34 @@
+{
+  "surnames": [
+    {"zh": "李", "pinyin": "Li"},
+    {"zh": "王", "pinyin": "Wang"},
+    {"zh": "张", "pinyin": "Zhang"},
+    {"zh": "刘", "pinyin": "Liu"},
+    {"zh": "陈", "pinyin": "Chen"},
+    {"zh": "杨", "pinyin": "Yang"},
+    {"zh": "赵", "pinyin": "Zhao"},
+    {"zh": "黄", "pinyin": "Huang"},
+    {"zh": "周", "pinyin": "Zhou"},
+    {"zh": "吴", "pinyin": "Wu"},
+    {"zh": "徐", "pinyin": "Xu"},
+    {"zh": "孙", "pinyin": "Sun"},
+    {"zh": "林", "pinyin": "Lin"},
+    {"zh": "朱", "pinyin": "Zhu"}
+  ],
+  "given_names": [
+    {"zh": "飞宇", "pinyin": "Feiyu"},
+    {"zh": "奕辰", "pinyin": "Yichen"},
+    {"zh": "宇辰", "pinyin": "Yuchen"},
+    {"zh": "子涵", "pinyin": "Zihan"},
+    {"zh": "一航", "pinyin": "Yihang"},
+    {"zh": "浩然", "pinyin": "Haoran"},
+    {"zh": "嘉宁", "pinyin": "Jianing"},
+    {"zh": "思远", "pinyin": "Siyuan"},
+    {"zh": "明轩", "pinyin": "Mingxuan"},
+    {"zh": "亦凡", "pinyin": "Yifan"},
+    {"zh": "卓", "pinyin": "Zhuo"},
+    {"zh": "宁", "pinyin": "Ning"},
+    {"zh": "航", "pinyin": "Hang"},
+    {"zh": "晨", "pinyin": "Chen"}
+  ]
+}
