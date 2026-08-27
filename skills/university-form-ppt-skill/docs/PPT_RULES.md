@@ -1,29 +1,52 @@
-# PPT rules
+# PPT 替换规则
 
-## Templates and allowed replacements
+## Approved templates
 
-Student template: `assets/certificate_template.pptx`
-- `{{name}}` x1
-- `{{student_id}}` x1
-- `{{school_name}}` x2
+学生模板：`assets/certificate_template.pptx`
 
-Faculty template: `assets/teacher_certificate_template.pptx`
-- `{{name}}` x1
-- `{{facultyid}}` x1
-- `{{school_name}}` x2
+- `{{name}}`: 1
+- `{{student_id}}`: 1
+- `{{school_name}}`: 2
 
-Only approved placeholders for the selected template may change.
+教师模板：`assets/teacher_certificate_template.pptx`
 
-## Shared visual invariants
+- `{{name}}`: 1
+- `{{facultyid}}`: 1
+- `{{school_name}}`: 2
 
-Both modes follow the same rules: preserve slide size, background, theme, shapes, fonts, font sizes, colors, body text-box geometry, line/paragraph spacing, dates, department/specialty text, all other non-placeholder text, and overall layout. Prefer direct PPTX XML replacement rather than rebuilding text boxes.
+只能替换当前模式对应的 approved placeholders。
 
-The first body line containing name + numeric ID must remain one line. If it wraps, use a shorter random name, then a shorter 7–8 digit numeric ID. Do not alter body typography or geometry to make it fit.
+## 共同硬规则
 
-Later body text must wrap naturally without hard line breaks or hard-split words. If replacement creates one-word-per-line wrapping, isolated words/fields, or fragments that no longer flow as a normal English paragraph, the output fails QA. The correct behavior is for all following words to move forward sequentially according to the original paragraph flow. Use only the smallest necessary local text-flow adjustment to restore that behavior.
+学生与教师认证的格式保护完全一致。除获准占位符文字外，应保持以下内容不变：
 
-The bottom-right official English school name must remain one line. Only this local area may receive the smallest necessary adaptation; never abbreviate the official school name.
+- 页面尺寸；
+- 背景、主题、图片、形状；
+- 正文文本框；
+- 字体、字号、颜色；
+- 行距、段距；
+- 日期；
+- 学院/专业；
+- 其他非占位符文字；
+- 整体布局。
 
-Any demo/non-valid markings present in the selected source template must remain visible.
+优先直接修改 PPTX XML，禁止为了替换文字而重建整页或重建文本框。
 
-Every output must be rendered to PNG and visually inspected before delivery.
+第一行姓名 + 数字 ID 必须保持单行。失败时处理顺序固定为：先换更短姓名，再换更短的 7–8 位数字 ID，禁止通过修改正文排版解决。
+
+后续正文必须保持正常英文段落的自然连续顺排，不插入硬换行，不硬拆词。若替换后出现“一行一个单词”、字段/单词孤立成行，或后续文字没有按照原文顺序连续向后流动，则直接判定 QA 失败。
+
+正文修复只允许做最小必要的局部调整，例如：
+
+- 规范化文字流；
+- 最小调整字间距；
+- 最小调整正文文本框宽度；
+- 最小调整段落布局。
+
+不得改变整体视觉设计。
+
+右下角学校名必须使用官方英文全名并保持单行。必要时只允许对右下角区域做最小局部宽度、位置、字间距或字号调整，禁止改成简称。
+
+源模板中存在的任何演示/无效标识都必须保持可见。
+
+每次生成后必须实际渲染 PNG 并进行视觉验收；任一检查失败都必须修复后重新渲染。
