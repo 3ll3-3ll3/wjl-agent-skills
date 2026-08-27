@@ -52,7 +52,10 @@ class MissavLibraryTest(unittest.TestCase):
             self.assertEqual(rows[0]["loveav_canonical_code"], "ABF-123")
             self.assertEqual(rows[0]["loveav_in_raindrop"], "true")
             self.assertEqual(rows[0]["loveav_in_skill_added"], "true")
-            self.assertEqual(set(rows[0]["tags"].split(",")), {"女优甲", "女优乙"})
+            self.assertEqual(rows[0]["loveav_has_missav"], "true")
+            self.assertEqual(rows[0]["loveav_has_123av"], "false")
+            self.assertEqual(rows[0]["url"], "https://missav.ai/cn/abf-123")
+            self.assertEqual(rows[0]["tags"], "女优乙")
             self.assertGreaterEqual(len(json.loads(rows[0]["loveav_variants_json"])), 2)
 
             repeated = self.run_script("--library", str(library), "--input", str(official), "--input", str(skill))
@@ -68,12 +71,69 @@ class MissavLibraryTest(unittest.TestCase):
             write_csv(skill, headers, [
                 {"url": "https://missav.ai/dm558/110223-001", "title": "110223-001", "target_folder": "其他"},
                 {"url": "https://missav.ai/dm166/pondo-030326_001", "title": "PONDO-030326_001", "target_folder": "其他"},
+                {"url": "https://missav.ai/dm96/cn/MKBD-S03", "title": "MKBD-S03", "target_folder": "其他"},
             ])
             result = self.run_script("--library", str(library), "--input", str(skill), "--commit", "--confirm", "WRITE_MISSAV_LIBRARY")
-            self.assertEqual(result["counts"]["added"], 2)
+            self.assertEqual(result["counts"]["added"], 3)
             with library.open("r", encoding="utf-8", newline="") as handle:
                 codes = [row["loveav_canonical_code"] for row in csv.DictReader(handle)]
-            self.assertEqual(codes, ["110223-001", "PONDO-030326_001"])
+            self.assertEqual(codes, ["110223-001", "PONDO-030326_001", "MKBD-S03"])
+
+    def test_prefers_newer_clean_tags_without_losing_old_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            library = temp / "library" / "missav-library.csv"
+            official = temp / "raindrop.csv"
+            headers = ["id", "title", "note", "excerpt", "url", "folder", "tags", "created", "cover", "highlights", "favorite"]
+            write_csv(official, headers, [
+                {"id": "1", "title": "ABF-017", "url": "https://missav.ai/dm13/cn/abf-017", "folder": "日本av / MissAV", "tags": "女优甲, VR, 全高清_(FHD)", "created": "2026-07-25T05:34:01Z"},
+                {"id": "2", "title": "ABF-017", "url": "https://missav.ai/cn/abf-017", "folder": "日本av / MissAV", "tags": "女优甲, 巨乳", "created": "2026-07-27T12:55:17Z"},
+            ])
+            result = self.run_script("--library", str(library), "--input", str(official), "--commit", "--confirm", "WRITE_MISSAV_LIBRARY")
+            self.assertEqual(result["counts"]["added"], 1)
+            self.assertEqual(result["counts"]["conflict"], 1)
+            with library.open("r", encoding="utf-8", newline="") as handle:
+                row = next(csv.DictReader(handle))
+            self.assertEqual(row["url"], "https://missav.ai/cn/abf-017")
+            self.assertEqual(row["tags"], "女优甲, 巨乳")
+            self.assertNotIn("VR", row["tags"])
+            self.assertEqual(len(json.loads(row["loveav_variants_json"])), 2)
+
+    def test_includes_123av_combined_folder_and_root_detail_but_not_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            library = temp / "library" / "missav-library.csv"
+            official = temp / "raindrop.csv"
+            headers = ["id", "title", "note", "excerpt", "url", "folder", "tags", "created", "cover", "highlights", "favorite"]
+            write_csv(official, headers, [
+                {"id": "1", "title": "SIRO-5688", "url": "https://123av.fans/en/v/siro-5688-uncensored-leaked", "folder": "日本av / javxxx&123av"},
+                {"id": "2", "title": "HMN-858", "url": "https://123av.com/cn/v/hmn-858", "folder": "日本av"},
+                {"id": "3", "title": "123AV — Home", "url": "https://123av.com/cn", "folder": "日本av / 日本网站"},
+            ])
+            result = self.run_script("--library", str(library), "--input", str(official), "--commit", "--confirm", "WRITE_MISSAV_LIBRARY")
+            self.assertEqual(result["counts"]["added"], 2)
+            self.assertEqual(result["counts"]["out_of_scope"], 1)
+            with library.open("r", encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual([row["loveav_canonical_code"] for row in rows], ["SIRO-5688", "HMN-858"])
+            self.assertTrue(all(row["loveav_has_123av"] == "true" for row in rows))
+            self.assertTrue(all(row["loveav_has_missav"] == "false" for row in rows))
+
+    def test_uses_full_fc2_from_trusted_123av_detail_when_title_is_truncated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            library = temp / "library" / "missav-library.csv"
+            official = temp / "raindrop.csv"
+            headers = ["id", "title", "note", "excerpt", "url", "folder", "tags", "created", "cover", "highlights", "favorite"]
+            write_csv(official, headers, [
+                {"id": "1", "title": "PPV-253552", "url": "https://123av.com/cn/v/fc2-ppv-2535523", "folder": "日本av / javxxx&123av"},
+            ])
+            result = self.run_script("--library", str(library), "--input", str(official), "--commit", "--confirm", "WRITE_MISSAV_LIBRARY")
+            self.assertEqual(result["counts"]["added"], 1)
+            self.assertEqual(result["counts"]["review"], 0)
+            with library.open("r", encoding="utf-8", newline="") as handle:
+                row = next(csv.DictReader(handle))
+            self.assertEqual(row["loveav_canonical_code"], "FC2-PPV-2535523")
 
 
 if __name__ == "__main__":

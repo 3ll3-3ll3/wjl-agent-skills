@@ -120,7 +120,9 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 处理 MissAV 时，先用唯一 `missav-library.csv` 比较规范化番号，再报告是否为新结果。不得再维护第二份 `seen-index.csv` 作为长期历史真源。
 
-主体库同时合并用户提供的 Raindrop 官方 CSV 和 LoveAV 处理后确认保留的 Raindrop 导入 CSV；物理上每个规范番号只有一行，逻辑上分别维护 `loveav_in_raindrop` 与 `loveav_in_skill_added`。同一番号两种来源都有时，两项都为 `true`，不能重复建行或丢失差异字段。
+主体库同时合并用户提供的 Raindrop 官方 CSV 和 LoveAV 处理后确认保留的 Raindrop 导入 CSV；物理上每个规范番号只有一行，逻辑上分别维护 `loveav_in_raindrop`、`loveav_in_skill_added`、`loveav_has_missav` 与 `loveav_has_123av`。同一番号有多个来源时对应标记同时为 `true`，不能重复建行或丢失差异字段。
+
+同一番号多条 Raindrop 记录不得直接合并 Tags。主字段使用高优先级、较新的完整记录；MissAV URL 优先规范化为 `/cn/<番号>`，旧 URL、123AV URL、旧 Tags、Raindrop ID、时间和其他差异全部保存在来源变体中。
 
 任何新 CSV 导入必须先展示新增、重复、补全、冲突、无效、范围外和待复核数量。用户确认后才能备份并原子更新主体库。详细字段、Raindrop 目录过滤和合并规则见 `references/curated-library.md`。
 

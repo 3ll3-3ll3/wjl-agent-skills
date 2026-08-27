@@ -29,6 +29,7 @@ SCRIPT_HEADERS = [
 ]
 META_HEADERS = [
     "loveav_canonical_code", "loveav_in_raindrop", "loveav_in_skill_added",
+    "loveav_has_missav", "loveav_has_123av",
     "loveav_first_seen_at", "loveav_last_seen_at", "loveav_rule_version",
     "loveav_status", "loveav_variants_json", "loveav_notes",
 ]
@@ -73,14 +74,43 @@ def normalize_folder_part(value: str) -> str:
     return re.sub(r"\s+", "", value or "").casefold()
 
 
-def in_raindrop_scope(folder: str) -> bool:
+def site_kind(url: str) -> str:
+    try:
+        host = (urlparse(url).hostname or "").casefold().removeprefix("www.")
+    except ValueError:
+        return "other"
+    if host == "missav.ai" or host.endswith(".missav.ai"):
+        return "missav"
+    if host in {"123av.com", "123av.fans"} or host.endswith(".123av.com") or host.endswith(".123av.fans"):
+        return "123av"
+    return "other"
+
+
+def is_123av_detail_url(url: str) -> bool:
+    if site_kind(url) != "123av":
+        return False
+    try:
+        path = unquote(urlparse(url).path).rstrip("/")
+    except ValueError:
+        return False
+    return re.search(r"/(?:[a-z]{2}/)?v/[^/]+$", path, re.I) is not None
+
+
+def folder_has_target(part: str) -> bool:
+    tokens = [token for token in re.split(r"[^a-z0-9]+", normalize_folder_part(part)) if token]
+    return "missav" in tokens or "123av" in tokens
+
+
+def in_raindrop_scope(folder: str, url: str = "") -> bool:
     parts = split_folder(folder)
     normalized = [normalize_folder_part(part) for part in parts]
     try:
         root_index = normalized.index("日本av")
     except ValueError:
         return False
-    return any(part in {"missav", "123av"} for part in normalized[root_index + 1 :])
+    if any(folder_has_target(part) for part in parts[root_index + 1 :]):
+        return True
+    return is_123av_detail_url(url)
 
 
 def normalize_candidate(value: str) -> str:
@@ -103,6 +133,9 @@ def normalize_candidate(value: str) -> str:
     if normal and normal.group(1) not in NOISE_PREFIXES:
         suffix = f"-{normal.group(3)}" if normal.group(3) else ""
         return f"{normal.group(1)}-{normal.group(2)}{suffix}"
+    alpha_serial = re.fullmatch(r"([A-Z]{2,12})[-_]([A-Z]{1,4}\d{1,6})", text)
+    if alpha_serial and alpha_serial.group(1) not in NOISE_PREFIXES:
+        return f"{alpha_serial.group(1)}-{alpha_serial.group(2)}"
     return ""
 
 
@@ -111,11 +144,11 @@ def comparable_key(code: str) -> str:
 
 
 def candidate_codes(title: str, url: str) -> list[str]:
-    values: list[str] = []
+    title_values: list[str] = []
     title_text = str(title or "").strip()
     direct = normalize_candidate(title_text)
     if direct:
-        values.append(direct)
+        title_values.append(direct)
     else:
         patterns = [
             r"FC2[-_\s]*(?:PPV[-_\s]*)?\d{4,10}",
@@ -123,27 +156,35 @@ def candidate_codes(title: str, url: str) -> list[str]:
             r"(?<!\d)\d{6}[-_]\d{3}(?!\d)",
             r"(?<!\d)\d{4}[-_]?PPV[-_]?\d{3,6}(?!\d)",
             r"\b[A-Z]{2,12}[-_]?[0-9]{2,8}(?:[-_][A-Z0-9]{1,12})?\b",
+            r"\b[A-Z]{2,12}[-_][A-Z]{1,4}[0-9]{1,6}\b",
         ]
         upper = title_text.upper()
         for pattern in patterns:
             for match in re.findall(pattern, upper):
                 normalized = normalize_candidate(match)
                 if normalized:
-                    values.append(normalized)
+                    title_values.append(normalized)
 
+    url_value = ""
     if url:
         try:
             slug = unquote(urlparse(url).path.rstrip("/").split("/")[-1])
         except ValueError:
             slug = ""
-        slug = re.sub(r"-(?:chinese-subtitle|uncensored-leak)$", "", slug, flags=re.I)
+        slug = re.sub(r"-(?:chinese-subtitle|uncensored-leak(?:ed)?)$", "", slug, flags=re.I)
         normalized = normalize_candidate(slug)
         if normalized:
-            values.append(normalized)
+            url_value = normalized
+
+    if url_value.startswith("FC2-PPV-") and site_kind(url) == "123av":
+        full_number = url_value.removeprefix("FC2-PPV-")
+        shortened = [value.removeprefix("PPV-") for value in title_values if value.startswith("PPV-")]
+        if shortened and all(full_number.startswith(value) and len(value) < len(full_number) for value in shortened):
+            return [url_value]
 
     output: list[str] = []
     seen: set[str] = set()
-    for value in values:
+    for value in [*title_values, *([url_value] if url_value else [])]:
         key = comparable_key(value)
         if key and key not in seen:
             seen.add(key)
@@ -185,33 +226,50 @@ def variant_signature(value: dict[str, object]) -> str:
     return json.dumps(stable, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def merge_tag_values(left: str, right: str) -> str:
-    output: list[str] = []
-    seen: set[str] = set()
-    for raw in (left, right):
-        for item in re.split(r"\s*,\s*", raw or ""):
-            item = item.strip()
-            key = item.casefold()
-            if item and key not in seen:
-                seen.add(key)
-                output.append(item)
-    return ",".join(output)
+def variant_time(value: dict[str, object]) -> str:
+    return str(value.get("created") or value.get("observed_at") or "")
 
 
-def base_library_row(record: dict[str, str], code: str, source_type: str, rule_version: str, timestamp: str) -> dict[str, str]:
-    row = {field: record.get(field, "") for field in OFFICIAL_HEADERS}
+def variant_rank(value: dict[str, object]) -> tuple[int, int, str]:
+    source_priority = 2 if value.get("source_type") == "skill" else 1
+    site_priority = {"missav": 2, "123av": 1}.get(site_kind(str(value.get("url") or "")), 0)
+    return source_priority, site_priority, variant_time(value)
+
+
+def canonical_missav_url(code: str) -> str:
+    return f"https://missav.ai/cn/{code.casefold()}"
+
+
+def rebuild_primary(row: dict[str, str], code: str, variants: list[dict[str, object]], rule_version: str, fallback_time: str) -> None:
+    ranked = sorted((value for value in variants if isinstance(value, dict)), key=variant_rank, reverse=True)
+    if not ranked:
+        raise ValueError(f"番号 {code} 没有可用来源变体。")
+    preferred = ranked[0]
+    for field in OFFICIAL_HEADERS:
+        value = str(preferred.get(field) or "")
+        if not value:
+            value = next((str(item.get(field) or "") for item in ranked if item.get(field)), "")
+        row[field] = value
+
+    has_missav = any(site_kind(str(value.get("url") or "")) == "missav" for value in ranked)
+    has_123av = any(site_kind(str(value.get("url") or "")) == "123av" for value in ranked)
+    if has_missav:
+        row["url"] = canonical_missav_url(code)
+
+    times = sorted(value for value in (variant_time(item) for item in ranked) if value)
     row.update({
         "loveav_canonical_code": code,
-        "loveav_in_raindrop": "true" if source_type == "raindrop" else "false",
-        "loveav_in_skill_added": "true" if source_type == "skill" else "false",
-        "loveav_first_seen_at": timestamp,
-        "loveav_last_seen_at": timestamp,
+        "loveav_in_raindrop": "true" if any(item.get("source_type") == "raindrop" for item in ranked) else "false",
+        "loveav_in_skill_added": "true" if any(item.get("source_type") == "skill" for item in ranked) else "false",
+        "loveav_has_missav": "true" if has_missav else "false",
+        "loveav_has_123av": "true" if has_123av else "false",
+        "loveav_first_seen_at": times[0] if times else fallback_time,
+        "loveav_last_seen_at": times[-1] if times else fallback_time,
         "loveav_rule_version": rule_version,
         "loveav_status": "active",
-        "loveav_variants_json": "[]",
-        "loveav_notes": "",
+        "loveav_variants_json": json.dumps(ranked, ensure_ascii=False, separators=(",", ":")),
+        "loveav_notes": row.get("loveav_notes", ""),
     })
-    return row
 
 
 def load_library(path: Path) -> tuple[list[dict[str, str]], dict[str, dict[str, str]]]:
@@ -245,7 +303,7 @@ def prepare_merge(library: Path, inputs: list[Path], forced_type: str, rule_vers
             raise ValueError("输入不能是另一份主体库；双库冲突必须先单独复核。")
         for row_number, raw in enumerate(rows, start=2):
             counts["input"] += 1
-            if source_type == "raindrop" and not in_raindrop_scope(raw.get("folder", "")):
+            if source_type == "raindrop" and not in_raindrop_scope(raw.get("folder", ""), raw.get("url", "")):
                 counts["out_of_scope"] += 1
                 if len(examples["out_of_scope"]) < 10:
                     examples["out_of_scope"].append({"file": input_path.name, "row": row_number, "folder": raw.get("folder", ""), "title": raw.get("title", "")})
@@ -265,35 +323,21 @@ def prepare_merge(library: Path, inputs: list[Path], forced_type: str, rule_vers
 
             code = candidates[0]
             key = comparable_key(code)
-            variant = {"source_type": source_type, "source_file": input_path.name, "source_row": row_number, **record}
+            variant = {"source_type": source_type, "source_file": input_path.name, "source_row": row_number, "observed_at": timestamp, **record}
             existing = keyed.get(key)
             if existing is None:
-                created = base_library_row(record, code, source_type, rule_version, timestamp)
-                created["loveav_variants_json"] = json.dumps([variant], ensure_ascii=False, separators=(",", ":"))
+                created = {field: "" for field in LIBRARY_HEADERS}
+                rebuild_primary(created, code, [variant], rule_version, timestamp)
                 keyed[key] = created
                 ordered.append(created)
                 counts["added"] += 1
                 continue
 
-            changed = False
             conflict_fields: list[str] = []
-            flag = "loveav_in_raindrop" if source_type == "raindrop" else "loveav_in_skill_added"
-            if existing.get(flag) != "true":
-                existing[flag] = "true"
-                changed = True
             for field in OFFICIAL_HEADERS:
                 incoming = record.get(field, "")
                 current = existing.get(field, "")
-                if field == "tags" and incoming:
-                    merged = merge_tag_values(current, incoming)
-                    if merged != current:
-                        existing[field] = merged
-                        changed = True
-                    continue
-                if incoming and not current:
-                    existing[field] = incoming
-                    changed = True
-                elif incoming and current and incoming != current:
+                if incoming and current and incoming != current:
                     conflict_fields.append(field)
 
             variants = parse_variants(existing.get("loveav_variants_json", ""))
@@ -302,15 +346,12 @@ def prepare_merge(library: Path, inputs: list[Path], forced_type: str, rule_vers
             variant_is_new = signature not in signatures
             if variant_is_new:
                 variants.append(variant)
-                existing["loveav_variants_json"] = json.dumps(variants, ensure_ascii=False, separators=(",", ":"))
-                changed = True
-            if changed:
-                existing["loveav_last_seen_at"] = timestamp
+                rebuild_primary(existing, code, variants, rule_version, timestamp)
             if conflict_fields and variant_is_new:
                 counts["conflict"] += 1
                 if len(examples["conflict"]) < 10:
                     examples["conflict"].append({"file": input_path.name, "row": row_number, "code": code, "fields": conflict_fields})
-            elif changed:
+            elif variant_is_new:
                 counts["enriched"] += 1
             else:
                 counts["duplicate"] += 1

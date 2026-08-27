@@ -56,7 +56,7 @@ id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite
 
 导入官方 CSV 时，只接收目标 Raindrop 层级中的 MissAV 与 123AV 记录。必须保留其完整父子路径，包括 `日本AV` 父目录；不得把子目录提升为根目录。其他分支只在导入预览中标记为“范围外并跳过”，不得修改源 CSV 或远端 Raindrop。
 
-路径判断基于规范化后的目录段，不做包含式模糊匹配：目录路径必须位于 `日本AV` 层级下，并在后续目录段中明确出现 `MissAV` 或 `123AV`。若路径结构不完整或存在同名歧义，进入 `review`，不得静默纳入或删除。
+路径判断基于规范化后的目录段：目录路径必须位于 `日本AV` 层级下，并在后续目录段中明确出现 `MissAV` 或独立的 `123AV` 标记。组合目录名（例如 `javxxx&123av`）按分隔符拆成独立标记后识别，不用任意子串模糊匹配。位于 `日本AV` 根目录、但 URL 是可信 `123av.com`/`123av.fans` 作品详情路径的记录也可纳入；123AV 首页、栏目页和搜索页不得因此进入主体库。若路径结构或 URL 身份仍有歧义，进入 `review`，不得静默纳入或删除。
 
 当前 LoveAV 不处理 123AV 业务，但保留 123AV 行作为主体库查重参考；它们不得触发 123AV 联网、收藏或关注操作。
 
@@ -75,7 +75,7 @@ url,title,tags,actress_tags,type_tags,status,needs_lookup,reference_matches,excl
 主体库以前 11 个 Raindrop 字段开头，并追加 LoveAV 元数据：
 
 ```csv
-id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite,loveav_canonical_code,loveav_in_raindrop,loveav_in_skill_added,loveav_first_seen_at,loveav_last_seen_at,loveav_rule_version,loveav_status,loveav_variants_json,loveav_notes
+id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite,loveav_canonical_code,loveav_in_raindrop,loveav_in_skill_added,loveav_has_missav,loveav_has_123av,loveav_first_seen_at,loveav_last_seen_at,loveav_rule_version,loveav_status,loveav_variants_json,loveav_notes
 ```
 
 约束：
@@ -84,9 +84,20 @@ id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite,loveav_c
 - 11 个 Raindrop 字段保持可往返的原始含义；空值不能覆盖已有非空值。
 - 同一番号的来源字段发生差异时，保留当前主显示值，并把未采用的完整来源变体写入 `loveav_variants_json`，防止标题、URL、目录、Tags、备注或 Raindrop ID 丢失。
 - `loveav_variants_json` 必须是单个 CSV 单元格中的合法 JSON 数组，内容仍不得包含凭据、Telegram 原文或浏览器资料。
+- `loveav_has_missav` 与 `loveav_has_123av` 分别表示该番号是否存在相应站点来源；同一番号可以两项都为 `true`。
 - `loveav_status` 使用 `active` 或 `review`。存在番号身份歧义时保持 `review`，不得合并到其他行。
 - 主体库使用 UTF-8、标准 CSV 引号和 CRLF/LF 兼容读取。写入时使用临时文件、关闭文件后原子替换，并先保存备份。
 - 主体库是 Raindrop 字段的兼容超集，不建议把整份主体库原样导入 Raindrop；回写 Raindrop 时应生成只含目标记录和兼容列的导入 CSV。
+
+### 同番号多条记录的主值选择
+
+来源变体必须全部保留，但主显示字段不能简单并集：
+
+- 同一番号同时有 MissAV 与 123AV 时，主 URL 优先使用规范化 MissAV `/cn/<番号>`；123AV URL 保留在来源变体中。
+- 同一站点存在多条记录时，优先采用较新的完整记录作为主元数据。
+- Tags 采用优先记录中的完整 Tags；只有该记录对应字段为空时，才从其他高优先级变体补值。
+- 禁止把旧、新 Tags 直接做并集。旧记录中的 `VR`、`全高清_(FHD)`、`附赠视频仅适用于_MGS` 等值可能是旧导入噪声，必须留在变体中而不是污染主 Tags。
+- Raindrop ID、旧 URL、收藏时间、摘要、封面和不同 Tags 全部保留在 `loveav_variants_json`，不因选择主值而丢失。
 
 ## 番号查重与可疑项
 
@@ -96,8 +107,9 @@ id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite,loveav_c
 2. 对大小写、全半角、空格、下划线和连字符做可逆规范化。
 3. 已验证格式直接生成 `loveav_canonical_code`。
 4. 多个候选互相冲突、格式陌生或可能从普通文本误识别时，进入 `review`。
-5. 用户要求进一步核实时，可通过互联网检索当前可信页面或官方/权威来源；必须记录支持与反对证据。证据仍不足时保持 `review`，不得凭模型猜测合并。
-6. 用户确认某一行的番号，不等于自动创建一条永久通用规则；规则晋级仍遵守 `rule-learning.md`。
+5. 可信 123AV 作品详情 URL 提供完整 `FC2-PPV-<数字>`，而标题只有其被截短的 `PPV-<数字前缀>` 时，采用 URL 中的完整 FC2 番号；该窄规则不得扩展为“所有 URL 冲突都信 URL”。
+6. 用户要求进一步核实时，可通过互联网检索当前可信页面或官方/权威来源；必须记录支持与反对证据。证据仍不足时保持 `review`，不得凭模型猜测合并。
+7. 用户确认某一行的番号，不等于自动创建一条永久通用规则；规则晋级仍遵守 `rule-learning.md`。
 
 ## 每次 MissAV 结果
 
