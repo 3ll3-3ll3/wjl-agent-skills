@@ -1,6 +1,6 @@
 # 仓库维护规则
 
-本仓库用于统一维护个人 Codex / Agent Skills，采用 monorepo 结构。
+本仓库用于统一维护个人 Codex / Agent Skills，采用“单仓多 Skill”结构。
 
 ## 仓库结构
 
@@ -14,7 +14,7 @@
 1. 任务只针对某个 Skill 时，修改范围应尽量限制在该 Skill 内，除非确实需要根级调整。
 2. 不得顺带改变无关 Skill 的行为。
 3. 必须保留现有 Skill 的安全边界、数据规则、模板约束和兼容性要求。
-4. 不提交运行时私有数据、凭据、Token、Session、浏览器资料、本地数据库、Telegram 导出或用户生成记录。
+4. 不提交运行时私有数据、凭据、令牌、会话、浏览器资料、本地数据库、Telegram 导出或用户生成记录。
 5. 机械、确定性的工作优先放到脚本；`SKILL.md` 重点描述工作流、决策、约束和验收标准。
 6. 新的个人 Skill 默认添加到 `skills/<skill-name>/`，而不是新建独立仓库。
 7. 迁移、重构或大规模改写完成前，必须确认所有受影响 Skill 仍包含 `SKILL.md` 和必要的资源、脚本与测试。
@@ -37,7 +37,7 @@
 - YAML/JSON 的固定键名，例如 `name`、`description`、`status`；
 - Skill 名、工具名、函数名、类名、变量名；
 - 文件名、文件路径、命令、参数、环境变量；
-- API 字段、JSON key、schema、URL；
+- API 字段、JSON 键名、数据结构定义、URL；
 - 代码、正则表达式、占位符，例如 `{{school_name}}`；
 - 产品、网站、协议和技术名称，例如 Codex、GitHub、Telegram、Google Drive、PPTX、JSON、CSV。
 
