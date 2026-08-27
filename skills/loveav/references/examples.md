@@ -23,7 +23,7 @@ MissAV 来源提取番号，Twitter 来源提取博主；排除 MissAV 主体库
 用户：
 
 ```text
-把这个 Miss_AV.html 导入为新的参考女优 Tag 库，并把两层黑名单分别预览。
+用正式 missav-library.csv 重新派生参考女优 Tag，并分别预览两层黑名单的影响。
 ```
 
 预期行为：

@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "generate_missav_browser_script.py"
+
+
+class MissavBrowserScriptTest(unittest.TestCase):
+    def test_bundled_assets_match_v0513_baseline(self) -> None:
+        template = ROOT / "assets" / "missav-browser-script.txt"
+        boundaries = ROOT / "assets" / "missav-type-boundary-tags.txt"
+        self.assertEqual(hashlib.sha256(template.read_bytes()).hexdigest(), "309a30fbfaa39649daf3e8272b7fb4e4022ce2c05144bf27108551c0aa034e4c")
+        self.assertEqual(hashlib.sha256(boundaries.read_bytes()).hexdigest(), "b872f9fde88f64feb6ab2181b5223cd5e8d8a09a9b348cce928b903b3f1bb4aa")
+
+    def test_uses_all_library_actress_tags_and_applies_both_blacklists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            library = temp / "missav-library.csv"
+            codes = temp / "codes.txt"
+            reference_blacklist = temp / "reference-blacklist.txt"
+            export_blacklist = temp / "export-blacklist.txt"
+            output = temp / "script.js"
+
+            fields = ["loveav_canonical_code", "tags", "loveav_variants_json"]
+            with library.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerow({
+                    "loveav_canonical_code": "ABF-001",
+                    "tags": "女优甲,女优乙,巨乳,VR",
+                    "loveav_variants_json": json.dumps([
+                        {"tags": "女优丙,苗条,全高清_(FHD)"},
+                        {"tags": "女优甲,VR"},
+                    ], ensure_ascii=False),
+                })
+                writer.writerow({
+                    "loveav_canonical_code": "ABF-002",
+                    "tags": "需要查找,#未知女优",
+                    "loveav_variants_json": "[]",
+                })
+
+            codes.write_text("abf_123\nABF-123\nFC2 1234567\n无效内容\n", encoding="utf-8")
+            reference_blacklist.write_text("女优乙\n", encoding="utf-8")
+            export_blacklist.write_text("女优丙\n", encoding="utf-8")
+            result = subprocess.run([
+                sys.executable, str(SCRIPT),
+                "--library", str(library),
+                "--codes-file", str(codes),
+                "--reference-blacklist", str(reference_blacklist),
+                "--export-blacklist", str(export_blacklist),
+                "--output", str(output),
+            ], text=True, encoding="utf-8", capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(result.stdout)
+            generated = output.read_text(encoding="utf-8")
+
+            self.assertEqual(report["codes_injected"], 2)
+            self.assertEqual(report["actress_tags_before_blacklist"], 3)
+            self.assertEqual(report["reference_blacklist_matches"], 1)
+            self.assertEqual(report["reference_tags_injected"], 2)
+            self.assertIn("ABF-123", generated)
+            self.assertIn("FC2-PPV-1234567", generated)
+            self.assertIn('"女优甲"', generated)
+            self.assertIn('"女优丙"', generated)
+            self.assertNotIn('"女优乙"', generated)
+            self.assertNotIn('"巨乳"', generated)
+            self.assertIn("const RAINDROP_EXPORT_BLACKLIST_TAGS = [\n  \"女优丙\"\n];", generated)
+
+    def test_rejects_non_library_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            library = temp / "wrong.csv"
+            output = temp / "script.js"
+            library.write_text("title,tags\nABF-001,女优甲\n", encoding="utf-8")
+            result = subprocess.run([
+                sys.executable, str(SCRIPT),
+                "--library", str(library),
+                "--code", "ABF-001",
+                "--output", str(output),
+            ], text=True, encoding="utf-8", capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(output.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

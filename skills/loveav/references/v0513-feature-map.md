@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | MissAV 番号、详情链接、规范化 | `tool-rules.md` | 否；规则可直接运行 |
 | MissAV 浏览器脚本生成 | `tool-rules.md`、`input-output.md` | 生成否；执行脚本需要浏览器宿主 |
-| 参考女优 Tag HTML 提取 | `tool-rules.md`、`data-contract.md` | 解析否；保存新版本需要数据写入 |
+| 正式主体库参考女优 Tag 派生 | `missav-browser-script.md`、`tool-rules.md` | 生成脚本时只读实时提取，不维护独立版本 |
 | 第一层参考 Tag 黑名单 | `tool-rules.md` | 否 |
 | 第二层 Raindrop 导出黑名单 | `tool-rules.md` | 否 |
 | 三个 Raindrop 输出文件夹 | `tool-rules.md`、`input-output.md` | 文件生成否；远端写入不包含在 Skill |

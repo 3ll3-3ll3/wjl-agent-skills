@@ -44,7 +44,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 
 - **手动模式（默认）**：接受粘贴文本，以及 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG 文件。不连接 Telegram，不索要 API 凭据，也不标记消息已读。
 - **本地资料库模式**：预览完成后，只把用户明确选择保留的 MissAV 行加入唯一 `missav-library.csv`。主体库用于未来查重和参考判断；不能把每一次处理的全部候选都当成永久历史。
-- **管理模式**：用于编辑 MissAV 主体库、参考 Tag、两个 MissAV 黑名单、备份、迁移或冲突复核。大表格编辑优先使用小型本地编辑器。
+- **管理模式**：用于编辑 MissAV 主体库、两个 MissAV 黑名单、备份、迁移或冲突复核。参考女优 Tag 不再维护独立资料库，而是在生成脚本时从正式主体库实时提取。
 
 Telegram personal API、Bot API、Work/cloud、后台同步、远程 Raindrop 写入和 123AV 账号操作不属于当前默认启用范围。不得因为旧版兼容文档存在就主动索要这些凭据或建议执行这些联网操作。
 
@@ -126,7 +126,15 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 任何新 CSV 导入必须先展示新增、重复、补全、冲突、无效、范围外和待复核数量。用户确认后才能备份并原子更新主体库。详细字段、Raindrop 目录过滤和合并规则见 `references/curated-library.md`。
 
-主体库、规则建议和黑名单必须保持不同语义。现有规则、参考 Tag 与两层黑名单不得因主体库导入而移动、覆盖或自动生成。
+主体库、规则建议和黑名单必须保持不同语义。参考女优 Tag 集合是正式主体库中女优 Tag 的只读派生视图，不是第二份长期资料库；两层黑名单仍保持独立文件和独立语义。
+
+## MissAV 浏览器脚本
+
+生成脚本前必须读取 `references/missav-browser-script.md`。只能使用 Skill 内 `assets/missav-browser-script.txt` 的 v0.5.13 原版模板，并通过 `scripts/generate_missav_browser_script.py` 确定性注入。
+
+参考女优 Tag 的唯一来源改为正式 `missav-library.csv`：扫描每行主 Tags 和 `loveav_variants_json` 中全部来源变体，沿用 v0.5.13 的类型边界规则识别女优 Tag。任何一个已识别女优 Tag 出现在新作品 Tags 中，就视为参考命中。第一层黑名单在注入前从派生集合排除；第二层黑名单独立注入并阻止相应记录进入 Raindrop 导出。
+
+不得继续使用 `Miss_AV.html`、旧内置 Tag TXT、女优合集 CSV 或模型临时猜测作为脚本参考女优库。主体库不存在、格式不合法或无法提取任何女优 Tag 时必须停止生成脚本。
 
 ## MissAV 两层黑名单
 
@@ -228,7 +236,7 @@ input.process(preview_id, selected_message_keys, source_bindings, tools)
 history.search(tool, canonical_query, include_deleted)
 rules.get / rules.preview / rules.suggest / rules.review / rules.commit / rules.rollback
 results.query / results.copy / results.export
-script.generate(codes, reference_tags, both_blacklists)
+script.generate(codes, missav_library, both_blacklists)
 whostv.script.generate(mode, pages_or_cutoff)
 whostv.answers.validate / whostv.answers.organize / whostv.state.update
 library.preview_import / library.commit_confirmed / library.query / library.update / library.remove
@@ -324,6 +332,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/input-output.md`：输入容器、规范化、选择和输出契约；
 - `references/data-contract.md`：长期数据边界、写入、迁移、同步和隐私字段；
 - `references/curated-library.md`：MissAV 唯一主体库、两种 Raindrop CSV、目录过滤、查重和原子合并；
+- `references/missav-browser-script.md`：正式主体库女优 Tag 派生、双层黑名单注入和原版脚本生成；
 - `references/legacy-parity.md`：v0.5.13 兼容能力对照；
 - `references/v0513-feature-map.md`：旧版功能映射；
 - `references/safety.md`：凭据、网络、账号操作、破坏性操作和恢复；

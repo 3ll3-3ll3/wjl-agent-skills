@@ -26,7 +26,7 @@
 ## 包含的 v0.5.13 能力
 
 - MissAV、Twitter、Bad.news、海角四个基线过滤器，并对未知格式提供可疑项复核和确认后学习。
-- MissAV 番号规范化、详情链接、浏览器脚本、参考女优 Tag、两层黑名单和三目录 Raindrop CSV 导出。
+- MissAV 番号规范化、详情链接、原版浏览器脚本、从正式主体库实时派生的参考女优 Tag、两层黑名单和三目录 Raindrop CSV 导出。
 - 四个前置工具统一接受 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG、多文件和粘贴文本；支持时间筛选、选择、查重和历史语义。
 - 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
@@ -34,6 +34,8 @@
 - Telegram Desktop 文件解析、消息规范化和时间筛选；个人 API、Bot、历史回拉、检查点和标记已读不启用。
 
 详细规则位于 `references/`。自适应规则学习见 `references/rule-learning.md`，MissAV 主体库与 Raindrop CSV 契约见 `references/curated-library.md`。
+
+生成 MissAV 浏览器脚本时，参考女优 Tag 不再读取 `Miss_AV.html` 或独立 Tag 库，而是扫描正式 `missav-library.csv` 的主 Tags 与全部来源变体。确定性生成器、命令和双层黑名单规则见 `references/missav-browser-script.md`。
 
 ## 长期数据设计
 
