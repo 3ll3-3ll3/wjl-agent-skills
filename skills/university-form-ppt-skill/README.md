@@ -1,29 +1,31 @@
-# University Student/Faculty Form + PPT Skill
+# 大学学生/教师认证信息填写 + PPT Skill
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[简体中文](README.md) | [English](README.en.md)
 
-This skill supports the same end-to-end workflow for two modes: **Student certification** and **Faculty certification**.
+当前 Skill 同时支持两种完全平行的工作流：**学生认证**与**教师认证**。
 
-It identifies a university and role from a school name/email/domain or related clue, verifies official school/campus data, generates a short random Chinese-pinyin demo identity and numeric ID, fills the correct user-approved PPT template, renders the real PPT to PNG for QA, and automatically archives the completed three-file record to Google Drive.
+用户可能提供学生邮箱、教师邮箱、邮箱域名、学校名、学院名或其他明显学校线索。Agent 自动识别学校，并根据明确的角色/域名证据选择学生或教师模式；确实无法判断时，只询问认证类型，不猜测。
 
-## Templates
+## 模板
 
-- Student: `assets/certificate_template.pptx`
-- Faculty: `assets/teacher_certificate_template.pptx`
+- 学生：`assets/certificate_template.pptx`
+- 教师：`assets/teacher_certificate_template.pptx`
 
-Student placeholders: `{{name}}`, `{{student_id}}`, `{{school_name}}`.
-Faculty placeholders: `{{name}}`, `{{facultyid}}`, `{{school_name}}`.
+学生模板占位符：`{{name}}`、`{{student_id}}`、`{{school_name}}`。
+教师模板占位符：`{{name}}`、`{{facultyid}}`、`{{school_name}}`。
 
-## Google Drive archive
+教师认证与学生认证的学校查询、随机姓名/数字 ID、PPT 格式保护、渲染验收、聊天字段、REDO 和自动归档要求完全一致。教师模式只是在模板内部把同一随机数字 ID 写入 `{{facultyid}}`。
 
-Records are separated by certification type:
+## Google Drive 目录
+
+学生和教师记录必须分开：
 
 ```text
 大学PPT生成记录/学生认证/<中文学校名>/
 大学PPT生成记录/教师认证/<中文学校名>/
 ```
 
-Every completed run stores matching minute-precision files:
+每次生成保存同名三件套，并以本地生成时间精确到 1 分钟命名：
 
 ```text
 YYYY-MM-DD_HH-mm.md
@@ -31,18 +33,18 @@ YYYY-MM-DD_HH-mm.pptx
 YYYY-MM-DD_HH-mm.png
 ```
 
-Archiving is mandatory and automatic. A run is complete only after PPTX/PNG/MD upload and folder readback verification.
+Google Drive 归档是必须且自动完成的硬性步骤。只有 PPTX、实际渲染 PNG、含真实 Drive 链接的 MD 均上传成功，并回读目标学校文件夹确认三件套存在后，任务才算完整完成。
 
-## Shared output contract
+## 输出字段
 
-Student and faculty modes keep the same user-facing fields and order: Chinese school name, Official English Name, First name, Last name, Student ID, Address, City, State/Province, Postal/Zip code, then coordinates. In faculty mode the same generated numeric value is inserted into `{{facultyid}}`; the compatibility output label remains `Student ID` unless the user explicitly asks for `Faculty ID` wording.
+学生和教师认证继续使用同一套聊天输出字段和顺序。为兼容现有流程，教师模式默认仍显示 `Student ID` 字段名；该数值实际填入教师模板的 `{{facultyid}}`。如果用户明确要求，可改用 `Faculty ID` 文案。
 
-## Shared PPT rules
+## 共同 PPT 规则
 
-Both modes preserve all non-placeholder formatting/content, keep name + numeric ID on the first line, allow later body text to wrap naturally, keep the bottom-right official English full school name on one line, preserve source-template demo/non-valid markings, and require an actual PPT-to-PNG render check before delivery.
+两种模式都只替换当前模板允许的占位符，保护非占位符格式和内容；第一行姓名 + 数字 ID 必须单行；后续正文必须自然顺排；右下角学校官方英文全名必须单行；源模板中存在的演示/无效标识必须保留；交付前必须实际渲染 PNG 检查。
 
-If replacement causes one-word-per-line wrapping, isolated words/fields, or a broken paragraph flow, the output fails QA. The correct behavior is for following words to continue sequentially according to the original paragraph flow. Repair this with the smallest necessary local text-flow adjustment, never with artificial hard line breaks, hard-split words, or an abbreviated school name.
+若替换后出现“一行一个单词”、字段或单词孤立成行、或后续文字没有按正常英文段落依次向后顺延，则直接判定验收失败。正确效果是后续单词按原段落顺序连续流动。只能做最小必要的文字流调整，禁止人为硬换行、硬拆词或用学校简称解决。
 
-## Repository role
+## 仓库职责
 
-GitHub stores reusable workflow assets only: `SKILL.md`, docs, scripts, tests, and the latest approved student/faculty templates. Per-school generation records belong only in Google Drive.
+GitHub 只维护工作流、脚本、文档、测试和两套最新模板；具体学校生成记录只进入 Google Drive。
