@@ -13,6 +13,13 @@
 E:\Desktop\codex项目\LoveAV-Data\missav\library\missav-library.csv
 ```
 
+默认黑名单位于同一数据树：
+
+```text
+E:\Desktop\codex项目\LoveAV-Data\missav\rules\1-参考女优Tag库黑名单.txt
+E:\Desktop\codex项目\LoveAV-Data\missav\rules\2-Raindrop导出黑名单.txt
+```
+
 路径不存在时必须要求用户指定实际正式库，不能回退到 `Miss_AV.html`、旧内置 Tag TXT、女优合集 CSV 或模型临时生成的名单。
 
 ## 参考女优 Tag 派生
@@ -32,7 +39,7 @@ E:\Desktop\codex项目\LoveAV-Data\missav\library\missav-library.csv
 
 - 第一层黑名单在生成脚本前从派生参考集合中排除完整 Tag；它只取消参考命中资格。
 - 第二层黑名单注入 `RAINDROP_EXPORT_BLACKLIST_TAGS`；作品命中任一完整 Tag 时不写入 Raindrop HTML/CSV，但处理报告保留记录与原因。
-- 两层黑名单均为 UTF-8 TXT、每行一个完整 Tag；不得合并语义。
+- 两层黑名单均为 UTF-8 TXT、每行一个完整 Tag；不得合并语义。`# `（井号后紧跟一个空格）开头的行是说明注释，不作为 Tag；以井号开头但没有该空格的真实 Tag 不受影响。
 
 ## 生成命令
 
@@ -45,9 +52,9 @@ python scripts/generate_missav_browser_script.py `
   --output <完整脚本.js>
 ```
 
-黑名单文件尚未配置时可以省略对应参数，等价于该层当前为空。番号也可以通过可重复的 `--code <番号>` 传入。
+省略黑名单参数时，生成器必须从 `<主体库目录的上一级>\rules\` 自动读取上述两个固定文件名。第一层允许是 0 字节空文件；任一文件缺失时必须停止并报出路径，不能静默当成空列表。显式参数只用于迁移、测试或用户另行指定的数据目录。番号也可以通过可重复的 `--code <番号>` 传入。
 
-生成器必须报告主体库行数、来源变体数、黑名单前女优 Tag 数、第一层命中数、最终注入数、番号数以及主体库、模板、输出脚本的 SHA-256。报告不得输出完整私人 Tag 列表。
+生成器必须报告主体库行数、来源变体数、两层黑名单路径/条数/哈希、黑名单前女优 Tag 数、第一层命中数、最终注入数、番号数以及主体库、模板、输出脚本的 SHA-256。报告不得输出完整私人 Tag 列表。
 
 ## 模板与执行边界
 

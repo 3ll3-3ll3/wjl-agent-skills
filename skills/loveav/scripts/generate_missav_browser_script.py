@@ -17,6 +17,8 @@ from manage_missav_library import comparable_key, normalize_candidate
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TEMPLATE = ROOT / "assets" / "missav-browser-script.txt"
 DEFAULT_TYPE_BOUNDARIES = ROOT / "assets" / "missav-type-boundary-tags.txt"
+REFERENCE_BLACKLIST_FILE = "1-参考女优Tag库黑名单.txt"
+EXPORT_BLACKLIST_FILE = "2-Raindrop导出黑名单.txt"
 
 SYSTEM_TAGS = {"未知女优", "#未知女优", "需要查找", "已存在", "重复输入"}
 EXPLICIT_TYPE_TAGS = {"教师", "女优", "女優", "演员", "演員", "VR"}
@@ -41,10 +43,22 @@ def split_lines(path: Path | None) -> list[str]:
     seen: set[str] = set()
     for raw in path.read_text(encoding="utf-8-sig").splitlines():
         tag = normalize_tag(raw)
+        if tag.startswith("# "):
+            continue
         if tag and tag not in seen:
             seen.add(tag)
             output.append(tag)
     return output
+
+
+def resolve_blacklist_path(library: Path, explicit: Path | None, filename: str) -> Path:
+    """优先使用显式路径，否则读取主体库同级数据树中的正式规则文件。"""
+    path = explicit if explicit is not None else library.parent.parent / "rules" / filename
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"缺少正式黑名单文件：{path}。请恢复该文件，或通过命令行参数指定实际路径。"
+        )
+    return path
 
 
 def type_boundaries(path: Path = DEFAULT_TYPE_BOUNDARIES) -> set[str]:
@@ -170,8 +184,14 @@ def main() -> int:
     if not codes:
         raise ValueError("没有可写入脚本的合法番号。")
 
-    reference_blacklist = split_lines(args.reference_blacklist)
-    export_blacklist = split_lines(args.export_blacklist)
+    reference_blacklist_path = resolve_blacklist_path(
+        args.library, args.reference_blacklist, REFERENCE_BLACKLIST_FILE
+    )
+    export_blacklist_path = resolve_blacklist_path(
+        args.library, args.export_blacklist, EXPORT_BLACKLIST_FILE
+    )
+    reference_blacklist = split_lines(reference_blacklist_path)
+    export_blacklist = split_lines(export_blacklist_path)
     reference_tags, stats = extract_reference_tags(args.library, reference_blacklist)
     template = args.template.read_text(encoding="utf-8-sig")
     script = inject_script(template, codes, reference_tags, export_blacklist)
@@ -186,6 +206,11 @@ def main() -> int:
         "library_sha256": sha256_file(args.library),
         "template": str(args.template.resolve()),
         "template_sha256": sha256_file(args.template),
+        "reference_blacklist": str(reference_blacklist_path.resolve()),
+        "reference_blacklist_sha256": sha256_file(reference_blacklist_path),
+        "reference_blacklist_tags": len(reference_blacklist),
+        "export_blacklist": str(export_blacklist_path.resolve()),
+        "export_blacklist_sha256": sha256_file(export_blacklist_path),
         "output": str(args.output.resolve()),
         "output_sha256": sha256_file(args.output),
         "codes_injected": len(codes),
