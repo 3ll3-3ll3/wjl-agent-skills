@@ -69,6 +69,32 @@ test("organizer rejects duplicate URLs without output or state change", (t) => {
   assert.equal(readJson(state).cutoffPath, "/helps/10250");
 });
 
+test("organizer does not absorb the following prose word into a code", (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-code-boundary-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const input = path.join(temp, "answers.json");
+  const state = path.join(temp, "state.json");
+  const output = path.join(temp, "result.md");
+  const entries = [
+    {
+      page: 1,
+      position: 1,
+      title: "求番号",
+      answer: "HTTM-065 SNSで知り合った人妻",
+      url: "https://whos.tv/helps/10255",
+      pageUrl: "https://whos.tv/helps?status=solved&page=1",
+    },
+  ];
+  writeJson(input, { mode: "pages", count: 1, entries });
+  writeJson(state, { cutoffPath: "/helps/10250" });
+
+  const result = run(organizer, [input, "--output", output, "--state", state, "--mode", "pages"]);
+  assert.equal(result.status, 0, result.stderr);
+  const markdown = fs.readFileSync(output, "utf8");
+  assert.match(markdown, /^HTTM-065$/m);
+  assert.doesNotMatch(markdown, /HTTM-065-SNS/);
+});
+
 test("generator archives newest script first and copies organizer", (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-generator-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
@@ -87,6 +113,7 @@ test("generator archives newest script first and copies organizer", (t) => {
   assert.match(script, /\/helps\/10250/);
   const archive = fs.readFileSync(report.archiveFile, "utf8");
   assert.ok(archive.indexOf("Whos.tv 增量抓取") < archive.indexOf("Whos.tv 第 1-3 页抓取"));
+  assert.equal(path.basename(path.dirname(report.scriptFile)), "generated");
   assert.equal(fs.existsSync(report.organizerFile), true);
 });
 

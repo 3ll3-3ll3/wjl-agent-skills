@@ -4,8 +4,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULT_DIRECTORY = String.raw`C:\Users\WJL\Desktop\windows\杂记\secret\beauty\whostv`;
-const DEFAULT_STATE = path.resolve(__dirname, "..", "references", "whostv-state.json");
+const DEFAULT_VAULT = String.raw`E:\Desktop\codex项目\whostv-current`;
+const DEFAULT_DIRECTORY = path.join(DEFAULT_VAULT, "脚本归档");
+const DEFAULT_STATE = path.join(DEFAULT_VAULT, ".loveav", "whostv-state.json");
 
 function usage(message = "") {
   if (message) console.error(message);
@@ -186,7 +187,9 @@ function buildConsoleScript(config) {
 
 function archive(directory, script, metadata) {
   fs.mkdirSync(directory, { recursive: true });
-  const scriptFile = path.join(directory, metadata.scriptName);
+  const generatedDirectory = path.join(directory, "generated");
+  fs.mkdirSync(generatedDirectory, { recursive: true });
+  const scriptFile = path.join(generatedDirectory, metadata.scriptName);
   fs.writeFileSync(scriptFile, `${script}\n`, "utf8");
   const archiveFile = path.join(directory, "whostv_scripts.md");
   const old = fs.existsSync(archiveFile) ? fs.readFileSync(archiveFile, "utf8").replace(/^\uFEFF/, "") : "";

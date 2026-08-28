@@ -4,14 +4,18 @@
 
 ## 固定目录与状态
 
-- 工作目录：`C:\Users\WJL\Desktop\windows\杂记\secret\beauty\whostv`
-- 脚本归档：`whostv_scripts.md`
+- Obsidian 仓库：`E:\Desktop\codex项目\whostv-current`
+- 最终文档：`已解决答案\YYYY-MM-DD.md`，日期按 `Asia/Shanghai` 计算
+- 脚本归档：`脚本归档\whostv_scripts.md`
+- 独立脚本：`脚本归档\generated\*.js`
 - 整理器：Skill 内的 `scripts/organize_whos_answers.js`
-- 当前状态：`references/whostv-state.json`
-- 最终文档：按 `Asia/Shanghai` 当天日期命名，例如 `2026-08-27.md`
+- 当前状态：`.loveav\whostv-state.json`
+- 原始返回 JSON：`.loveav\imports\whos_tv_solved_answers*.json`
 - 不生成分类 JSON。
 
-当前截止帖是 `/helps/10250`。`/helps/6270` 仅是旧历史截止点，不得用于新的增量抓取。每次成功校验和整理一批新 JSON 后，将第一条记录 URL 的 pathname 写为新截止点；如果它的帖子编号比现有截止点更旧，则不得倒退状态。
+Obsidian 仓库是 Whos.tv 私人数据的唯一当前目录。最终 Markdown 和脚本归档可在 Obsidian 中阅读；点目录 `.loveav` 只保存机器状态与原始输入，不能提交进 Skill 仓库。旧路径只作迁移备份，不再写入。
+
+截止帖必须在每次生成脚本时从 `.loveav\whostv-state.json` 读取，不能使用 Skill 内置的静态值。每次成功校验和整理一批新 JSON 后，将第一条记录 URL 的 pathname 写为新截止点；如果它的帖子编号比现有截止点更旧，则不得倒退状态。`/helps/6270` 仅是旧历史截止点，任何时候都不得回退使用。
 
 ## 抓取流程
 
@@ -27,7 +31,7 @@ node scripts/generate_whostv_scraper.js --pages n
 node scripts/generate_whostv_scraper.js --incremental
 ```
 
-生成器把独立 `.js` 和完整脚本说明追加到固定目录的 `whostv_scripts.md` 最前面。脚本必须由用户在 whos.tv 已解决列表页面的控制台运行。用户明确要求控制 Chrome 时，可先检查可见账户菜单与“登出”；未确认登录就停止。若安全策略不允许代理运行控制台脚本，交付生成的脚本让用户手动运行，不使用 `javascript:` URL、原始 CDP 或规避手段。
+生成器把独立 `.js` 写入 `脚本归档\generated`，并把完整脚本说明追加到 `脚本归档\whostv_scripts.md` 最前面。脚本必须由用户在 whos.tv 已解决列表页面的控制台运行。用户明确要求控制 Chrome 时，可先检查可见账户菜单与“登出”；未确认登录就停止。若安全策略不允许代理运行控制台脚本，交付生成的脚本让用户手动运行，不使用 `javascript:` URL、原始 CDP 或规避手段。
 
 抓取脚本必须：
 

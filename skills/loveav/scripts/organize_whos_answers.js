@@ -4,8 +4,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULT_DIRECTORY = String.raw`C:\Users\WJL\Desktop\windows\杂记\secret\beauty\whostv`;
-const DEFAULT_STATE = path.resolve(__dirname, "..", "references", "whostv-state.json");
+const DEFAULT_VAULT = String.raw`E:\Desktop\codex项目\whostv-current`;
+const DEFAULT_DIRECTORY = path.join(DEFAULT_VAULT, "已解决答案");
+const DEFAULT_STATE = path.join(DEFAULT_VAULT, ".loveav", "whostv-state.json");
 const TIME_ZONE = "Asia/Shanghai";
 
 function usage(message = "") {
@@ -80,7 +81,7 @@ function extractCodes(answer) {
     const key = code.toLowerCase();
     if (!seen.has(key)) { seen.add(key); found.push(code); }
   };
-  const pattern = /\bFC2[\t _-]*PPV[\t _-]*\d{5,9}\b|\b\d{6}-\d{3}\b|\b\d{3,6}-[A-Z]{2,8}\d{2,9}\b|\b[A-Z]{2,12}[\t _-]+\d{2,7}(?:[\t _-]+[A-Z0-9]{1,12})?\b/gi;
+  const pattern = /\bFC2[\t _-]*PPV[\t _-]*\d{5,9}\b|\b\d{6}-\d{3}\b|\b\d{3,6}-[A-Z]{2,8}\d{2,9}\b|\b[A-Z]{2,12}[\t _-]+\d{2,7}\b/gi;
   for (const match of text.matchAll(pattern)) {
     const fc2 = match[0].match(/^FC2[\t _-]*PPV[\t _-]*(\d{5,9})$/i);
     add(fc2 ? `FC2-PPV-${fc2[1]}` : match[0]);
@@ -280,7 +281,7 @@ function main() {
   const totalClassified = Object.values(groups).reduce((sum, rows) => sum + rows.length, 0);
   if (totalClassified !== validated.entries.length) throw new Error("四类数量之和不等于 JSON 总数。");
   const markdown = buildMarkdown(groups);
-  if (markdown.codes.some((code) => !/^(?:FC2-PPV-\d{5,9}|\d{6}-\d{3}|\d{3,6}-[A-Z]{2,8}\d{2,9}|[A-Z]{2,12}-\d{2,7}(?:-[A-Z0-9]{1,12})?)$/.test(code))) {
+  if (markdown.codes.some((code) => !/^(?:FC2-PPV-\d{5,9}|\d{6}-\d{3}|\d{3,6}-[A-Z]{2,8}\d{2,9}|[A-Z]{2,12}-\d{2,7})$/.test(code))) {
     throw new Error("番号列表中出现了非纯番号行。");
   }
   if (new Set(markdown.codes.map((code) => code.toLowerCase())).size !== markdown.codes.length) throw new Error("番号列表存在重复。");
