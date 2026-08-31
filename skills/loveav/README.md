@@ -30,6 +30,7 @@
 - 四个前置工具统一接受 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG、多文件和粘贴文本；支持时间筛选、选择、查重和历史语义。
 - 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
+- Svip 官方 PikPak 资源回复：区分 Telegram 已验证管理员来源、业务规则高可信回复、待复核与明确普通成员。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
 - Telegram Desktop 文件解析、消息规范化和时间筛选；个人 API、Bot、历史回拉、检查点和标记已读不启用。
 
@@ -59,3 +60,5 @@ Skill 只决定流程、规则和输出；本版本不包含 Telegram、Work/clo
 规则基线：Windows `missav-manager` v0.5.13（稳定提交 `4e2aad0`）。123AV 和 Telegram 的联网部分仅作为兼容参考，不属于当前启用范围；当前默认不联网、不自动标记已读、不直写 Raindrop。
 
 当前五个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案。
+
+Svip 官方资源回复是 Telegram 来源的专用预处理工作流，不作为新的内容工具计数。它消费 `tgctl` 结构化 JSON，在进入后续工具前完成来源证据分类。

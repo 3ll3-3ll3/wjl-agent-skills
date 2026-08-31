@@ -1,6 +1,6 @@
 ---
 name: loveav
-description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
+description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip 官方资源回复、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
 ---
 
 # 目标
@@ -21,6 +21,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - MissAV 主体库记录；
 - 自适应规则复核；
 - Whos.tv 已解决答案数据。
+- Svip 群中的官方 PikPak 资源回复。
 
 默认使用手动、本地处理。除非存在独立、受支持的适配器且用户明确要求，否则不得切换到 Telegram 联网执行、云端执行、Raindrop 远程写入或 123AV 账号操作。
 
@@ -70,6 +71,8 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 文件类型只是容器；具体提取内容由所选工具决定。一份输入可以同时运行多个工具，各工具独立应用自己的提取、过滤和复核规则。
 
 Whos.tv 使用单独的返回 JSON 工作流。
+
+Svip 官方资源回复使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。
 
 ## 预览与来源绑定
 
@@ -155,6 +158,7 @@ Whos.tv 使用单独的返回 JSON 工作流。
 - **Twitter**：创作者/handle 列表与主页 URL 列表分开；
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
+- **Svip 官方资源回复**：主结果只包含 Telegram 已验证管理员来源与业务规则高可信回复；待复核和明确排除分别报告；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
 条件允许时，应报告：输入数量、时间排除数量、无效数量、重复数量、历史数量、新结果数量、`review` 数量和错误数量。
@@ -239,6 +243,7 @@ results.query / results.copy / results.export
 script.generate(codes, missav_library, both_blacklists)
 whostv.script.generate(mode, pages_or_cutoff)
 whostv.answers.validate / whostv.answers.organize / whostv.state.update
+svip.resources.classify(tgctl_messages, private_source_config)
 library.preview_import / library.commit_confirmed / library.query / library.update / library.remove
 library.backup / library.verify / library.raindrop_filter
 rules.export / rules.import_preview
@@ -311,6 +316,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 7. 只保存了用户明确选择的派生数据，且 MissAV 默认只落盘本批 Raindrop 导入 CSV；
 8. 所有失败和未完成步骤都被准确报告；
 9. 没有泄露或持久化敏感凭据和 Telegram 原文。
+10. Svip 业务规则结果没有被错误描述为已验证的具体管理员身份。
 
 # 示例
 
@@ -339,6 +345,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/rule-learning.md`：候选复核、规则建议、晋级和回归；
 - `references/examples.md`：自然语言请求和预期回复结构；
 - `references/whostv-solved-answers.md`：Whos.tv 抓取、截止点、校验、分类和 Markdown 规则。
+- `references/svip-resource-replies.md`：Svip 官方 PikPak 回复的双层证据、分类与私人来源配置。
 
 如需从旧 SQLite 数据库执行一次性本地迁移，使用：
 
