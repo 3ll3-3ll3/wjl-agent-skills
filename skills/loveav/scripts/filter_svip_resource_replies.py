@@ -18,7 +18,11 @@ from urllib.parse import urlsplit
 SCHEMA_VERSION = 1
 TARGET_DOMAIN = "mypikpak.com"
 URL_RE = re.compile(
-    r"(?:https?://|www\.)[^\s<>\"'，。；：！？【】（）《》「」『』]+",
+    r"(?:https?://|www\.)[^\s<>\"'\u3400-\u9fff，。；：！？【】（）《》「」『』]+",
+    re.IGNORECASE,
+)
+PASSWORD_AFTER_URL_RE = re.compile(
+    r"^[\s,，;；|]*(?:密码|提取码|访问码|口令|pwd|password)\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})",
     re.IGNORECASE,
 )
 
@@ -86,13 +90,16 @@ def _load_chat_id(config_path: Path, source_name: str) -> int:
     return chat_id
 
 
-def _iter_urls(message: dict[str, Any]) -> Iterable[str]:
+def _iter_url_candidates(message: dict[str, Any]) -> Iterable[tuple[str, str | None]]:
     for key in ("text", "caption"):
         value = message.get(key)
         if not isinstance(value, str):
             continue
         for match in URL_RE.finditer(value):
-            yield match.group(0).rstrip(".,;:!?)]}，。；：！？】）》」』")
+            raw = match.group(0).rstrip(".,;:!?)]}，。；：！？】）》」』")
+            password_match = PASSWORD_AFTER_URL_RE.match(value[match.end() :])
+            password = password_match.group(1) if password_match else None
+            yield raw, password
 
     entities = message.get("entities")
     if isinstance(entities, list):
@@ -101,13 +108,13 @@ def _iter_urls(message: dict[str, Any]) -> Iterable[str]:
                 continue
             value = entity.get("url")
             if isinstance(value, str) and value:
-                yield value
+                yield value, None
 
 
-def _canonical_pikpak_urls(message: dict[str, Any]) -> list[str]:
-    result: list[str] = []
-    seen: set[str] = set()
-    for raw in _iter_urls(message):
+def _canonical_pikpak_resources(message: dict[str, Any]) -> list[dict[str, str | None]]:
+    result: list[dict[str, str | None]] = []
+    positions: dict[str, int] = {}
+    for raw, password in _iter_url_candidates(message):
         candidate = raw if "://" in raw else f"http://{raw}"
         try:
             parsed = urlsplit(candidate)
@@ -120,9 +127,13 @@ def _canonical_pikpak_urls(message: dict[str, Any]) -> list[str]:
             continue
         normalized = raw.rstrip(".,;:!?)]}")
         key = normalized.casefold()
-        if key not in seen:
-            result.append(normalized)
-            seen.add(key)
+        copy_text = f"{normalized} 密码: {password}" if password else normalized
+        resource = {"url": normalized, "password": password, "copy_text": copy_text}
+        if key not in positions:
+            positions[key] = len(result)
+            result.append(resource)
+        elif password and not result[positions[key]]["password"]:
+            result[positions[key]] = resource
     return result
 
 
@@ -212,8 +223,8 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
             counts["excluded_wrong_source"] += 1
             continue
 
-        urls = _canonical_pikpak_urls(message)
-        if not urls:
+        resources = _canonical_pikpak_resources(message)
+        if not resources:
             counts["excluded_no_pikpak_url"] += 1
             continue
 
@@ -222,7 +233,8 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
         record = {
             "message_id": message_id,
             "date": message.get("date"),
-            "pikpak_urls": urls,
+            "pikpak_urls": [resource["url"] for resource in resources],
+            "pikpak_resources": resources,
             "classification": classification,
             "evidence": evidence,
             "input_index": index,

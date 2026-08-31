@@ -147,6 +147,30 @@ def test_url_can_touch_chinese_punctuation() -> None:
     assert result["results"]["main"][0]["pikpak_urls"] == ["https://mypikpak.com/s/abc"]
 
 
+def test_password_after_url_is_bound_to_copyable_resource() -> None:
+    row = message(9, reply=9, photo=True)
+    row["text"] = "https://mypikpak.com/s/abc密码: cfg8"
+    result = classify(row)
+    record = result["results"]["main"][0]
+    assert record["pikpak_urls"] == ["https://mypikpak.com/s/abc"]
+    assert record["pikpak_resources"] == [
+        {
+            "url": "https://mypikpak.com/s/abc",
+            "password": "cfg8",
+            "copy_text": "https://mypikpak.com/s/abc 密码: cfg8",
+        }
+    ]
+
+
+def test_unlabelled_chinese_text_is_not_absorbed_into_resource() -> None:
+    row = message(10, reply=9, photo=True)
+    row["text"] = "https://mypikpak.com/s/abc正文说明"
+    result = classify(row)
+    resource = result["results"]["main"][0]["pikpak_resources"][0]
+    assert resource["url"] == "https://mypikpak.com/s/abc"
+    assert resource["password"] is None
+
+
 def test_wrong_chat_is_excluded_before_business_inference() -> None:
     row = message(1, reply=9, photo=True)
     row["chat_id"] = -1009999999999

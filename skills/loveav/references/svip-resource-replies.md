@@ -75,7 +75,9 @@ LoveAV-Data/config/telegram-sources.json
 python scripts/filter_svip_resource_replies.py <第一页.json> [更多页.json ...] --config <telegram-sources.json>
 ```
 
-只有用户明确要求长期保存时才使用 `--output`。默认在当前对话中返回结果，不保存 Telegram 原文。输出只包含消息 ID、日期、PikPak URL、分类与证据，不包含原始正文。
+只有用户明确要求长期保存时才使用 `--output`。默认在当前对话中返回结果，不保存 Telegram 原文。输出只包含消息 ID、日期、PikPak URL、与 URL 绑定的最小密码信息、可复制资源行、分类与证据，不包含其余原始正文。
+
+当 URL 后紧跟 `密码`、`提取码`、`访问码`、`口令`、`pwd` 或 `password` 时，必须把密码与对应 URL 绑定，并把 `URL 密码: xxxx` 作为一个完整可复制资源行。URL 字段本身仍保持合法，不能把“密码”汉字拼进 URL 路径，也不能丢弃访问密码。
 
 ## 结果说明
 

@@ -63,7 +63,7 @@ account_id + chat_id + message_id
 
 Svip 官方资源回复只接受包含 `chat_id`、`message_id`、结构化 `sender`、回复关系和媒体元数据的 `tgctl` JSON/JSONL。私人配置中的精确 `chat_id` 必须匹配；标题相似不能替代稳定键。
 
-输出分为主结果、待复核和排除三组。每条只保留消息 ID、日期、PikPak URL、分类和证据，不复制原始正文或伪造发送者身份。详细规则见 `svip-resource-replies.md`。
+输出分为主结果、待复核和排除三组。每条只保留消息 ID、日期、PikPak URL、与 URL 绑定的密码及可复制资源行、分类和证据，不复制其余原始正文或伪造发送者身份。详细规则见 `svip-resource-replies.md`。
 
 ## 结果结构
 
