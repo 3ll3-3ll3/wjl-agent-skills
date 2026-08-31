@@ -1,6 +1,6 @@
 # Svip 官方 PikPak 资源回复
 
-本规则用于处理已经由 `tgctl` 读取的 Svip 结构化消息。它不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。
+这是 LoveAV 的第六个主功能，用于处理已经由 `tgctl` 读取的 Svip 结构化消息。它不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。
 
 ## 适用条件
 

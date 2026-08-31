@@ -72,7 +72,7 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 
 Whos.tv 使用单独的返回 JSON 工作流。
 
-Svip 官方资源回复使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。
+Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。
 
 ## 预览与来源绑定
 
@@ -229,6 +229,12 @@ node scripts/organize_whos_answers.js <JSON路径>
 - 不把失败结果当成成功记录。
 
 Whos.tv 文档与 MissAV 主体库必须分开。只有用户另外选择，才能把 Whos.tv 中提取出的番号加入主体库。
+
+# Svip 官方 PikPak 资源回复
+
+把读取指定范围、识别官方资源形态、绑定 PikPak URL 与访问密码、输出主结果并单列可疑项视为第六个主功能。执行前读取 `references/svip-resource-replies.md`，并使用 `scripts/filter_svip_resource_replies.py` 完成确定性分类。
+
+该功能只读消费 `tgctl` 的消息结果：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。主结果、待复核和明确排除必须分别报告。
 
 # 宿主逻辑操作
 
