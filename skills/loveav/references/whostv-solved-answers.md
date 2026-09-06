@@ -36,10 +36,12 @@ node scripts/generate_whostv_scraper.js --incremental
 抓取脚本必须：
 
 - 校验 `location.hostname` 是 `whos.tv` 或其子域；
-- 通过当前已解决列表 URL修改 `page` 查询参数，不猜测另一个站点路径；
+- 从页面中真实存在的“已解决”入口读取基准 URL，并强制保留 `tab=solved`；即使用户当前停在“全部”列表，也只能抓取已解决列表；
+- 按网站真实分页结构请求：第 1 页为 `/helps?tab=solved`，后续为 `/helps/page-n?tab=solved`；需要兼容语言路径时必须从页面入口派生，不能凭空猜测；
 - 使用 `credentials: "include"`、`cache: "no-store"` 和页间延时；
 - 首选 `article[data-help-id], article[data-post-href]`；
 - 首选 `[data-post-answer-preview] p`，旧“答案：”结构只作回退；
+- 只允许忽略同时明确带有“置顶”和“官方公告”的非答案卡片，并把忽略项写入结果元数据；其他缺少答案区域的帖子必须报错，不能用静默跳过掩盖漏抓；
 - 保留答案内真正的 http/https 链接；
 - 在 0 条、空答案、HTTP 失败、重复 URL 或增量未找到截止帖时抛错且不下载文件；
 - 增量结果不包含截止帖；结果按最新到较旧顺序排列。

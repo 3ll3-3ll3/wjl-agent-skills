@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
+const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const organizer = path.join(root, "scripts", "organize_whos_answers.js");
@@ -18,6 +19,81 @@ function run(script, args) {
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function fakeArticle({ href, title, answer = null, announcement = false }) {
+  const heading = { textContent: title, querySelector: () => null };
+  const answerRegion = answer === null ? null : {
+    textContent: answer,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    cloneNode: () => ({ textContent: answer, querySelectorAll: () => [] }),
+  };
+  return {
+    textContent: announcement ? `置顶 Whos.tv 官方 官方公告 ${title}` : `已解决 ${title} ${answer || ""}`,
+    getAttribute: (name) => name === "data-post-href" ? href : null,
+    querySelector: (selector) => {
+      if (selector === "h2") return heading;
+      if (selector === "[data-post-answer-preview]") return answerRegion;
+      return null;
+    },
+  };
+}
+
+function scraperHarness(script, articles) {
+  const requests = [];
+  let downloadedBlob = null;
+  let downloadedName = "";
+  class CapturingURL extends URL {
+    static createObjectURL(blob) {
+      downloadedBlob = blob;
+      return "blob:whostv-test";
+    }
+    static revokeObjectURL() {}
+  }
+  const visibleControl = (textContent, isAccount = false) => ({
+    textContent,
+    matches: () => isAccount,
+    getBoundingClientRect: () => ({ width: 10, height: 10 }),
+  });
+  const solvedTabLink = { getAttribute: () => "/helps?tab=solved" };
+  const context = {
+    Blob,
+    URL: CapturingURL,
+    console: { log() {} },
+    location: { hostname: "whos.tv", href: "https://whos.tv/helps" },
+    getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+    setTimeout() {},
+    document: {
+      body: { appendChild() {} },
+      querySelectorAll: (selector) => selector === "a[href]"
+        ? [solvedTabLink]
+        : [visibleControl("账户", true), visibleControl("登出")],
+      createElement: () => ({
+        href: "",
+        download: "",
+        click() { downloadedName = this.download; },
+        remove() {},
+      }),
+    },
+    DOMParser: class {
+      parseFromString() {
+        return {
+          querySelectorAll: () => articles,
+        };
+      }
+    },
+    fetch: async (url) => {
+      requests.push(String(url));
+      return { ok: true, text: async () => "<html></html>" };
+    },
+  };
+  return {
+    requests,
+    run: () => vm.runInNewContext(script, context),
+    downloadedBlob: () => downloadedBlob,
+    downloadedName: () => downloadedName,
+  };
 }
 
 function fixtureEntries() {
@@ -110,11 +186,69 @@ test("generator archives newest script first and copies organizer", (t) => {
   assert.match(script, /credentials: 'include'/);
   assert.match(script, /cache: 'no-store'/);
   assert.match(script, /article\[data-help-id\]/);
+  assert.match(script, /searchParams\.get\('tab'\) === 'solved'/);
+  assert.match(script, /solvedListBasePath \+ '\/page-' \+ page/);
+  assert.match(script, /searchParams\.set\('tab', 'solved'\)/);
+  assert.doesNotMatch(script, /searchParams\.set\('page', String\(page\)\)/);
+  assert.match(script, /else answer = textWithLinks\(answerRegion, pageUrl\)/);
+  assert.match(script, /置顶官方公告，不是已解决答案/);
+  assert.match(script, /为避免漏抓，停止且不下载/);
+  assert.match(script, /ignoredNonAnswerCards/);
   assert.match(script, /\/helps\/10250/);
   const archive = fs.readFileSync(report.archiveFile, "utf8");
   assert.ok(archive.indexOf("Whos.tv 增量抓取") < archive.indexOf("Whos.tv 第 1-3 页抓取"));
   assert.equal(path.basename(path.dirname(report.scriptFile)), "generated");
   assert.equal(fs.existsSync(report.organizerFile), true);
+});
+
+test("generated scraper forces solved list and reads an answer container without p", async (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-runtime-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const state = path.join(temp, "state.json");
+  writeJson(state, {
+    lastProcessedDate: "2026-08-27",
+    cutoffPath: "/helps/10260",
+    nextJsonName: "whos_tv_solved_answers_since_2026-08-27.json",
+  });
+  const generated = run(generator, ["--incremental", "--directory", temp, "--state", state]);
+  assert.equal(generated.status, 0, generated.stderr);
+  const report = JSON.parse(generated.stdout);
+  const script = fs.readFileSync(report.scriptFile, "utf8");
+  const harness = scraperHarness(script, [
+    fakeArticle({ href: "/helps/99999", title: "公告", announcement: true }),
+    fakeArticle({ href: "/helps/10261", title: "新答案", answer: "ABC-123\nhttps://example.com/a" }),
+    fakeArticle({ href: "/helps/10260", title: "截止帖", answer: "XYZ-789" }),
+  ]);
+
+  await harness.run();
+  assert.deepEqual(harness.requests, ["https://whos.tv/helps?tab=solved"]);
+  assert.equal(harness.downloadedName(), "whos_tv_solved_answers_since_2026-08-27.json");
+  const payload = JSON.parse(await harness.downloadedBlob().text());
+  assert.equal(payload.count, 1);
+  assert.equal(payload.entries[0].url, "https://whos.tv/helps/10261");
+  assert.equal(payload.entries[0].answer, "ABC-123\nhttps://example.com/a");
+  assert.equal(payload.ignoredNonAnswerCards.length, 1);
+  assert.equal(payload.ignoredNonAnswerCards[0].reason, "置顶官方公告，不是已解决答案");
+});
+
+test("generated scraper refuses an ordinary solved-list card without an answer", async (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-runtime-invalid-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const state = path.join(temp, "state.json");
+  writeJson(state, {
+    lastProcessedDate: "2026-08-27",
+    cutoffPath: "/helps/10260",
+    nextJsonName: "whos_tv_solved_answers_since_2026-08-27.json",
+  });
+  const generated = run(generator, ["--incremental", "--directory", temp, "--state", state]);
+  assert.equal(generated.status, 0, generated.stderr);
+  const script = fs.readFileSync(JSON.parse(generated.stdout).scriptFile, "utf8");
+  const harness = scraperHarness(script, [
+    fakeArticle({ href: "/helps/10261", title: "缺少答案" }),
+  ]);
+
+  await assert.rejects(harness.run(), /没有已采纳答案区域/);
+  assert.equal(harness.downloadedBlob(), null);
 });
 
 function readJson(file) {

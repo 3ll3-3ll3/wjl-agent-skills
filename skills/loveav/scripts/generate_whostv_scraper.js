@@ -73,9 +73,28 @@ function buildConsoleScript(config) {
   if (!hasAccountMenu || !hasLogout) {
     throw new Error('未通过可见账户菜单和“登出”确认登录。请先登录并展开账户菜单，然后重新运行。');
   }
-  if (!document.querySelector('article[data-help-id], article[data-post-href]')) {
-    throw new Error('当前页面不像 whos.tv 已解决列表页：没有找到帖子 article。');
+  const solvedTabLink = [...document.querySelectorAll('a[href]')].find((anchor) => {
+    try {
+      const candidate = new URL(anchor.getAttribute('href'), location.href);
+      return candidate.searchParams.get('tab') === 'solved' && /\/helps(?:\/page-\d+)?\/?$/.test(candidate.pathname);
+    } catch { return false; }
+  });
+  if (!solvedTabLink) {
+    throw new Error('找不到求助社区的“已解决”入口，页面结构可能已经变化，停止且不下载。');
   }
+  const solvedListBaseUrl = new URL(solvedTabLink.getAttribute('href'), location.href);
+  const solvedListBasePath = solvedListBaseUrl.pathname.replace(/\/page-\d+\/?$/, '').replace(/\/$/, '');
+  if (!/\/helps$/.test(solvedListBasePath)) {
+    throw new Error('“已解决”入口路径不符合预期，停止且不下载。');
+  }
+  const buildSolvedPageUrl = (page) => {
+    const pageUrl = new URL(solvedListBaseUrl.href);
+    pageUrl.pathname = page === 1 ? solvedListBasePath : solvedListBasePath + '/page-' + page;
+    pageUrl.searchParams.delete('page');
+    pageUrl.searchParams.set('tab', 'solved');
+    pageUrl.hash = '';
+    return pageUrl;
+  };
 
   const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
   const absolute = (value, base) => new URL(value, base).href;
@@ -98,7 +117,9 @@ function buildConsoleScript(config) {
     const documentForPage = new DOMParser().parseFromString(html, 'text/html');
     const articles = [...documentForPage.querySelectorAll('article[data-help-id], article[data-post-href]')];
     if (!articles.length) throw new Error('第 ' + page + ' 页解析为 0 条，停止且不下载。');
-    return articles.map((article, index) => {
+    const rows = [];
+    const ignored = [];
+    for (const [index, article] of articles.entries()) {
       const heading = article.querySelector('h2');
       const link = article.getAttribute('data-post-href') || heading?.querySelector('a[href*="/helps/"]')?.getAttribute('href') || '';
       if (!link) throw new Error('第 ' + page + ' 页第 ' + (index + 1) + ' 条找不到帖子地址。');
@@ -106,29 +127,43 @@ function buildConsoleScript(config) {
       const title = (heading?.textContent || '').replace(/\s+/g, ' ').trim();
       if (!title) throw new Error('第 ' + page + ' 页第 ' + (index + 1) + ' 条标题为空。');
       const answerRegion = article.querySelector('[data-post-answer-preview]');
-      let answer = '';
-      if (answerRegion) {
-        const paragraphs = [...answerRegion.querySelectorAll('p')];
-        answer = (paragraphs.length ? paragraphs.map((paragraph) => textWithLinks(paragraph, pageUrl)) : [textWithLinks(answerRegion, pageUrl)]).filter(Boolean).join('\n');
+      const articleText = (article.textContent || '').replace(/\s+/g, ' ').trim();
+      const isPinnedAnnouncement = !answerRegion && /置顶/u.test(articleText) && /官方公告/u.test(articleText);
+      if (isPinnedAnnouncement) {
+        ignored.push({ page, position: index + 1, title, url, reason: '置顶官方公告，不是已解决答案' });
+        continue;
       }
+      if (!answerRegion) {
+        throw new Error(
+          '第 ' + page + ' 页第 ' + (index + 1) + ' 条（' + title +
+          '）没有已采纳答案区域。为避免漏抓，停止且不下载；请确认网站“已解决”筛选和页面结构。'
+        );
+      }
+      let answer = '';
+      const explicitAnswerBody = answerRegion.querySelector('[data-answer-body], [data-answer-text], .answer-content');
+      const paragraphs = [...answerRegion.querySelectorAll('p')];
+      if (explicitAnswerBody) answer = textWithLinks(explicitAnswerBody, pageUrl);
+      else if (paragraphs.length) answer = paragraphs.map((paragraph) => textWithLinks(paragraph, pageUrl)).filter(Boolean).join('\n');
+      else answer = textWithLinks(answerRegion, pageUrl);
       if (!answer) {
         const fallback = (article.textContent || '').match(/答案[：:]\s*([\s\S]+)$/u);
         answer = fallback ? fallback[1].trim() : '';
       }
       if (!answer) throw new Error('第 ' + page + ' 页第 ' + (index + 1) + ' 条答案为空，停止且不下载。');
-      return { page, position: index + 1, title, answer, url, pageUrl };
-    });
+      rows.push({ page, position: index + 1, title, answer, url, pageUrl });
+    }
+    if (!rows.length) throw new Error('第 ' + page + ' 页没有可提取的已解决答案，停止且不下载。');
+    return { rows, ignored };
   };
   const fetchPage = async (page) => {
-    const pageUrl = new URL(location.href);
-    pageUrl.hash = '';
-    pageUrl.searchParams.set('page', String(page));
+    const pageUrl = buildSolvedPageUrl(page);
     const response = await fetch(pageUrl.href, { credentials: 'include', cache: 'no-store' });
     if (!response.ok) throw new Error('第 ' + page + ' 页请求失败：HTTP ' + response.status);
     return { pageUrl: pageUrl.href, html: await response.text() };
   };
 
   const entries = [];
+  const ignoredNonAnswerCards = [];
   const seenUrls = new Set();
   let stopFound = CONFIG.mode !== 'incremental';
   const append = (row) => {
@@ -140,14 +175,17 @@ function buildConsoleScript(config) {
   if (CONFIG.mode === 'pages') {
     for (let page = CONFIG.fromPage; page <= CONFIG.toPage; page += 1) {
       const fetched = await fetchPage(page);
-      for (const row of parsePage(fetched.html, page, fetched.pageUrl)) append(row);
+      const parsed = parsePage(fetched.html, page, fetched.pageUrl);
+      for (const row of parsed.rows) append(row);
+      ignoredNonAnswerCards.push(...parsed.ignored);
       if (page < CONFIG.toPage) await sleep(CONFIG.delayMs);
     }
   } else {
     outer: for (let page = 1; page <= CONFIG.maxPages; page += 1) {
       const fetched = await fetchPage(page);
-      const rows = parsePage(fetched.html, page, fetched.pageUrl);
-      for (const row of rows) {
+      const parsed = parsePage(fetched.html, page, fetched.pageUrl);
+      ignoredNonAnswerCards.push(...parsed.ignored);
+      for (const row of parsed.rows) {
         if (new URL(row.url).pathname.replace(/\/$/, '') === CONFIG.cutoffPath) {
           stopFound = true;
           break outer;
@@ -169,6 +207,7 @@ function buildConsoleScript(config) {
     stopFound,
     pageStart: CONFIG.fromPage,
     pageEnd: Math.max(...entries.map((entry) => entry.page)),
+    ignoredNonAnswerCards,
     entries,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -180,7 +219,13 @@ function buildConsoleScript(config) {
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-  console.log('Whos.tv 抓取完成', { count: entries.length, first: entries[0].url, last: entries.at(-1).url, output: CONFIG.outputFile });
+  console.log('Whos.tv 抓取完成', {
+    count: entries.length,
+    ignoredNonAnswerCards: ignoredNonAnswerCards.length,
+    first: entries[0].url,
+    last: entries.at(-1).url,
+    output: CONFIG.outputFile,
+  });
 })();`;
   return template.replace("__CONFIG__", JSON.stringify(config, null, 2));
 }
