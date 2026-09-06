@@ -72,7 +72,7 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 
 Whos.tv 使用单独的返回 JSON 工作流。
 
-Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。
+Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。默认结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
 
 用户明确要求直接读取 Telegram 时，优先通过 `scripts/tg_exporter_adapter.py` 自动定位并调用 `tgctl.exe`。先执行健康检查，再按用户要求的总数量自动分页；不得让用户手动拼接各页。任何后续页失败都必须报告部分失败，不能把已取到的前几页声称为完整结果。未明确要求联网读取时，继续使用默认手动输入模式。
 
@@ -160,7 +160,7 @@ Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/
 - **Twitter**：创作者/handle 列表与主页 URL 列表分开；
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
-- **Svip 官方资源回复**：主结果只包含 Telegram 已验证管理员来源与业务规则高可信回复；待复核和明确排除分别报告；
+- **Svip 官方资源回复**：先输出包含原消息文字、PikPak 链接和密码的完整消息块，再可选输出纯资源行；主结果只包含 Telegram 已验证管理员来源与业务规则高可信回复，待复核和明确排除分别报告；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
 条件允许时，应报告：输入数量、时间排除数量、无效数量、重复数量、历史数量、新结果数量、`review` 数量和错误数量。
@@ -234,9 +234,11 @@ Whos.tv 文档与 MissAV 主体库必须分开。只有用户另外选择，才�
 
 # Svip 官方 PikPak 资源回复
 
-把读取指定范围、识别官方资源形态、绑定 PikPak URL 与访问密码、输出主结果并单列可疑项视为第六个主功能。执行前读取 `references/svip-resource-replies.md`，并使用 `scripts/filter_svip_resource_replies.py` 完成确定性分类。
+把读取指定范围、识别官方资源形态、绑定 PikPak URL 与访问密码、保留命中消息的完整文字、输出主结果并单列可疑项视为第六个主功能。执行前读取 `references/svip-resource-replies.md`，并使用 `scripts/filter_svip_resource_replies.py` 完成确定性分类。
 
-该功能只读消费 `tgctl` 的消息结果：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。主结果、待复核和明确排除必须分别报告。适配器自动定位、兼容性检查、分页和失败语义见 `references/tg-exporter-integration.md`。
+识别和输出默认只读：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。主结果、待复核和明确排除必须分别报告。
+
+用户明确要求转发主结果时，先通过会话列表确认唯一目标群组，再生成 dry-run 预览，显示来源、目标、消息数和消息 ID 范围。只有用户在最终负责时刻再次确认后，才能通过 `tgctl forward` 真实转发。默认只转发主结果；`review` 项需用户单独选中。不得用 `send` 重新拼接来替代真转发，除非用户明确要求发送重组文本。适配器自动定位、兼容性检查、分页、转发预览和失败语义见 `references/tg-exporter-integration.md`。
 
 # 宿主逻辑操作
 
@@ -252,6 +254,8 @@ script.generate(codes, missav_library, both_blacklists)
 whostv.script.generate(mode, pages_or_cutoff)
 whostv.answers.validate / whostv.answers.organize / whostv.state.update
 svip.resources.classify(tgctl_messages, private_source_config)
+svip.resources.forward_preview(source_chat, destination_chat, message_ids)
+svip.resources.forward_confirmed(source_chat, destination_chat, message_ids)
 library.preview_import / library.commit_confirmed / library.query / library.update / library.remove
 library.backup / library.verify / library.raindrop_filter
 rules.export / rules.import_preview

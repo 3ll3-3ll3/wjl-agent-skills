@@ -18,6 +18,8 @@ EXPECTED_READER_SCHEMA = "tgctl.reader.v1"
 MINIMUM_TGCTL_VERSION = (0, 3, 2)
 MAX_PAGE_SIZE = 500
 MAX_PAGES = 1000
+MAX_FORWARD_BATCH = 200
+FORWARD_CONFIRMATION = "FORWARD_SVIP_RESOURCES"
 _VERSION_RE = re.compile(r"(?:^|[^0-9])v?(\d+)\.(\d+)\.(\d+)(?:[^0-9]|$)", re.IGNORECASE)
 
 
@@ -425,6 +427,78 @@ def collect_pages(
     }
 
 
+def list_dialogs(
+    located: LocatedTgctl,
+    *,
+    search: str | None = None,
+    limit: int = 100,
+    timeout: float = 120.0,
+    runner: Runner = _default_runner,
+) -> dict[str, Any]:
+    if limit < 1 or limit > MAX_PAGE_SIZE:
+        raise AdapterError("INVALID_ARGUMENT", f"limit 必须在 1 到 {MAX_PAGE_SIZE} 之间。")
+    arguments = ["dialogs", "list", "--limit", str(limit)]
+    if search:
+        arguments.extend(["--search", search])
+    arguments.append("--json")
+    return run_tgctl_json(located.path, arguments, timeout=timeout, runner=runner)
+
+
+def forward_messages(
+    located: LocatedTgctl,
+    *,
+    source_chat: str,
+    destination_chat: str,
+    message_ids: list[int],
+    confirmation: str | None = None,
+    timeout: float = 120.0,
+    runner: Runner = _default_runner,
+) -> dict[str, Any]:
+    """预览或执行 Telegram 真转发。
+
+    默认只调用 tgctl dry-run。只有当当前 Agent 已在最终负责时刻获得用户
+    明确确认，并传入固定确认词时，才发起远程写入。
+    """
+
+    normalized_ids = list(dict.fromkeys(int(value) for value in message_ids))
+    if not normalized_ids or any(value <= 0 for value in normalized_ids):
+        raise AdapterError("INVALID_ARGUMENT", "转发消息 ID 必须是正整数且不能为空。")
+    if len(normalized_ids) > MAX_FORWARD_BATCH:
+        raise AdapterError(
+            "FORWARD_BATCH_TOO_LARGE",
+            f"单次转发最多 {MAX_FORWARD_BATCH} 条。",
+            {"requested": len(normalized_ids), "maximum": MAX_FORWARD_BATCH},
+        )
+
+    confirmed = confirmation == FORWARD_CONFIRMATION
+    arguments = [
+        "forward",
+        "--from",
+        source_chat,
+        "--to",
+        destination_chat,
+        "--ids",
+        *(str(value) for value in normalized_ids),
+    ]
+    if len(normalized_ids) > 20:
+        arguments.append("--allow-large-batch")
+    if not confirmed:
+        arguments.append("--dry-run")
+    arguments.append("--json")
+
+    payload = run_tgctl_json(located.path, arguments, timeout=timeout, runner=runner)
+    return {
+        "schema": ADAPTER_SCHEMA,
+        "ok": True,
+        "dry_run": not confirmed,
+        "source_chat": source_chat,
+        "destination_chat": destination_chat,
+        "message_count": len(normalized_ids),
+        "message_ids": normalized_ids,
+        "tgctl": payload.get("data"),
+    }
+
+
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path = path.expanduser().resolve(strict=False)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -443,6 +517,16 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("locate")
     subparsers.add_parser("health")
+
+    dialogs = subparsers.add_parser("dialogs")
+    dialogs.add_argument("--search")
+    dialogs.add_argument("--limit", type=int, default=100)
+
+    forward = subparsers.add_parser("forward")
+    forward.add_argument("--from-chat", required=True)
+    forward.add_argument("--to-chat", required=True)
+    forward.add_argument("--ids", nargs="+", type=int, required=True)
+    forward.add_argument("--confirm", help=f"真实转发时必须精确输入 {FORWARD_CONFIRMATION}")
 
     def add_page_options(command: argparse.ArgumentParser, *, chat_required: bool) -> None:
         command.add_argument("--chat", required=chat_required)
@@ -488,6 +572,28 @@ def main(argv: list[str] | None = None) -> int:
             }
         elif args.command == "health":
             payload = health_check(located, timeout=min(args.timeout, 30.0))
+        elif args.command == "dialogs":
+            health = health_check(located, timeout=min(args.timeout, 30.0))
+            if not health["authorized"]:
+                raise AdapterError("NOT_AUTHORIZED", "Telegram 尚未登录，请先打开 TG Exporter GUI 完成登录。")
+            payload = list_dialogs(
+                located,
+                search=args.search,
+                limit=args.limit,
+                timeout=args.timeout,
+            )
+        elif args.command == "forward":
+            health = health_check(located, timeout=min(args.timeout, 30.0))
+            if not health["authorized"]:
+                raise AdapterError("NOT_AUTHORIZED", "Telegram 尚未登录，请先打开 TG Exporter GUI 完成登录。")
+            payload = forward_messages(
+                located,
+                source_chat=args.from_chat,
+                destination_chat=args.to_chat,
+                message_ids=args.ids,
+                confirmation=args.confirm,
+                timeout=args.timeout,
+            )
         else:
             health = health_check(located, timeout=min(args.timeout, 30.0))
             if not health["compatible"]:

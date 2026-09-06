@@ -1,6 +1,6 @@
 # Svip 官方 PikPak 资源回复
 
-这是 LoveAV 的第六个主功能，用于处理由 `tgctl` 读取的 Svip 结构化消息。用户明确要求直接读取 Telegram 时，LoveAV 可通过只读适配器调用 `tgctl`；分类器自身不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。
+这是 LoveAV 的第六个主功能，用于处理由 `tgctl` 读取的 Svip 结构化消息。用户明确要求直接读取 Telegram 时，LoveAV 可通过适配器调用 `tgctl`；分类器自身不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。用户可在结果确认后另行要求把选中的原消息真实转发到另一个 Telegram 会话。
 
 ## 适用条件
 
@@ -87,9 +87,39 @@ python scripts/tg_exporter_adapter.py search --chat <Svip-ref> --sender-role adm
 python scripts/filter_svip_resource_replies.py <第一页.json> [更多页.json ...] --config <telegram-sources.json>
 ```
 
-只有用户明确要求长期保存时才使用 `--output`。默认在当前对话中返回结果，不保存 Telegram 原文。输出只包含消息 ID、日期、PikPak URL、与 URL 绑定的最小密码信息、可复制资源行、分类与证据，不包含其余原始正文。
+只有用户明确要求长期保存时才使用 `--output`。默认在当前对话中返回结果，不把 Telegram 原文写入长期文件或日志。
 
-当 URL 后紧跟 `密码`、`提取码`、`访问码`、`口令`、`pwd` 或 `password` 时，必须把密码与对应 URL 绑定，并把 `URL 密码: xxxx` 作为一个完整可复制资源行。URL 字段本身仍保持合法，不能把“密码”汉字拼进 URL 路径，也不能丢弃访问密码。
+每个命中记录必须包含：
+
+- `message_text`：保留消息的可见 `text` 和 `caption`；
+- `message_copy_text`：用于整体复制，保留原文，并追加只存在于富文本 entity 中的隐藏 PikPak URL；
+- 消息 ID、日期、是否含图片、PikPak URL、密码、分类和证据。
+
+面向用户时，默认一条命中消息对应一个完整消息块，不得只剩 URL。可以额外给出一行一个的纯资源列表，但它不代替完整消息块。
+
+当 URL 后紧跟 `密码`、`提取码`、`访问码`、`口令`、`pwd` 或 `password` 时，必须把密码与对应 URL 绑定。如果整条消息仅有一个 PikPak URL 且仅有一个唯一密码，即使密码在链接前或另一行，也必须回退绑定。多链接或多密码无法确定对应关系时不得猜测，应进入待复核。可复制资源行统一为 `URL 密码: xxxx`。URL 字段本身仍保持合法，不能把“密码”汉字拼进 URL 路径，也不能丢弃访问密码。
+
+## 转发到收藏群
+
+需要保留原消息的文字、媒体和转发来源时，必须使用 Telegram 真转发，不要用纯文本 `send` 代替。
+
+1. 先使用 `dialogs --search` 查找目标会话，并以稳定 ID 确认唯一目标；同名、模糊匹配或无权发送时必须停止。
+2. 默认只取 `main` 的原消息 ID；`review` 不得自动混入。
+3. 先执行 dry-run，显示来源、目标、数量、去重后消息 ID 和批次边界。
+4. 转发会改变远程账号状态；只有用户在最终负责时刻明确确认后，才传入 `FORWARD_SVIP_RESOURCES` 实际执行。
+5. 单次最多 200 条。发送后连接中断并返回 `WRITE_OUTCOME_UNKNOWN` 时不得自动重试；应先读取目标群核对已到达的消息。
+
+预览：
+
+```powershell
+python scripts/tg_exporter_adapter.py forward --from-chat <Svip-ref> --to-chat <收藏群-ref> --ids <消息ID...>
+```
+
+在用户确认后真实转发：
+
+```powershell
+python scripts/tg_exporter_adapter.py forward --from-chat <Svip-ref> --to-chat <收藏群-ref> --ids <消息ID...> --confirm FORWARD_SVIP_RESOURCES
+```
 
 ## 结果说明
 

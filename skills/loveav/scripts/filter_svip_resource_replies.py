@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 TARGET_DOMAIN = "mypikpak.com"
 URL_RE = re.compile(
     r"(?:https?://|www\.)[^\s<>\"'\u3400-\u9fff，。；：！？【】（）《》「」『』]+",
@@ -23,6 +23,10 @@ URL_RE = re.compile(
 )
 PASSWORD_AFTER_URL_RE = re.compile(
     r"^[\s,，;；|]*(?:密码|提取码|访问码|口令|pwd|password)\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})",
+    re.IGNORECASE,
+)
+PASSWORD_ANYWHERE_RE = re.compile(
+    r"(?:密码|提取码|访问码|口令|pwd|password)\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})",
     re.IGNORECASE,
 )
 
@@ -134,7 +138,54 @@ def _canonical_pikpak_resources(message: dict[str, Any]) -> list[dict[str, str |
             result.append(resource)
         elif password and not result[positions[key]]["password"]:
             result[positions[key]] = resource
+
+    # Svip 的部分资源消息会把密码放在链接之前或另一行。只有当整条消息仅有
+    # 一个 PikPak 链接且仅有一个唯一密码时才回退绑定，避免多链接时猜错对应关系。
+    if len(result) == 1 and not result[0]["password"]:
+        password_candidates: list[str] = []
+        for key in ("text", "caption"):
+            value = message.get(key)
+            if not isinstance(value, str):
+                continue
+            for match in PASSWORD_ANYWHERE_RE.finditer(value):
+                password = match.group(1)
+                if password.casefold() not in {item.casefold() for item in password_candidates}:
+                    password_candidates.append(password)
+        if len(password_candidates) == 1:
+            password = password_candidates[0]
+            result[0] = {
+                "url": result[0]["url"],
+                "password": password,
+                "copy_text": f"{result[0]['url']} 密码: {password}",
+            }
     return result
+
+
+def _message_content(message: dict[str, Any], resources: list[dict[str, str | None]]) -> tuple[str, str]:
+    """返回原消息文字和可复制的完整文字。
+
+    `message_text` 保留 Telegram 返回的 text/caption；`message_copy_text` 还会把
+    富文本 entity 中存在、但可见文字没有展开的资源链接追加进来。
+    """
+
+    parts: list[str] = []
+    for key in ("text", "caption"):
+        value = message.get(key)
+        if not isinstance(value, str):
+            continue
+        normalized = value.strip()
+        if normalized and normalized not in parts:
+            parts.append(normalized)
+    message_text = "\n\n".join(parts)
+
+    appended: list[str] = []
+    folded_text = message_text.casefold()
+    for resource in resources:
+        url = str(resource["url"])
+        if url.casefold() not in folded_text:
+            appended.append(str(resource["copy_text"]))
+    message_copy_text = "\n".join(part for part in (message_text, *appended) if part)
+    return message_text, message_copy_text
 
 
 def _is_photo(message: dict[str, Any]) -> bool:
@@ -230,9 +281,13 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
 
         classification, evidence = _classify(message, chat_id)
         counts[classification] += 1
+        message_text, message_copy_text = _message_content(message, resources)
         record = {
             "message_id": message_id,
             "date": message.get("date"),
+            "message_text": message_text,
+            "message_copy_text": message_copy_text,
+            "has_photo": _is_photo(message),
             "pikpak_urls": [resource["url"] for resource in resources],
             "pikpak_resources": resources,
             "classification": classification,

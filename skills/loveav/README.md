@@ -30,7 +30,7 @@
 - 四个前置工具统一接受 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG、多文件和粘贴文本；支持时间筛选、选择、查重和历史语义。
 - 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
-- Svip 官方 PikPak 资源回复：区分 Telegram 已验证管理员来源、业务规则高可信回复、待复核与明确普通成员。
+- Svip 官方 PikPak 资源回复：区分 Telegram 已验证管理员来源、业务规则高可信回复、待复核与明确普通成员；输出保留命中消息的完整文字、链接与密码。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
 - Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手只读访问个人账号的会话历史与搜索。Bot、自动检查点和标记已读不启用。
 
@@ -68,7 +68,7 @@ python scripts/tg_exporter_adapter.py health
 python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 ```
 
-适配器默认不保存原始消息，不发送、不转发、不下载媒体，也不标记已读。
+适配器默认不保存原始消息，不发送、不下载媒体，也不标记已读。Svip 主结果可在目标群唯一确认、dry-run 预览和用户最终确认后，通过 Telegram 真转发保留原消息内容和媒体。
 
 ## 版本与边界
 
@@ -76,4 +76,4 @@ python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 
 当前六个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip 官方 PikPak 资源回复。
 
-Svip 官方资源回复消费 `tgctl` 结构化 JSON，完成来源证据分类、URL 与密码绑定、主结果提取和可疑项单列；它是独立的第六个主功能。
+Svip 官方资源回复消费 `tgctl` 结构化 JSON，完成来源证据分类、URL 与密码绑定、完整消息文字输出、主结果提取和可疑项单列；还可在受确认保护的流程中把选中的原消息转发到收藏群。它是独立的第六个主功能。

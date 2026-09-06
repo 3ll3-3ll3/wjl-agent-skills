@@ -91,10 +91,23 @@ python scripts/tg_exporter_adapter.py search --chat <ref> --url-domain mypikpak.
 
 默认只把结构化结果交给当前 Agent 处理，不写原始消息文件。只有用户明确要求保存原始分页结果时才使用 `--output`。
 
+## 会话发现与转发
+
+LoveAV 可以通过适配器只读查找目标会话：
+
+```powershell
+python scripts/tg_exporter_adapter.py dialogs --search "<目标会话名>"
+```
+
+`forward` 默认始终是 dry-run。真实转发必须同时满足：用户明确要求、来源和目标稳定 ID 已确认、转发数量和消息 ID 预览已展示，以及最终负责时刻获得用户再次确认。
+
+如果要保留图片、caption 和 Telegram 原始消息语义，应使用 `forward`；`send` 只用于用户明确要求的重组纯文本。
+
 ## 安全边界
 
-- 自动适配器只调用 `version`、`status`、`messages history` 和 `messages search`。
-- 不自动调用 `send`、`forward`、媒体下载或任何标记已读功能。
+- 只读阶段调用 `version`、`status`、`dialogs list`、`messages history` 和 `messages search`。
+- `forward` 是受确认保护的可选写操作；无确认词时适配器只执行 dry-run。
+- 不自动调用 `send`、媒体下载或任何标记已读功能。
 - Telegram 登录仍由 TG Exporter GUI 完成。
 - 不记录或提交真实聊天正文、URL、群 ID、Session、API 凭据和日志。
 - Svip 分类继续遵循 `svip-resource-replies.md`，不能把业务高可信推断伪装成真实管理员身份。

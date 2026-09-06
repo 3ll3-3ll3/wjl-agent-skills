@@ -162,6 +162,26 @@ def test_password_after_url_is_bound_to_copyable_resource() -> None:
     ]
 
 
+def test_single_password_elsewhere_in_message_is_bound() -> None:
+    row = message(11, reply=9, photo=True)
+    row["text"] = "密码: sd7w\n资源 https://mypikpak.com/s/abc"
+    result = classify(row)
+    resource = result["results"]["main"][0]["pikpak_resources"][0]
+    assert resource == {
+        "url": "https://mypikpak.com/s/abc",
+        "password": "sd7w",
+        "copy_text": "https://mypikpak.com/s/abc 密码: sd7w",
+    }
+
+
+def test_multiple_unassigned_passwords_are_not_guessed() -> None:
+    row = message(12, reply=9, photo=True)
+    row["text"] = "密码: abcd\n备用密码: efgh\nhttps://mypikpak.com/s/abc"
+    result = classify(row)
+    resource = result["results"]["main"][0]["pikpak_resources"][0]
+    assert resource["password"] is None
+
+
 def test_unlabelled_chinese_text_is_not_absorbed_into_resource() -> None:
     row = message(10, reply=9, photo=True)
     row["text"] = "https://mypikpak.com/s/abc正文说明"
@@ -178,15 +198,26 @@ def test_wrong_chat_is_excluded_before_business_inference() -> None:
     assert result["summary"]["counts"]["excluded_wrong_source"] == 1
 
 
-def test_output_contains_no_raw_body_or_sender_identity() -> None:
+def test_output_contains_full_message_but_not_sender_identity() -> None:
     row = message(1, reply=9, photo=True)
     row["text"] = "私密说明 https://mypikpak.com/s/a"
     result = classify(row)
     record = result["results"]["main"][0]
-    assert "text" not in record
-    assert "caption" not in record
+    assert record["message_text"] == "私密说明 https://mypikpak.com/s/a"
+    assert record["message_copy_text"] == "私密说明 https://mypikpak.com/s/a"
+    assert record["has_photo"] is True
     assert "sender" not in record
     assert record["pikpak_urls"] == ["https://mypikpak.com/s/a"]
+
+
+def test_hidden_entity_url_is_appended_to_complete_copy_text() -> None:
+    row = message(13, reply=9, photo=True)
+    row["text"] = "点击这里查看资源"
+    row["entities"] = [{"type": "text_link", "url": "https://mypikpak.com/s/hidden"}]
+    result = classify(row)
+    record = result["results"]["main"][0]
+    assert record["message_text"] == "点击这里查看资源"
+    assert record["message_copy_text"] == "点击这里查看资源\nhttps://mypikpak.com/s/hidden"
 
 
 class TestSvipResourceReplies(unittest.TestCase):

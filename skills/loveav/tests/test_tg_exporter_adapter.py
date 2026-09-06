@@ -184,3 +184,59 @@ def test_repeated_cursor_stops_instead_of_looping(tmp_path: Path) -> None:
         )
 
     assert exc_info.value.code == "TGCTL_CURSOR_LOOP"
+
+
+def test_forward_defaults_to_dry_run_and_preserves_message_ids(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    calls: list[list[str]] = []
+
+    def runner(command: list[str], _timeout: float):
+        calls.append(command)
+        return completed(command, {"ok": True, "data": {"planned": 2}})
+
+    result = adapter.forward_messages(
+        located,
+        source_chat="-1001",
+        destination_chat="-1002",
+        message_ids=[10, 11, 10],
+        runner=runner,
+    )
+
+    assert result["dry_run"] is True
+    assert result["message_ids"] == [10, 11]
+    assert "--dry-run" in calls[0]
+    assert calls[0][-1] == "--json"
+
+
+def test_forward_requires_exact_confirmation_for_real_write(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    calls: list[list[str]] = []
+
+    def runner(command: list[str], _timeout: float):
+        calls.append(command)
+        return completed(command, {"ok": True, "data": {"forwarded": 21}})
+
+    result = adapter.forward_messages(
+        located,
+        source_chat="-1001",
+        destination_chat="-1002",
+        message_ids=list(range(1, 22)),
+        confirmation=adapter.FORWARD_CONFIRMATION,
+        runner=runner,
+    )
+
+    assert result["dry_run"] is False
+    assert "--dry-run" not in calls[0]
+    assert "--allow-large-batch" in calls[0]
+
+
+def test_forward_rejects_more_than_two_hundred_messages(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    with pytest.raises(adapter.AdapterError) as exc_info:
+        adapter.forward_messages(
+            located,
+            source_chat="-1001",
+            destination_chat="-1002",
+            message_ids=list(range(1, 202)),
+        )
+    assert exc_info.value.code == "FORWARD_BATCH_TOO_LARGE"
