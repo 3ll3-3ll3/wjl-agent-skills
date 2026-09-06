@@ -10,12 +10,15 @@ const DEFAULT_STATE = path.join(DEFAULT_VAULT, ".loveav", "whostv-state.json");
 
 function usage(message = "") {
   if (message) console.error(message);
-  console.error("用法：node generate_whostv_scraper.js (--pages n | --from 1 --to n | --incremental) [--directory 路径] [--state 状态JSON] [--reason 原因] [--delay 500]");
+  console.error("用法：node generate_whostv_scraper.js (--pages n | --from 1 --to n | --incremental) [--directory 路径] [--state 状态JSON] [--reason 原因] [--delay 500] [--timeout 30000]");
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const options = { mode: "", from: 1, to: 0, directory: DEFAULT_DIRECTORY, state: DEFAULT_STATE, reason: "按用户要求生成", delay: 500 };
+  const options = {
+    mode: "", from: 1, to: 0, directory: DEFAULT_DIRECTORY, state: DEFAULT_STATE,
+    reason: "按用户要求生成", delay: 500, timeout: 30000,
+  };
   const values = [...argv];
   while (values.length) {
     const token = values.shift();
@@ -27,11 +30,13 @@ function parseArgs(argv) {
     else if (token === "--state") options.state = values.shift() || usage("--state 缺少路径");
     else if (token === "--reason") options.reason = values.shift() || usage("--reason 缺少说明");
     else if (token === "--delay") options.delay = Number(values.shift());
+    else if (token === "--timeout") options.timeout = Number(values.shift());
     else usage(`未知参数：${token}`);
   }
   if (!options.mode) usage("必须指定 --pages、--to 或 --incremental");
   if (options.mode === "pages" && (!Number.isInteger(options.from) || !Number.isInteger(options.to) || options.from !== 1 || options.to < options.from)) usage("只支持第 1-n 页，起始页必须是 1");
   if (!Number.isInteger(options.delay) || options.delay < 200 || options.delay > 10000) usage("--delay 必须是 200-10000 毫秒");
+  if (!Number.isInteger(options.timeout) || options.timeout < 1000 || options.timeout > 120000) usage("--timeout 必须是 1000-120000 毫秒");
   return options;
 }
 
@@ -53,6 +58,59 @@ function buildConsoleScript(config) {
   const template = String.raw`(async () => {
   'use strict';
   const CONFIG = __CONFIG__;
+  const runtimeScope = typeof window === 'undefined' ? globalThis : window;
+  const runtimeKey = '__whosTvScrapeRuntime';
+  const startedAt = Date.now();
+  const entries = [];
+  const ignoredNonAnswerCards = [];
+  const seenUrls = new Set();
+  const seenPageSignatures = new Map();
+  let pagesRequested = 0;
+  let pagesProcessed = 0;
+  let activeController = null;
+  let cancelDelay = null;
+  let cancelRequested = false;
+  let downloaded = false;
+  let finalStatus = '失败';
+
+  if (runtimeScope[runtimeKey]?.active) {
+    throw new Error('已有 Whos.tv 抓取正在运行。请先执行 window.cancelWhosTvScrape()，等待其结束后再重试。');
+  }
+  const runState = { active: true };
+  runtimeScope[runtimeKey] = runState;
+  const cancellationError = () => {
+    const error = new Error('抓取已由用户取消，停止且不下载。');
+    error.name = 'WhosTvCancellationError';
+    return error;
+  };
+  const throwIfCancelled = () => {
+    if (cancelRequested) throw cancellationError();
+  };
+  const elapsedMs = () => Date.now() - startedAt;
+  runtimeScope.cancelWhosTvScrape = () => {
+    if (runtimeScope[runtimeKey] !== runState || !runState.active) {
+      console.log('[Whos.tv] 当前没有正在运行的抓取任务。');
+      return false;
+    }
+    if (cancelRequested) {
+      console.log('[Whos.tv] 取消请求已经收到，正在安全停止。');
+      return false;
+    }
+    cancelRequested = true;
+    if (activeController) activeController.abort();
+    if (cancelDelay) cancelDelay();
+    console.warn('[Whos.tv] 已收到取消请求；将停止抓取，不下载任何文件。');
+    return true;
+  };
+  console.log('[Whos.tv] 抓取已启动；控制台显示 Promise {<pending>} 属于正常现象，请以进度日志为准。', {
+    mode: CONFIG.mode,
+    pageRange: CONFIG.mode === 'pages' ? CONFIG.fromPage + '-' + CONFIG.toPage : '第 1 页至截止帖',
+    delayMs: CONFIG.delayMs,
+    requestTimeoutMs: CONFIG.requestTimeoutMs,
+    cancel: 'window.cancelWhosTvScrape()',
+  });
+
+  try {
   const host = location.hostname.toLowerCase();
   if (!(host === 'whos.tv' || host.endsWith('.whos.tv'))) {
     throw new Error('请先打开 whos.tv 的已解决列表页面，再运行此脚本。');
@@ -96,7 +154,18 @@ function buildConsoleScript(config) {
     return pageUrl;
   };
 
-  const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const sleep = (milliseconds) => new Promise((resolve, reject) => {
+    throwIfCancelled();
+    const timer = setTimeout(() => {
+      cancelDelay = null;
+      resolve();
+    }, milliseconds);
+    cancelDelay = () => {
+      clearTimeout(timer);
+      cancelDelay = null;
+      reject(cancellationError());
+    };
+  });
   const absolute = (value, base) => new URL(value, base).href;
   const realHttp = (value, base) => {
     try {
@@ -156,42 +225,129 @@ function buildConsoleScript(config) {
     return { rows, ignored };
   };
   const fetchPage = async (page) => {
+    throwIfCancelled();
     const pageUrl = buildSolvedPageUrl(page);
-    const response = await fetch(pageUrl.href, { credentials: 'include', cache: 'no-store' });
-    if (!response.ok) throw new Error('第 ' + page + ' 页请求失败：HTTP ' + response.status);
-    return { pageUrl: pageUrl.href, html: await response.text() };
+    const controller = new AbortController();
+    let timedOut = false;
+    pagesRequested += 1;
+    activeController = controller;
+    console.log('[Whos.tv] 第 ' + page + ' 页：开始请求', {
+      url: pageUrl.href,
+      timeoutMs: CONFIG.requestTimeoutMs,
+    });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, CONFIG.requestTimeoutMs);
+    try {
+      const response = await fetch(pageUrl.href, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      throwIfCancelled();
+      if (!response.ok) {
+        const error = new Error('第 ' + page + ' 页请求失败：HTTP ' + response.status + '，停止且不下载。');
+        error.name = 'WhosTvHttpError';
+        throw error;
+      }
+      const html = await response.text();
+      throwIfCancelled();
+      return { pageUrl: pageUrl.href, html };
+    } catch (error) {
+      if (cancelRequested || error?.name === 'WhosTvCancellationError') throw cancellationError();
+      if (timedOut) {
+        throw new Error('第 ' + page + ' 页请求超过 ' + CONFIG.requestTimeoutMs + ' 毫秒，停止且不下载。');
+      }
+      if (error?.name === 'WhosTvHttpError') throw error;
+      throw new Error('第 ' + page + ' 页网络请求失败：' + (error?.message || String(error)) + '，停止且不下载。');
+    } finally {
+      clearTimeout(timeout);
+      if (activeController === controller) activeController = null;
+    }
   };
-
-  const entries = [];
-  const ignoredNonAnswerCards = [];
-  const seenUrls = new Set();
   let stopFound = CONFIG.mode !== 'incremental';
-  const append = (row) => {
-    if (seenUrls.has(row.url)) throw new Error('发现重复帖子 URL：' + row.url);
+  const append = (row, page) => {
+    if (seenUrls.has(row.url)) {
+      throw new Error('第 ' + page + ' 页未取得分页进展：发现重复帖子 URL ' + row.url + '，停止且不下载。');
+    }
     seenUrls.add(row.url);
     entries.push(row);
   };
 
+  const shortTitle = (title) => {
+    const normalized = String(title || '').replace(/\s+/g, ' ').trim();
+    return normalized.length > 48 ? normalized.slice(0, 47) + '…' : normalized;
+  };
+  const rowPath = (row) => new URL(row.url).pathname.replace(/\/$/, '');
+  const processPage = async (page, stopAtCutoff) => {
+    throwIfCancelled();
+    const pageStartedAt = Date.now();
+    const fetched = await fetchPage(page);
+    const parsed = parsePage(fetched.html, page, fetched.pageUrl);
+    throwIfCancelled();
+    const signature = parsed.rows.map((row) => rowPath(row)).join('\n');
+    const repeatedFromPage = seenPageSignatures.get(signature);
+    if (repeatedFromPage !== undefined) {
+      throw new Error(
+        '第 ' + page + ' 页与第 ' + repeatedFromPage +
+        ' 页返回相同帖子列表，分页可能失效，停止且不下载。'
+      );
+    }
+    seenPageSignatures.set(signature, page);
+    ignoredNonAnswerCards.push(...parsed.ignored);
+    const cutoffIndex = stopAtCutoff ? parsed.rows.findIndex((row) => rowPath(row) === CONFIG.cutoffPath) : -1;
+    const rowsBeforeStop = cutoffIndex >= 0 ? parsed.rows.slice(0, cutoffIndex) : parsed.rows;
+    if (rowsBeforeStop.length && rowsBeforeStop.every((row) => seenUrls.has(row.url))) {
+      throw new Error(
+        '第 ' + page + ' 页没有带来新记录：该页待收录帖子 URL 全部已在前页出现，分页没有进展，停止且不下载。'
+      );
+    }
+    let acceptedOnPage = 0;
+    let foundCutoffOnPage = false;
+    for (const [index, row] of parsed.rows.entries()) {
+      throwIfCancelled();
+      const pathname = rowPath(row);
+      if (stopAtCutoff && pathname === CONFIG.cutoffPath) {
+        foundCutoffOnPage = true;
+        stopFound = true;
+        console.log(
+          '[Whos.tv] 第 ' + page + ' 页 ' + (index + 1) + '/' + parsed.rows.length +
+          ' | 累计 ' + entries.length + ' | 命中截止点，不收录 | ' + pathname + ' | ' + shortTitle(row.title)
+        );
+        break;
+      }
+      append(row, page);
+      acceptedOnPage += 1;
+      console.log(
+        '[Whos.tv] 第 ' + page + ' 页 ' + (index + 1) + '/' + parsed.rows.length +
+        ' | 累计 ' + entries.length + ' | ' + pathname + ' | ' + shortTitle(row.title)
+      );
+    }
+    pagesProcessed += 1;
+    console.log('[Whos.tv] 第 ' + page + ' 页：完成', {
+      extracted: parsed.rows.length,
+      accepted: acceptedOnPage,
+      ignored: parsed.ignored.length,
+      cumulative: entries.length,
+      cutoffFound: foundCutoffOnPage,
+      durationMs: Date.now() - pageStartedAt,
+    });
+    if (!foundCutoffOnPage && acceptedOnPage === 0) {
+      throw new Error('第 ' + page + ' 页没有带来任何新记录，分页没有进展，停止且不下载。');
+    }
+    return { foundCutoffOnPage };
+  };
+
   if (CONFIG.mode === 'pages') {
     for (let page = CONFIG.fromPage; page <= CONFIG.toPage; page += 1) {
-      const fetched = await fetchPage(page);
-      const parsed = parsePage(fetched.html, page, fetched.pageUrl);
-      for (const row of parsed.rows) append(row);
-      ignoredNonAnswerCards.push(...parsed.ignored);
+      await processPage(page, false);
       if (page < CONFIG.toPage) await sleep(CONFIG.delayMs);
     }
   } else {
-    outer: for (let page = 1; page <= CONFIG.maxPages; page += 1) {
-      const fetched = await fetchPage(page);
-      const parsed = parsePage(fetched.html, page, fetched.pageUrl);
-      ignoredNonAnswerCards.push(...parsed.ignored);
-      for (const row of parsed.rows) {
-        if (new URL(row.url).pathname.replace(/\/$/, '') === CONFIG.cutoffPath) {
-          stopFound = true;
-          break outer;
-        }
-        append(row);
-      }
+    for (let page = 1; page <= CONFIG.maxPages; page += 1) {
+      const result = await processPage(page, true);
+      if (result.foundCutoffOnPage) break;
       if (page < CONFIG.maxPages) await sleep(CONFIG.delayMs);
     }
     if (!stopFound) throw new Error('抓取到安全页数上限仍未找到截止帖 ' + CONFIG.cutoffPath + '，停止且不下载。');
@@ -203,6 +359,8 @@ function buildConsoleScript(config) {
     mode: CONFIG.mode,
     count: entries.length,
     generatedAt: new Date().toISOString(),
+    durationMs: elapsedMs(),
+    pagesFetched: pagesProcessed,
     cutoffPath: CONFIG.mode === 'incremental' ? CONFIG.cutoffPath : '',
     stopFound,
     pageStart: CONFIG.fromPage,
@@ -217,15 +375,48 @@ function buildConsoleScript(config) {
   anchor.download = CONFIG.outputFile;
   document.body.appendChild(anchor);
   anchor.click();
+  downloaded = true;
+  finalStatus = '成功';
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-  console.log('Whos.tv 抓取完成', {
+  console.log('[Whos.tv] 抓取完成', {
     count: entries.length,
+    pages: pagesProcessed,
+    durationMs: elapsedMs(),
     ignoredNonAnswerCards: ignoredNonAnswerCards.length,
     first: entries[0].url,
     last: entries.at(-1).url,
     output: CONFIG.outputFile,
   });
+  } catch (error) {
+    finalStatus = cancelRequested || error?.name === 'WhosTvCancellationError' ? '已取消' : '失败';
+    const report = {
+      status: finalStatus,
+      reason: error?.message || String(error),
+      pagesRequested,
+      pagesProcessed,
+      count: entries.length,
+      durationMs: elapsedMs(),
+      downloaded: false,
+      stateUpdated: false,
+    };
+    if (finalStatus === '已取消') console.warn('[Whos.tv] 抓取已取消；未下载文件，也未更新状态。', report);
+    else console.error('[Whos.tv] 抓取失败；未下载文件，也未更新状态。', report);
+    throw error;
+  } finally {
+    runState.active = false;
+    activeController = null;
+    cancelDelay = null;
+    console.log('[Whos.tv] 运行结束', {
+      status: finalStatus,
+      pagesRequested,
+      pagesProcessed,
+      count: entries.length,
+      durationMs: elapsedMs(),
+      downloaded,
+      stateUpdated: false,
+    });
+  }
 })();`;
   return template.replace("__CONFIG__", JSON.stringify(config, null, 2));
 }
@@ -262,7 +453,10 @@ function main() {
     const cutoffPath = String(state.cutoffPath || "");
     if (!/^\/helps\/\d+$/.test(cutoffPath)) throw new Error(`动态状态中的截止点无效：${cutoffPath}`);
     const outputFile = String(state.nextJsonName || `whos_tv_solved_answers_since_${state.lastProcessedDate || time.date}.json`);
-    config = { mode: "incremental", fromPage: 1, toPage: null, cutoffPath, outputFile, delayMs: options.delay, maxPages: 500 };
+    config = {
+      mode: "incremental", fromPage: 1, toPage: null, cutoffPath, outputFile,
+      delayMs: options.delay, requestTimeoutMs: options.timeout, maxPages: 500,
+    };
     metadata = {
       title: `Whos.tv 增量抓取（截止 ${cutoffPath}）`, purpose: "从第 1 页抓取到当前截止帖之前",
       range: `第 1 页开始；遇到 ${cutoffPath} 停止且不收录截止帖`, outputFile,
@@ -270,7 +464,10 @@ function main() {
     };
   } else {
     const outputFile = `whos_tv_solved_answers_pages_${options.from}-${options.to}.json`;
-    config = { mode: "pages", fromPage: options.from, toPage: options.to, cutoffPath: "", outputFile, delayMs: options.delay, maxPages: options.to };
+    config = {
+      mode: "pages", fromPage: options.from, toPage: options.to, cutoffPath: "", outputFile,
+      delayMs: options.delay, requestTimeoutMs: options.timeout, maxPages: options.to,
+    };
     metadata = {
       title: `Whos.tv 第 ${options.from}-${options.to} 页抓取`, purpose: "抓取指定范围的已解决页面",
       range: `第 ${options.from}-${options.to} 页`, outputFile,

@@ -31,6 +31,12 @@ node scripts/generate_whostv_scraper.js --pages n
 node scripts/generate_whostv_scraper.js --incremental
 ```
 
+每页请求默认超时 30 秒；只在网络明显较慢且用户知情时，才用 `--timeout` 调整为 1000-120000 毫秒。例如：
+
+```powershell
+node scripts/generate_whostv_scraper.js --incremental --timeout 45000
+```
+
 生成器把独立 `.js` 写入 `脚本归档\generated`，并把完整脚本说明追加到 `脚本归档\whostv_scripts.md` 最前面。脚本必须由用户在 whos.tv 已解决列表页面的控制台运行。用户明确要求控制 Chrome 时，可先检查可见账户菜单与“登出”；未确认登录就停止。若安全策略不允许代理运行控制台脚本，交付生成的脚本让用户手动运行，不使用 `javascript:` URL、原始 CDP 或规避手段。
 
 抓取脚本必须：
@@ -39,12 +45,20 @@ node scripts/generate_whostv_scraper.js --incremental
 - 从页面中真实存在的“已解决”入口读取基准 URL，并强制保留 `tab=solved`；即使用户当前停在“全部”列表，也只能抓取已解决列表；
 - 按网站真实分页结构请求：第 1 页为 `/helps?tab=solved`，后续为 `/helps/page-n?tab=solved`；需要兼容语言路径时必须从页面入口派生，不能凭空猜测；
 - 使用 `credentials: "include"`、`cache: "no-store"` 和页间延时；
+- 每页请求必须使用独立 `AbortController` 和超时计时器。超时、取消、HTTP 失败或其他网络错误都必须停止，并且不下载文件；
+- 启动时说明 Console 显示 `Promise {<pending>}` 在异步抓取期间属于正常现象，并给出明确的取消函数 `window.cancelWhosTvScrape()`；取消函数必须能中止当前请求或页间等待；
+- 每页开始请求时打印页码、URL 和超时；每成功收录一条立即打印单行进度，格式包含页码、页内序号、累计数、帖子 pathname 和最多 48 个字符的标题，不打印答案正文；
+- 命中增量截止帖时打印“命中截止点，不收录”，不得增加累计数，也不得继续处理该页更旧记录；
+- 每页完成时打印该页提取数、收录数、忽略数、累计数与耗时；整次结束时无论成功、失败或取消，都打印状态、已请求页数、已完成页数、累计数、总耗时、是否下载以及状态未更新；
+- 记录每页帖子 pathname 序列；若后续分页返回与前页相同的帖子列表，或某页没有带来新记录且没有命中截止帖，必须按分页失效或无进展报错；跨页重复帖子 URL 仍按严格校验报错；
 - 首选 `article[data-help-id], article[data-post-href]`；
 - 首选 `[data-post-answer-preview] p`，旧“答案：”结构只作回退；
 - 只允许忽略同时明确带有“置顶”和“官方公告”的非答案卡片，并把忽略项写入结果元数据；其他缺少答案区域的帖子必须报错，不能用静默跳过掩盖漏抓；
 - 保留答案内真正的 http/https 链接；
 - 在 0 条、空答案、HTTP 失败、重复 URL 或增量未找到截止帖时抛错且不下载文件；
 - 增量结果不包含截止帖；结果按最新到较旧顺序排列。
+
+浏览器抓取脚本只生成 JSON 下载，不读取或写入 `.loveav\whostv-state.json`。超时、取消、解析失败、重复页、无进展或网络错误时，不得创建部分 JSON；没有通过整理器校验的返回数据也不得更新截止点。
 
 ## JSON 校验与整理
 
