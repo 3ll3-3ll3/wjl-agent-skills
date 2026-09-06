@@ -1,6 +1,6 @@
 # Svip 官方 PikPak 资源回复
 
-这是 LoveAV 的第六个主功能，用于处理已经由 `tgctl` 读取的 Svip 结构化消息。它不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。
+这是 LoveAV 的第六个主功能，用于处理由 `tgctl` 读取的 Svip 结构化消息。用户明确要求直接读取 Telegram 时，LoveAV 可通过只读适配器调用 `tgctl`；分类器自身不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。
 
 ## 适用条件
 
@@ -69,7 +69,19 @@ LoveAV-Data/config/telegram-sources.json
 
 ## 运行
 
-先用 `tgctl messages history` 读取所需范围并保存 JSON，再运行：
+优先让适配器自动完成健康检查和分页，不要求用户手工保存、拼接每一页：
+
+```powershell
+python scripts/tg_exporter_adapter.py history --chat <Svip-ref> --total-limit 1000
+```
+
+也可对管理员与 PikPak 域名做结构化搜索：
+
+```powershell
+python scripts/tg_exporter_adapter.py search --chat <Svip-ref> --sender-role admin --url-domain mypikpak.com --total-limit 1000
+```
+
+适配器输出可直接交给分类器；只有用户明确要求落盘时，才保存 JSON 后运行：
 
 ```powershell
 python scripts/filter_svip_resource_replies.py <第一页.json> [更多页.json ...] --config <telegram-sources.json>

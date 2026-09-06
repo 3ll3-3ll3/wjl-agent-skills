@@ -1,0 +1,191 @@
+name: Release TG Exporter
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: startsWith(github.event.head_commit.message, 'release:') || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test
+        run: pytest -q
+
+      - name: GUI + daemon + reader + CLI import check
+        shell: pwsh
+        run: |
+          python -c "import telegram_exporter.daemon_gui; import telegram_exporter.daemon_main; import telegram_exporter.reader_service; import telegram_exporter.reader_search; import telegram_exporter.reader_topics; import telegram_exporter.reader_media; import telegram_exporter.tgctl; print('GUI + daemon + reader + tgctl import OK')"
+
+      - name: Source search-filter offline smoke
+        shell: pwsh
+        run: |
+          python tgctl_launcher.py --smoke-test-search-filters
+
+      - name: Build one-file TGExporter EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onefile --name TGExporter --paths src --distpath dist\onefile --workpath build\onefile launcher.py
+
+      - name: Build portable TGExporter onedir
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onedir --name TGExporter --paths src --distpath dist\portable --workpath build\portable launcher.py
+
+      - name: Build tgctl EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --console --onefile --hidden-import encodings.idna --name tgctl --paths src --distpath dist\tgctl --workpath build\tgctl tgctl_launcher.py
+          Copy-Item .\dist\tgctl\tgctl.exe .\dist\portable\TGExporter\tgctl.exe
+
+      - name: Packaged search-filter offline regression
+        shell: pwsh
+        run: |
+          & .\dist\tgctl\tgctl.exe --smoke-test-search-filters
+          if ($LASTEXITCODE -ne 0) { throw "standalone tgctl search-filter smoke failed: $LASTEXITCODE" }
+          & .\dist\portable\TGExporter\tgctl.exe --smoke-test-search-filters
+          if ($LASTEXITCODE -ne 0) { throw "portable tgctl search-filter smoke failed: $LASTEXITCODE" }
+
+      - name: Verify packaged tgctl SESSION_BUSY JSON and exit code
+        shell: pwsh
+        run: |
+          $originalAppData = $env:APPDATA
+          $testAppData = Join-Path $env:RUNNER_TEMP "tgctl-release-session-busy-appdata"
+          $holder = $null
+          try {
+            Remove-Item -Recurse -Force $testAppData -ErrorAction SilentlyContinue
+            $env:APPDATA = $testAppData
+            $appDir = Join-Path $testAppData "TelegramMultiChatExporter"
+            New-Item -ItemType Directory -Force $appDir | Out-Null
+            '{"api_id":12345,"api_hash":"ci-dummy-not-secret"}' | Set-Content -Encoding utf8 -NoNewline (Join-Path $appDir "api_credentials.json")
+
+            $readyFile = Join-Path $env:RUNNER_TEMP "tgctl-release-session-lock-ready.txt"
+            Remove-Item -Force $readyFile -ErrorAction SilentlyContinue
+            $holder = Start-Process python -ArgumentList @("tests\helpers\hold_session_lock.py", $readyFile) -PassThru -WindowStyle Hidden
+            for ($i = 0; $i -lt 50 -and -not (Test-Path $readyFile); $i++) {
+              Start-Sleep -Milliseconds 100
+            }
+            if (-not (Test-Path $readyFile)) {
+              throw "Session lock holder did not become ready"
+            }
+
+            function Assert-SessionBusyContract([string]$exePath) {
+              $psi = [System.Diagnostics.ProcessStartInfo]::new()
+              $psi.FileName = (Resolve-Path $exePath).Path
+              $psi.Arguments = "status --json"
+              $psi.UseShellExecute = $false
+              $psi.RedirectStandardOutput = $true
+              $psi.RedirectStandardError = $true
+              $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+              $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+              $process = [System.Diagnostics.Process]::Start($psi)
+              $stdout = $process.StandardOutput.ReadToEnd().Trim()
+              $stderr = $process.StandardError.ReadToEnd().Trim()
+              $process.WaitForExit()
+              $exitCode = $process.ExitCode
+
+              if (-not $stdout) {
+                throw "Packaged tgctl produced no JSON stdout: $exePath; stderr=$stderr"
+              }
+              $payload = $stdout | ConvertFrom-Json
+              if ($payload.ok -ne $false -or $payload.error.code -ne "SESSION_BUSY") {
+                throw "Expected SESSION_BUSY JSON from $exePath; got: $stdout"
+              }
+              if ($exitCode -ne 8) {
+                throw "Expected exit code 8 from $exePath; got $exitCode"
+              }
+            }
+
+            Assert-SessionBusyContract ".\dist\tgctl\tgctl.exe"
+            Assert-SessionBusyContract ".\dist\portable\TGExporter\tgctl.exe"
+          }
+          finally {
+            if ($holder -and -not $holder.HasExited) {
+              Stop-Process -Id $holder.Id -Force -ErrorAction SilentlyContinue
+            }
+            $env:APPDATA = $originalAppData
+          }
+
+      - name: Smoke-test packaged builds
+        shell: pwsh
+        run: |
+          & .\dist\onefile\TGExporter.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\portable\TGExporter\TGExporter.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\tgctl\tgctl.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\portable\TGExporter\tgctl.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Prepare release assets
+        id: prep
+        shell: pwsh
+        run: |
+          $tag = (Get-Content VERSION -Raw).Trim()
+          if (-not $tag.StartsWith('v')) { throw 'VERSION must start with v' }
+          $notesFile = "docs\releases\$tag.md"
+          if (-not (Test-Path $notesFile)) { throw "Missing release notes: $notesFile" }
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $exe = "release-assets\TGExporter-$tag-windows-x64.exe"
+          $portableZip = "release-assets\TGExporter-$tag-windows-x64-portable.zip"
+          $tgctl = "release-assets\tgctl.exe"
+          $checksums = "release-assets\SHA256SUMS.txt"
+          Copy-Item .\dist\onefile\TGExporter.exe $exe
+          Copy-Item .\dist\tgctl\tgctl.exe $tgctl
+          Compress-Archive -Path .\dist\portable\TGExporter -DestinationPath $portableZip -Force
+          $exeHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $zipHash = (Get-FileHash $portableZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $tgctlHash = (Get-FileHash $tgctl -Algorithm SHA256).Hash.ToLowerInvariant()
+          @(
+            "$exeHash  $(Split-Path $exe -Leaf)",
+            "$zipHash  $(Split-Path $portableZip -Leaf)",
+            "$tgctlHash  $(Split-Path $tgctl -Leaf)"
+          ) | Set-Content -Encoding ascii $checksums
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "exe=$exe" >> $env:GITHUB_OUTPUT
+          "portable_zip=$portableZip" >> $env:GITHUB_OUTPUT
+          "tgctl=$tgctl" >> $env:GITHUB_OUTPUT
+          "checksums=$checksums" >> $env:GITHUB_OUTPUT
+          "notes_file=$notesFile" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release without overwriting history
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ steps.prep.outputs.tag }}'
+          $exe = '${{ steps.prep.outputs.exe }}'
+          $portableZip = '${{ steps.prep.outputs.portable_zip }}'
+          $tgctl = '${{ steps.prep.outputs.tgctl }}'
+          $checksums = '${{ steps.prep.outputs.checksums }}'
+          $notesFile = '${{ steps.prep.outputs.notes_file }}'
+
+          gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Tag $tag already exists; refusing to overwrite historical release state."
+          }
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release $tag already exists; refusing to overwrite historical release assets."
+          }
+
+          gh release create $tag $exe $portableZip $tgctl $checksums --target "$env:GITHUB_SHA" --title "TG Exporter $tag" --notes-file $notesFile

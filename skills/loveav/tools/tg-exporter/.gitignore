@@ -1,0 +1,30 @@
+# Telegram credentials / sessions (NEVER COMMIT)
+*.session
+*.session-journal
+*.session-wal
+*.session-shm
+api_credentials.json
+local_state.json
+
+# Exports / local runtime
+exports/
+logs/
+*.log
+
+# Python / build
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+candidate-assets/
+*.spec
+*.egg-info/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

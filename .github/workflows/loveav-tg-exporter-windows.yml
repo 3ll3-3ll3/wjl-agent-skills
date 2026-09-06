@@ -1,0 +1,217 @@
+name: LoveAV TG Exporter Windows
+
+on:
+  push:
+    branches: [main, "codex/**", "hotfix/**"]
+    paths:
+      - "skills/loveav/tools/tg-exporter/**"
+      - "skills/loveav/scripts/tg_exporter_adapter.py"
+      - "skills/loveav/tests/test_tg_exporter_adapter.py"
+      - ".github/workflows/loveav-tg-exporter-windows.yml"
+  pull_request:
+    paths:
+      - "skills/loveav/tools/tg-exporter/**"
+      - "skills/loveav/scripts/tg_exporter_adapter.py"
+      - "skills/loveav/tests/test_tg_exporter_adapter.py"
+      - ".github/workflows/loveav-tg-exporter-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: skills/loveav/tools/tg-exporter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: skills/loveav/tools/tg-exporter/pyproject.toml
+
+      - name: Create isolated project virtualenv and install
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+
+      - name: Full pytest
+        run: .\.venv\Scripts\python.exe -m pytest -q
+
+      - name: LoveAV tgctl adapter pytest
+        working-directory: .
+        run: skills\loveav\tools\tg-exporter\.venv\Scripts\python.exe -m pytest -q skills\loveav\tests\test_tg_exporter_adapter.py
+
+      - name: Explicit v0.3.1 regressions
+        run: .\.venv\Scripts\python.exe -m pytest -q tests/test_domain_filter_v031.py tests/test_search_regex_v031.py tests/test_time_boundaries_v031.py tests/test_gui_shutdown_v031.py tests/test_reader_sender_v031.py tests/test_acceptance_regressions_v031.py
+
+      - name: Compile source
+        run: .\.venv\Scripts\python.exe -m compileall src
+
+      - name: Diff whitespace check
+        run: git diff --check
+
+      - name: GUI + daemon + reader + CLI import check
+        run: .\.venv\Scripts\python.exe -c "import telegram_exporter.daemon_gui; import telegram_exporter.daemon_main; import telegram_exporter.tgctl; import telegram_exporter.reader_service; import telegram_exporter.reader_runtime; import telegram_exporter.reader_search; import telegram_exporter.reader_topics; import telegram_exporter.reader_media; print('GUI + daemon + tgctl + reader import OK')"
+
+      - name: Source search-filter offline smoke
+        run: .\.venv\Scripts\python.exe tgctl_launcher.py --smoke-test-search-filters
+
+      - name: Build one-file TGExporter EXE
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\pyinstaller.exe --noconfirm --clean --windowed --onefile --paths src --name TGExporter --distpath dist\onefile --workpath build\onefile launcher.py
+
+      - name: Build portable TGExporter onedir
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\pyinstaller.exe --noconfirm --clean --windowed --onedir --paths src --name TGExporter --distpath dist\portable --workpath build\portable launcher.py
+
+      - name: Build tgctl EXE
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\pyinstaller.exe --noconfirm --clean --console --onefile --paths src --hidden-import encodings.idna --name tgctl --distpath dist\tgctl --workpath build\tgctl tgctl_launcher.py
+          Copy-Item .\dist\tgctl\tgctl.exe .\dist\portable\TGExporter\tgctl.exe
+
+      - name: Packaged search-filter offline regression
+        shell: pwsh
+        run: |
+          & .\dist\tgctl\tgctl.exe --smoke-test-search-filters
+          if ($LASTEXITCODE -ne 0) { throw "standalone tgctl search-filter smoke failed: $LASTEXITCODE" }
+          & .\dist\portable\TGExporter\tgctl.exe --smoke-test-search-filters
+          if ($LASTEXITCODE -ne 0) { throw "portable tgctl search-filter smoke failed: $LASTEXITCODE" }
+
+      - name: Packaged machine-readable version contract
+        shell: pwsh
+        run: |
+          $standalone = & .\dist\tgctl\tgctl.exe version --json | ConvertFrom-Json
+          if ($standalone.ok -ne $true -or $standalone.data.tgctl_version -ne "0.3.3" -or $standalone.data.reader_schema -ne "tgctl.reader.v1") {
+            throw "standalone tgctl version contract failed"
+          }
+          $portable = & .\dist\portable\TGExporter\tgctl.exe version --json | ConvertFrom-Json
+          if ($portable.ok -ne $true -or $portable.data.tgctl_version -ne "0.3.3" -or $portable.data.reader_schema -ne "tgctl.reader.v1") {
+            throw "portable tgctl version contract failed"
+          }
+
+      - name: Packaged tgctl SESSION_BUSY exit-code contract
+        shell: pwsh
+        run: |
+          $originalAppData = $env:APPDATA
+          $testAppData = Join-Path $env:RUNNER_TEMP "tgctl-v3-session-busy-appdata"
+          $holder = $null
+          try {
+            Remove-Item -Recurse -Force $testAppData -ErrorAction SilentlyContinue
+            $env:APPDATA = $testAppData
+            $appDir = Join-Path $testAppData "TelegramMultiChatExporter"
+            New-Item -ItemType Directory -Force $appDir | Out-Null
+            '{"api_id":12345,"api_hash":"ci-dummy-not-secret"}' | Set-Content -Encoding utf8 -NoNewline (Join-Path $appDir "api_credentials.json")
+
+            $readyFile = Join-Path $env:RUNNER_TEMP "tgctl-v3-session-lock-ready.txt"
+            Remove-Item -Force $readyFile -ErrorAction SilentlyContinue
+            $pythonExe = (Resolve-Path ".\.venv\Scripts\python.exe").Path
+            $holder = Start-Process $pythonExe -ArgumentList @("tests\helpers\hold_session_lock.py", $readyFile) -PassThru -WindowStyle Hidden
+
+            for ($i = 0; $i -lt 50 -and -not (Test-Path $readyFile); $i++) {
+              Start-Sleep -Milliseconds 100
+            }
+            if (-not (Test-Path $readyFile)) {
+              throw "Session lock holder did not become ready"
+            }
+
+            function Assert-SessionBusyContract([string]$exePath) {
+              $psi = [System.Diagnostics.ProcessStartInfo]::new()
+              $psi.FileName = (Resolve-Path $exePath).Path
+              $psi.Arguments = "status --json"
+              $psi.UseShellExecute = $false
+              $psi.RedirectStandardOutput = $true
+              $psi.RedirectStandardError = $true
+              $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+              $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+              $process = [System.Diagnostics.Process]::Start($psi)
+              $stdout = $process.StandardOutput.ReadToEnd().Trim()
+              $stderr = $process.StandardError.ReadToEnd().Trim()
+              $process.WaitForExit()
+              $exitCode = $process.ExitCode
+
+              if (-not $stdout) {
+                throw "Packaged tgctl produced no JSON stdout: $exePath; stderr=$stderr"
+              }
+              $payload = $stdout | ConvertFrom-Json
+              if ($payload.ok -ne $false -or $payload.error.code -ne "SESSION_BUSY") {
+                throw "Expected packaged tgctl JSON error SESSION_BUSY from $exePath; got: $stdout"
+              }
+              if ($exitCode -ne 8) {
+                throw "Expected packaged tgctl exit code 8 from $exePath; got $exitCode"
+              }
+            }
+
+            Assert-SessionBusyContract ".\dist\tgctl\tgctl.exe"
+            Assert-SessionBusyContract ".\dist\portable\TGExporter\tgctl.exe"
+          }
+          finally {
+            if ($holder -and -not $holder.HasExited) {
+              Stop-Process -Id $holder.Id -Force -ErrorAction SilentlyContinue
+            }
+            $env:APPDATA = $originalAppData
+          }
+
+      - name: Smoke-test packaged EXEs
+        shell: pwsh
+        run: |
+          & .\dist\onefile\TGExporter.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\portable\TGExporter\TGExporter.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\tgctl\tgctl.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\portable\TGExporter\tgctl.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify repository worktree remains clean
+        shell: pwsh
+        run: |
+          $dirty = git status --porcelain --untracked-files=all
+          if ($dirty) {
+            Write-Host $dirty
+            throw "Repository worktree became dirty during validation"
+          }
+
+      - name: Prepare candidate assets and SHA-256
+        id: candidate
+        shell: pwsh
+        run: |
+          $tag = (Get-Content VERSION -Raw).Trim()
+          if (-not $tag.StartsWith('v')) { throw 'VERSION must start with v' }
+          New-Item -ItemType Directory -Force candidate-assets | Out-Null
+          $exe = ".\candidate-assets\TGExporter-$tag-windows-x64.exe"
+          $zip = ".\candidate-assets\TGExporter-$tag-windows-x64-portable.zip"
+          $cli = ".\candidate-assets\tgctl.exe"
+          Copy-Item .\dist\onefile\TGExporter.exe $exe
+          Copy-Item .\dist\tgctl\tgctl.exe $cli
+          Compress-Archive -Path .\dist\portable\TGExporter -DestinationPath $zip -Force
+          $guiHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $zipHash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $cliHash = (Get-FileHash $cli -Algorithm SHA256).Hash.ToLowerInvariant()
+          @(
+            "$guiHash  $(Split-Path $exe -Leaf)",
+            "$zipHash  $(Split-Path $zip -Leaf)",
+            "$cliHash  $(Split-Path $cli -Leaf)"
+          ) | Set-Content -Encoding ascii .\candidate-assets\CANDIDATE_SHA256SUMS.txt
+          Write-Host "TGExporter $tag candidate SHA-256: $guiHash"
+          Write-Host "Portable $tag candidate SHA-256: $zipHash"
+          Write-Host "tgctl $tag candidate SHA-256: $cliHash"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Upload candidate assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: TGExporter-${{ steps.candidate.outputs.tag }}-candidate-windows-x64
+          path: skills/loveav/tools/tg-exporter/candidate-assets/*
+          if-no-files-found: error
+          retention-days: 30

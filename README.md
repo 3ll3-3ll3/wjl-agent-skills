@@ -15,6 +15,8 @@ wjl-agent-skills/
 
 `skills/` 下的每个目录都是一个可独立安装或调用的 Skill。
 
+`skills/loveav/tools/tg-exporter/` 是 LoveAV 的完整本地 Telegram 助手源码。从内嵌 v0.3.3 起，它随 LoveAV 在本仓库维护和构建；原独立 TG Exporter 仓库及其历史 Tag/Release 保持不变。
+
 ## 管理约定
 
 - 新的个人 Skill 默认添加到 `skills/<skill-name>/`，不再为每个 Skill 单独创建仓库。

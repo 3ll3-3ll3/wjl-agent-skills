@@ -32,7 +32,7 @@
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
 - Svip 官方 PikPak 资源回复：区分 Telegram 已验证管理员来源、业务规则高可信回复、待复核与明确普通成员。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
-- Telegram Desktop 文件解析、消息规范化和时间筛选；个人 API、Bot、历史回拉、检查点和标记已读不启用。
+- Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手只读访问个人账号的会话历史与搜索。Bot、自动检查点和标记已读不启用。
 
 详细规则位于 `references/`。自适应规则学习见 `references/rule-learning.md`，MissAV 主体库与 Raindrop CSV 契约见 `references/curated-library.md`。
 
@@ -53,7 +53,22 @@ python scripts/manage_missav_library.py --library <missav-library.csv> --input <
 
 确认预览后才可使用 `--commit --confirm WRITE_MISSAV_LIBRARY`。脚本会先备份现有主体库，再执行原子替换；不会生成摘要 JSON 文件。
 
-Skill 只决定流程、规则和输出；本版本不包含 Telegram、Work/cloud 或远程账号执行器。
+Skill 决定流程、规则和输出；完整 TG Exporter 源码作为本地读取助手内嵌在 `tools/tg-exporter/`，LoveAV 通过 `scripts/tg_exporter_adapter.py` 自动定位 `tgctl.exe`、检查兼容性并完成多页读取。它不是第二套业务规则，也不是云端执行器。
+
+直接读取 Telegram 前先在 TG Exporter GUI 登录。之后可以让 LoveAV 自动读取，例如：
+
+```text
+用 LoveAV 读取 Svip 最近 1000 条，提取官方 PikPak 资源回复，并单列可疑项。
+```
+
+如果要单独检查适配器：
+
+```powershell
+python scripts/tg_exporter_adapter.py health
+python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
+```
+
+适配器默认不保存原始消息，不发送、不转发、不下载媒体，也不标记已读。
 
 ## 版本与边界
 

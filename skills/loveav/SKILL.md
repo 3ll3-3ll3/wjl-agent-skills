@@ -72,7 +72,9 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 
 Whos.tv 使用单独的返回 JSON 工作流。
 
-Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。
+Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。
+
+用户明确要求直接读取 Telegram 时，优先通过 `scripts/tg_exporter_adapter.py` 自动定位并调用 `tgctl.exe`。先执行健康检查，再按用户要求的总数量自动分页；不得让用户手动拼接各页。任何后续页失败都必须报告部分失败，不能把已取到的前几页声称为完整结果。未明确要求联网读取时，继续使用默认手动输入模式。
 
 ## 预览与来源绑定
 
@@ -234,7 +236,7 @@ Whos.tv 文档与 MissAV 主体库必须分开。只有用户另外选择，才�
 
 把读取指定范围、识别官方资源形态、绑定 PikPak URL 与访问密码、输出主结果并单列可疑项视为第六个主功能。执行前读取 `references/svip-resource-replies.md`，并使用 `scripts/filter_svip_resource_replies.py` 完成确定性分类。
 
-该功能只读消费 `tgctl` 的消息结果：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。主结果、待复核和明确排除必须分别报告。
+该功能只读消费 `tgctl` 的消息结果：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。主结果、待复核和明确排除必须分别报告。适配器自动定位、兼容性检查、分页和失败语义见 `references/tg-exporter-integration.md`。
 
 # 宿主逻辑操作
 
@@ -352,6 +354,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/examples.md`：自然语言请求和预期回复结构；
 - `references/whostv-solved-answers.md`：Whos.tv 抓取、截止点、校验、分类和 Markdown 规则。
 - `references/svip-resource-replies.md`：Svip 官方 PikPak 回复的双层证据、分类与私人来源配置。
+- `references/tg-exporter-integration.md`：内嵌 TG Exporter、自动定位、健康检查、自动分页和安全边界。
 
 如需从旧 SQLite 数据库执行一次性本地迁移，使用：
 

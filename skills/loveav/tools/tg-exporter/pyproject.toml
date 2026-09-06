@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tg-exporter"
+version = "0.3.3"
+description = "Windows GUI Telegram exporter, single-daemon bridge, and personal-account reader"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PySide6==6.11.2",
+  "Telethon==1.44.0",
+  "python-socks[asyncio]>=2.7,<3",
+  "qasync==0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "PyInstaller>=6.16,<7",
+]
+
+[project.scripts]
+tg-exporter = "telegram_exporter.main:main"
+telegram-multi-chat-exporter = "telegram_exporter.main:main"
+tgctl = "telegram_exporter.tgctl:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
