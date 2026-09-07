@@ -58,7 +58,9 @@ python scripts/generate_missav_browser_script.py `
 
 ## 模板与执行边界
 
-- 只替换 `CODE_TEXT`、`REFERENCE_ACTRESS_TAGS`、`RAINDROP_EXPORT_BLACKLIST_TAGS` 三个占位区。
+- 以原版模板为基线，注入只涉及 `CODE_TEXT`、`REFERENCE_ACTRESS_TAGS`、`RAINDROP_EXPORT_BLACKLIST_TAGS` 三个数据区；生成器随后可以应用有专项测试的等价性能补丁。
+- 当前 `safe-fetch-v1` 只移除已证明无效的等待：明确的非瞬态 HTTP 4xx 不重复请求；最后一次重试、最后一个候选和最后一个番号之后不再额外等待。网络异常、408、425、429 与 5xx 仍重试一次。
+- 性能补丁不得增加并发、删减候选地址、缩短番号之间 900ms 节流、改变解析/分类/文件格式或把失败冒充成功。模板锚点不匹配时必须停止生成，不能静默跳过补丁。
 - 缺少任一占位区、模板不是异步浏览器脚本、正式库格式错误或最终参考集合为空时停止。
 - Agent 只把完整脚本交给用户；脚本由用户在已登录的 MissAV 页面 Console 手动运行。
 - 不使用 `javascript:` URL、原始 CDP 或其他绕过方式代替用户运行。

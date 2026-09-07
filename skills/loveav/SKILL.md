@@ -141,7 +141,7 @@ MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sour
 
 ## MissAV 浏览器脚本
 
-生成脚本前必须读取 `references/missav-browser-script.md`。只能使用 Skill 内 `assets/missav-browser-script.txt` 的 v0.5.13 原版模板，并通过 `scripts/generate_missav_browser_script.py` 确定性注入。
+生成脚本前必须读取 `references/missav-browser-script.md`。只能以 Skill 内 `assets/missav-browser-script.txt` 的 v0.5.13 原版模板为基线，并通过 `scripts/generate_missav_browser_script.py` 确定性注入；允许生成器应用该参考文档中已测试、保持结果语义与串行节流不变的性能补丁。
 
 参考女优 Tag 的唯一来源改为正式 `missav-library.csv`：扫描每行主 Tags 和 `loveav_variants_json` 中全部来源变体，沿用 v0.5.13 的类型边界规则识别女优 Tag。任何一个已识别女优 Tag 出现在新作品 Tags 中，就视为参考命中。第一层黑名单在注入前从派生集合排除；第二层黑名单独立注入并阻止相应记录进入 Raindrop 导出。
 

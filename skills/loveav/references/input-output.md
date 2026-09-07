@@ -95,7 +95,7 @@ Bad.news 的可复制结果每个代码块最多放 25 个规范化帖子 URL。
 - TXT：UTF-8，一行一个值，可复制列表中不加入解释性表头。
 - CSV：UTF-8，带表头，正确引用单元格，并对以 `=`、`+`、`-`、`@` 开头的单元格做公式注入防护。
 - JSON：使用带版本的外层结构，包含数量、规则版本、来源摘要和结果行；不得包含原始消息正文。
-- MissAV 脚本：使用 Skill 内 v0.5.13 原版模板；从正式主体库实时派生参考女优 Tag，应用第一层黑名单后与安全转义的番号、第二层黑名单一同注入。
+- MissAV 脚本：以 Skill 内 v0.5.13 原版模板为基线；从正式主体库实时派生参考女优 Tag，应用第一层黑名单后与安全转义的番号、第二层黑名单一同注入，并应用 `missav-browser-script.md` 中已测试的等价性能补丁。
 - MissAV Raindrop CSV：默认使用已验证的脚本结果结构，正确引用 URL、标题、Tags 和三目录字段；第二层黑名单命中项不得写入导入 CSV。
 - 主体库 CSV：接受 Raindrop 官方 11 列和 MissAV 脚本 14 列输入，先预览后合并到唯一 `missav-library.csv`；详细规则见 `curated-library.md`。
 - Svip Raindrop CSV：固定为 `folder,url,title,note,tags,created` 六列，每个 PikPak URL 一行，收藏夹固定为 `Svip PikPak链接消息`；完整命中消息和密码进入 `note`，已有 URL 的密码补全或冲突进入单独复核 CSV。

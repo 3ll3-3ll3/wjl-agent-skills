@@ -19,6 +19,7 @@ DEFAULT_TEMPLATE = ROOT / "assets" / "missav-browser-script.txt"
 DEFAULT_TYPE_BOUNDARIES = ROOT / "assets" / "missav-type-boundary-tags.txt"
 REFERENCE_BLACKLIST_FILE = "1-参考女优Tag库黑名单.txt"
 EXPORT_BLACKLIST_FILE = "2-Raindrop导出黑名单.txt"
+RUNTIME_OPTIMIZATION_VERSION = "safe-fetch-v1"
 
 SYSTEM_TAGS = {"未知女优", "#未知女优", "需要查找", "已存在", "重复输入"}
 EXPLICIT_TYPE_TAGS = {"教师", "女优", "女優", "演员", "演員", "VR"}
@@ -149,6 +150,89 @@ def javascript_array(values: Iterable[str]) -> str:
     return json.dumps(list(values), ensure_ascii=False, indent=2)
 
 
+def apply_runtime_optimization(script: str) -> str:
+    """在不改变候选、结果语义和串行节流的前提下移除确定性无效等待。"""
+    old_fetch = """  async function fetchText(url) {
+    let lastErr;
+
+    for (let i = 0; i <= MAX_RETRY; i++) {
+      try {
+        const res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.text();
+      } catch (e) {
+        lastErr = e;
+        await sleep(1000);
+      }
+    }
+
+    throw lastErr;
+  }
+"""
+    new_fetch = """  async function fetchText(url) {
+    let lastErr;
+
+    for (let i = 0; i <= MAX_RETRY; i++) {
+      try {
+        const res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) {
+          const error = new Error(`HTTP ${res.status}`);
+          error.retryable = [408, 425, 429].includes(res.status) || res.status >= 500;
+          throw error;
+        }
+        return await res.text();
+      } catch (e) {
+        lastErr = e;
+        const retryable = e?.retryable !== false;
+        if (!retryable || i >= MAX_RETRY) break;
+        await sleep(1000);
+      }
+    }
+
+    throw lastErr;
+  }
+"""
+    old_loop = """    for (const url of urls) {
+      try {
+"""
+    new_loop = """    for (let urlIndex = 0; urlIndex < urls.length; urlIndex++) {
+      const url = urls[urlIndex];
+      try {
+"""
+    old_candidate_delay = """      } catch (e) {}
+
+      await sleep(250);
+    }
+"""
+    new_candidate_delay = """      } catch (e) {}
+
+      if (urlIndex + 1 < urls.length) await sleep(250);
+    }
+"""
+    old_item_delay = """    await sleep(DELAY_MS);
+  }
+
+  const updateResult = updateActressCollectionWithRows(collectionRows, finalRows);
+"""
+    new_item_delay = """    if (i + 1 < codesToProcess.length) await sleep(DELAY_MS);
+  }
+
+  const updateResult = updateActressCollectionWithRows(collectionRows, finalRows);
+"""
+    replacements = (
+        (old_fetch, new_fetch, "fetchText"),
+        (old_loop, new_loop, "findWorkingPage loop"),
+        (old_candidate_delay, new_candidate_delay, "candidate delay"),
+        (old_item_delay, new_item_delay, "item delay"),
+    )
+    result = script
+    for old, new, label in replacements:
+        if result.count(old) != 1:
+            raise ValueError(f"MissAV 原版模板无法应用 {RUNTIME_OPTIMIZATION_VERSION}：{label} 锚点不唯一。")
+        result = result.replace(old, new, 1)
+    return result
+
+
 def inject_script(template: str, codes: list[str], reference_tags: list[str], export_blacklist: list[str]) -> str:
     if "(async () =>" not in template:
         raise ValueError("MissAV 模板不是可直接运行的异步浏览器脚本。")
@@ -194,7 +278,9 @@ def main() -> int:
     export_blacklist = split_lines(export_blacklist_path)
     reference_tags, stats = extract_reference_tags(args.library, reference_blacklist)
     template = args.template.read_text(encoding="utf-8-sig")
-    script = inject_script(template, codes, reference_tags, export_blacklist)
+    script = apply_runtime_optimization(
+        inject_script(template, codes, reference_tags, export_blacklist)
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
@@ -213,6 +299,7 @@ def main() -> int:
         "export_blacklist_sha256": sha256_file(export_blacklist_path),
         "output": str(args.output.resolve()),
         "output_sha256": sha256_file(args.output),
+        "runtime_optimization": RUNTIME_OPTIMIZATION_VERSION,
         "codes_injected": len(codes),
         "export_blacklist_tags_injected": len(export_blacklist),
         **stats,

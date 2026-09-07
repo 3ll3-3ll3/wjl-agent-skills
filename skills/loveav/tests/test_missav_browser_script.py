@@ -33,6 +33,29 @@ class MissavBrowserScriptTest(unittest.TestCase):
             finally:
                 sys.path.pop(0)
 
+    def test_generated_script_removes_only_proven_wasted_waits(self) -> None:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        try:
+            from generate_missav_browser_script import (
+                RUNTIME_OPTIMIZATION_VERSION,
+                apply_runtime_optimization,
+            )
+
+            template = (ROOT / "assets" / "missav-browser-script.txt").read_text(
+                encoding="utf-8"
+            )
+            optimized = apply_runtime_optimization(template)
+            self.assertEqual(RUNTIME_OPTIMIZATION_VERSION, "safe-fetch-v1")
+            self.assertIn("e?.retryable !== false", optimized)
+            self.assertIn("[408, 425, 429].includes(res.status) || res.status >= 500", optimized)
+            self.assertIn("if (urlIndex + 1 < urls.length) await sleep(250);", optimized)
+            self.assertIn("if (i + 1 < codesToProcess.length) await sleep(DELAY_MS);", optimized)
+            self.assertNotIn("if (!res.ok) throw new Error(`HTTP ${res.status}`);", optimized)
+            self.assertIn("const DELAY_MS = 900;", optimized)
+            self.assertIn("const MAX_RETRY = 1;", optimized)
+        finally:
+            sys.path.pop(0)
+
     def test_uses_all_library_actress_tags_and_applies_both_blacklists(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp = Path(temp_dir)
@@ -76,6 +99,7 @@ class MissavBrowserScriptTest(unittest.TestCase):
             generated = output.read_text(encoding="utf-8")
 
             self.assertEqual(report["codes_injected"], 2)
+            self.assertEqual(report["runtime_optimization"], "safe-fetch-v1")
             self.assertEqual(report["actress_tags_before_blacklist"], 3)
             self.assertEqual(report["reference_blacklist_matches"], 1)
             self.assertEqual(report["reference_tags_injected"], 2)
