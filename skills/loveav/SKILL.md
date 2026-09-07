@@ -76,6 +76,8 @@ Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON
 
 用户明确要求直接读取 Telegram 时，优先通过 `scripts/tg_exporter_adapter.py` 自动定位并调用 `tgctl.exe`。先执行健康检查，再按用户要求的总数量自动分页；不得让用户手动拼接各页。任何后续页失败都必须报告部分失败，不能把已取到的前几页声称为完整结果。未明确要求联网读取时，继续使用默认手动输入模式。
 
+MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sources.md`。`番号待提取` 只按用户当次提供的消息位置或时间边界处理；另外四个固定来源在每次 MissAV Telegram 工作流中处理各自冻结的当前未读范围。四个来源的结果合并去重后生成一个脚本，并保留逐来源统计。只有某来源已完整读取、过滤并形成经过校验的脚本结果，才可按该来源冻结上界标记已读；失败来源不得确认，快照后新消息必须留到下一轮。
+
 ## 预览与来源绑定
 
 处理前必须：
@@ -141,6 +143,8 @@ Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON
 
 不得继续使用 `Miss_AV.html`、旧内置 Tag TXT、女优合集 CSV 或模型临时猜测作为脚本参考女优库。主体库不存在、格式不合法或无法提取任何女优 Tag 时必须停止生成脚本。
 
+若输入来自固定 MissAV Telegram 未读来源，浏览器脚本默认合并本轮所有成功来源的新番号，只生成一个脚本；同时报告各群组读取范围和计数。Telegram 已读确认只代表消息已被完整提取和形成校验通过的本轮结果，不等待用户在 MissAV 网页运行脚本。
+
 ## MissAV 两层黑名单
 
 两个 MissAV 黑名单必须独立应用，不能合并：
@@ -158,7 +162,7 @@ Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON
 
 - **MissAV**：番号列表与 URL 列表分开；默认长期落盘仅保存本批最终 Raindrop 导入 CSV，浏览器脚本在对话代码块中返回；
 - **Twitter**：创作者/handle 列表与主页 URL 列表分开；
-- **Bad.news、海角**：输出规范化后的直达帖子 URL；
+- **Bad.news、海角**：输出规范化后的直达帖子 URL；其中 Bad.news 的可复制链接列表每个代码块最多 25 条，超过 25 条时按原始顺序依次拆分为多个代码块，不得省略链接；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
 - **Svip PikPak 链接消息**：精确来源中所有合法 PikPak URL 默认进入主结果；先输出包含原消息文字、链接和密码的完整消息块，再生成收藏夹固定为 `Svip PikPak链接消息` 的 Raindrop CSV；发送者身份不参与筛选，密码无法可靠绑定时仍保留链接并标记 `密码待确认`；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
@@ -310,6 +314,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 # 异常与边界
 
 - 不得因为存在兼容适配器就自动切换为联网模式。
+- 只有 `references/missav-telegram-sources.md` 白名单中的四个固定来源，才在用户调用 MissAV Telegram 工作流时自动检查未读；Skill 不具备后台常驻能力，也不得在未被调用时声称自动监控。
 - 不得因为格式陌生就直接丢弃候选。
 - 不得把一次智能猜测固化为永久规则。
 - 不得把未选择的候选当作主体库历史。
@@ -354,6 +359,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/data-contract.md`：长期数据边界、写入、迁移、同步和隐私字段；
 - `references/curated-library.md`：MissAV 唯一主体库、两种 Raindrop CSV、目录过滤、查重和原子合并；
 - `references/missav-browser-script.md`：正式主体库女优 Tag 派生、双层黑名单注入和原版脚本生成；
+- `references/missav-telegram-sources.md`：MissAV 手动范围群、四个固定未读来源、合并处理和逐群已读确认；
 - `references/legacy-parity.md`：v0.5.13 兼容能力对照；
 - `references/v0513-feature-map.md`：旧版功能映射；
 - `references/safety.md`：凭据、网络、账号操作、破坏性操作和恢复；
