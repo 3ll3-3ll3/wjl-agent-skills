@@ -13,7 +13,7 @@
 3. 说明要运行的工具、时间范围、是否排除 MissAV 主体库已有记录和需要的输出。默认只做本地或对话内解析，不连接 Telegram。
 4. 预览完成后，只确认你要长期保留的 MissAV 结果；它们合并进唯一 `missav-library.csv`，未选择的候选不会进入主体库。
 
-如果只说“我要使用 MissAV”，LoveAV 会启动简短的对话式操作面板，依次询问消息来源、仅在需要时询问范围，再选择标准处理、全量重查或只预览。也可以直接说“按默认设置处理 MissAV 日常未读”，跳过向导并使用四个固定来源的当前未读、主体库查重和合并脚本预设。
+如果只说“我要使用 MissAV”，LoveAV 会启动简短的对话式操作面板，依次询问消息来源、仅在需要时询问范围，再选择标准处理、全量重查或只预览。也可以直接说“按默认设置处理 MissAV 日常未读”，跳过向导并使用五个固定来源的当前未读、主体库查重和合并脚本预设。
 
 ## 语言规范
 
@@ -34,7 +34,7 @@
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
 - Svip PikPak 链接消息：精确来源内全部合法 PikPak URL 默认接受，发送者身份不参与筛选；输出保留完整消息、链接与密码，并生成独立收藏夹的 Raindrop CSV。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
-- Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手访问个人账号的会话历史与搜索。MissAV 支持一个手动范围来源和四个固定未读来源；四群在每次被调用时合并生成脚本，并在能力可用时分别确认本轮冻结范围已读。Skill 不在后台自动巡检。
+- Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手访问个人账号的会话历史与搜索。MissAV 支持一个手动范围来源和五个固定未读来源；五群在每次被调用时合并生成脚本，并在能力可用时分别确认本轮冻结范围已读。Skill 不在后台自动巡检。
 
 详细规则位于 `references/`。自适应规则学习见 `references/rule-learning.md`，MissAV 主体库与 Raindrop CSV 契约见 `references/curated-library.md`。
 
@@ -71,7 +71,7 @@ python scripts/tg_exporter_adapter.py health
 python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 ```
 
-适配器默认不保存原始消息，不发送、不下载媒体。Svip 仍默认只读；MissAV 四个固定来源按 `references/missav-telegram-sources.md` 处理，但当前正式 `tgctl` 尚无命令行标已读接口，无法执行时必须如实报告。Svip 主结果可在目标群唯一确认、dry-run 预览和用户最终确认后，通过 Telegram 真转发保留原消息内容和媒体。
+适配器默认不保存原始消息，不发送、不下载媒体。Svip 仍默认只读；MissAV 五个固定来源按 `references/missav-telegram-sources.md` 处理，但当前正式 `tgctl` 尚无命令行标已读接口，无法执行时必须如实报告。Svip 主结果可在目标群唯一确认、dry-run 预览和用户最终确认后，通过 Telegram 真转发保留原消息内容和媒体。
 
 ## 版本与边界
 

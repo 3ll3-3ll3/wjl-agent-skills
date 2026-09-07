@@ -114,6 +114,6 @@ python scripts/tg_exporter_adapter.py dialogs --search "<目标会话名>"
 
 ## MissAV 固定未读来源
 
-MissAV 的来源白名单、手动范围群与四个固定未读群定义在 `missav-telegram-sources.md`。来源稳定 ID 必须从私人 `LoveAV-Data/config/telegram-sources.json` 读取，不提交仓库，也不按相似标题猜测。
+MissAV 的来源白名单、手动范围群与五个固定未读群定义在 `missav-telegram-sources.md`。来源稳定 ID 必须从私人 `LoveAV-Data/config/telegram-sources.json` 读取，不提交仓库，也不按相似标题猜测。
 
 自动已读需要机器可读操作精确确认到本轮冻结的 `upper`。正式 v0.3.2 `tgctl` 当前没有该命令，因此适配器不得用“重新读取最新位置”或 GUI 自动化替代，也不得声称已经标记。新增能力后仍须保持：单来源失败不确认、快照后消息不确认、重复调用幂等、确认结果可核验。

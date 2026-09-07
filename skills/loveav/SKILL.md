@@ -78,9 +78,9 @@ Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON
 
 用户明确要求直接读取 Telegram 时，优先通过 `scripts/tg_exporter_adapter.py` 自动定位并调用 `tgctl.exe`。先执行健康检查，再按用户要求的总数量自动分页；不得让用户手动拼接各页。任何后续页失败都必须报告部分失败，不能把已取到的前几页声称为完整结果。未明确要求联网读取时，继续使用默认手动输入模式。
 
-MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sources.md`。`番号待提取` 只按用户当次提供的消息位置或时间边界处理；另外四个固定来源在每次 MissAV Telegram 工作流中处理各自冻结的当前未读范围。四个来源的结果合并去重后生成一个脚本，并保留逐来源统计。只有某来源已完整读取、过滤并形成经过校验的脚本结果，才可按该来源冻结上界标记已读；失败来源不得确认，快照后新消息必须留到下一轮。
+MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sources.md`。`番号待提取` 只按用户当次提供的消息位置或时间边界处理；另外五个固定来源在每次 MissAV Telegram 工作流中处理各自冻结的当前未读范围。五个来源的结果合并去重后生成一个脚本，并保留逐来源统计。只有某来源已完整读取、过滤并形成经过校验的脚本结果，才可按该来源冻结上界标记已读；失败来源不得确认，快照后新消息必须留到下一轮。
 
-用户表达要使用 MissAV、但没有给齐来源、范围或处理方式时，必须读取 `references/missav-conversation-workflow.md` 并启动对话式操作面板。一次只询问当前真正需要的选择，已经明确的信息不重复询问；若请求已完整则直接执行。默认预设是“四个固定来源当前未读 + 排除主体库已有番号 + 生成一个合并脚本 + 成功来源按冻结上界标已读”。
+用户表达要使用 MissAV、但没有给齐来源、范围或处理方式时，必须读取 `references/missav-conversation-workflow.md` 并启动对话式操作面板。一次只询问当前真正需要的选择，已经明确的信息不重复询问；若请求已完整则直接执行。默认预设是“五个固定来源当前未读 + 排除主体库已有番号 + 生成一个合并脚本 + 成功来源按冻结上界标已读”。
 
 ## 预览与来源绑定
 
@@ -318,7 +318,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 # 异常与边界
 
 - 不得因为存在兼容适配器就自动切换为联网模式。
-- 只有 `references/missav-telegram-sources.md` 白名单中的四个固定来源，才在用户调用 MissAV Telegram 工作流时自动检查未读；Skill 不具备后台常驻能力，也不得在未被调用时声称自动监控。
+- 只有 `references/missav-telegram-sources.md` 白名单中的五个固定来源，才在用户调用 MissAV Telegram 工作流时自动检查未读；Skill 不具备后台常驻能力，也不得在未被调用时声称自动监控。
 - 不得因为格式陌生就直接丢弃候选。
 - 不得把一次智能猜测固化为永久规则。
 - 不得把未选择的候选当作主体库历史。
@@ -363,7 +363,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/data-contract.md`：长期数据边界、写入、迁移、同步和隐私字段；
 - `references/curated-library.md`：MissAV 唯一主体库、两种 Raindrop CSV、目录过滤、查重和原子合并；
 - `references/missav-browser-script.md`：正式主体库女优 Tag 派生、双层黑名单注入和原版脚本生成；
-- `references/missav-telegram-sources.md`：MissAV 手动范围群、四个固定未读来源、合并处理和逐群已读确认；
+- `references/missav-telegram-sources.md`：MissAV 手动范围群、五个固定未读来源、合并处理和逐群已读确认；
 - `references/missav-conversation-workflow.md`：无图形界面时的 MissAV 来源、范围、查重、输出和已读对话选择；
 - `references/legacy-parity.md`：v0.5.13 兼容能力对照；
 - `references/v0513-feature-map.md`：旧版功能映射；
