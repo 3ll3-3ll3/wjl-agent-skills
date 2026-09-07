@@ -75,7 +75,7 @@ python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 按筛选条件搜索：
 
 ```powershell
-python scripts/tg_exporter_adapter.py search --chat <ref> --url-domain mypikpak.com --sender-role admin --total-limit 1000
+python scripts/tg_exporter_adapter.py search --chat <ref> --url-domain mypikpak.com --total-limit 1000
 ```
 
 适配器每页最多 500 条，自动使用 `next_cursor` 续页，按 `(source_chat_id, message_id)` 去除分页边界重复。来源耗尽或达到用户要求数量时正常结束。
@@ -110,4 +110,4 @@ python scripts/tg_exporter_adapter.py dialogs --search "<目标会话名>"
 - 不自动调用 `send`、媒体下载或任何标记已读功能。
 - Telegram 登录仍由 TG Exporter GUI 完成。
 - 不记录或提交真实聊天正文、URL、群 ID、Session、API 凭据和日志。
-- Svip 分类继续遵循 `svip-resource-replies.md`，不能把业务高可信推断伪装成真实管理员身份。
+- Svip 分类继续遵循 `svip-resource-replies.md`：发送者身份仅供上下文展示，不参与接受或排除，也不能把未知身份猜成具体管理员。

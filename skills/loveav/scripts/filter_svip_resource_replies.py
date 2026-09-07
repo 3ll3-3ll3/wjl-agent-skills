@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""确定性分类 Svip 中的官方 PikPak 资源回复。
+"""确定性提取 Svip 中的 PikPak 链接消息。
 
 脚本只消费已经导出的结构化消息，不连接 Telegram，不修改消息状态。
 """
@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 TARGET_DOMAIN = "mypikpak.com"
 URL_RE = re.compile(
     r"(?:https?://|www\.)[^\s<>\"'\u3400-\u9fff，。；：！？【】（）《》「」『』]+",
@@ -215,35 +215,53 @@ def _is_verified_moderator(sender: dict[str, Any], chat_id: int) -> tuple[bool, 
     return bool(evidence), evidence
 
 
-def _classify(message: dict[str, Any], chat_id: int) -> tuple[str, list[str]]:
+def _identity_context(message: dict[str, Any], chat_id: int) -> tuple[str, list[str]]:
+    """保留发送者上下文，但绝不再用它决定资源是否进入主结果。"""
+
     sender = _sender(message)
     verified, evidence = _is_verified_moderator(sender, chat_id)
     if verified:
         return "verified_moderator", evidence
 
     if sender.get("sender_id") is not None:
-        return "excluded_known_member", ["telegram_known_non_moderator_sender"]
+        return "known_sender", ["telegram_known_sender"]
 
     unknown_reason = sender.get("unknown_reason")
     has_reply = message.get("reply_to_message_id") is not None
     has_photo = _is_photo(message)
 
     if unknown_reason == "forwarded_message_without_actual_sender":
-        return "needs_review", ["forwarded_message_without_actual_sender"]
+        return "forward_origin_only", ["forwarded_message_without_actual_sender"]
 
     if unknown_reason == "telegram_sender_not_provided":
         if has_reply and has_photo:
-            return "trusted_official_reply", [
+            return "sender_not_provided", [
                 "telegram_omitted_sender",
                 "reply_to_message_present",
                 "photo_present",
             ]
         if has_reply or has_photo:
             partial = "reply_to_message_present" if has_reply else "photo_present"
-            return "needs_review", ["telegram_omitted_sender", partial]
-        return "excluded_insufficient_evidence", ["telegram_omitted_sender"]
+            return "sender_not_provided", ["telegram_omitted_sender", partial]
+        return "sender_not_provided", ["telegram_omitted_sender"]
 
-    return "needs_review", [str(unknown_reason or "sender_evidence_unavailable")]
+    return "sender_evidence_unavailable", [str(unknown_reason or "sender_evidence_unavailable")]
+
+
+def _password_status(message: dict[str, Any], resources: list[dict[str, str | None]]) -> str:
+    bound = sum(1 for resource in resources if resource.get("password"))
+    if bound == len(resources):
+        return "bound"
+    candidates: set[str] = set()
+    for key in ("text", "caption"):
+        value = message.get(key)
+        if not isinstance(value, str):
+            continue
+        for match in PASSWORD_ANYWHERE_RE.finditer(value):
+            candidates.add(match.group(1).casefold())
+    if bound or len(candidates) > 1 or (len(resources) > 1 and candidates):
+        return "ambiguous"
+    return "not_provided"
 
 
 def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any]:
@@ -253,11 +271,8 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
         "excluded": [],
     }
     counts = {
-        "verified_moderator": 0,
-        "trusted_official_reply": 0,
-        "needs_review": 0,
-        "excluded_known_member": 0,
-        "excluded_insufficient_evidence": 0,
+        "accepted_pikpak_resource": 0,
+        "password_ambiguous": 0,
         "excluded_wrong_source": 0,
         "excluded_no_pikpak_url": 0,
         "invalid": 0,
@@ -279,8 +294,12 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
             counts["excluded_no_pikpak_url"] += 1
             continue
 
-        classification, evidence = _classify(message, chat_id)
+        identity_context, identity_evidence = _identity_context(message, chat_id)
+        classification = "accepted_pikpak_resource"
         counts[classification] += 1
+        password_status = _password_status(message, resources)
+        if password_status == "ambiguous":
+            counts["password_ambiguous"] += 1
         message_text, message_copy_text = _message_content(message, resources)
         record = {
             "message_id": message_id,
@@ -291,22 +310,20 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
             "pikpak_urls": [resource["url"] for resource in resources],
             "pikpak_resources": resources,
             "classification": classification,
-            "evidence": evidence,
+            "evidence": ["valid_pikpak_url_in_configured_svip_source"],
+            "identity_context": identity_context,
+            "identity_evidence": identity_evidence,
+            "password_status": password_status,
             "input_index": index,
         }
-        if classification in {"verified_moderator", "trusted_official_reply"}:
-            groups["main"].append(record)
-        elif classification == "needs_review":
-            groups["review"].append(record)
-        else:
-            groups["excluded"].append(record)
+        groups["main"].append(record)
 
     return {
         "schema_version": SCHEMA_VERSION,
         "source": {"name": "svip", "chat_id": str(chat_id)},
         "policy": {
-            "verified_identity": "Telegram 可验证的群主、管理员、匿名管理员或本群身份",
-            "business_inference": "发送者被 Telegram 省略，同时具备回复关系和图片",
+            "selection": "配置的 Svip 来源中，所有合法 PikPak 链接默认进入主结果",
+            "identity": "发送者身份只作上下文，不参与筛选",
         },
         "summary": {
             "input_messages": len(rows),
@@ -321,7 +338,7 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="分类 Svip 官方 PikPak 资源回复")
+    parser = argparse.ArgumentParser(description="提取 Svip PikPak 链接消息")
     parser.add_argument("input", type=Path, nargs="+", help="一个或多个 tgctl JSON/JSONL 文件")
     parser.add_argument("--config", type=Path, required=True, help="私人 Telegram 来源配置 JSON")
     parser.add_argument("--source", default="svip", help="配置中的来源名，默认 svip")

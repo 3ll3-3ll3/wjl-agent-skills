@@ -46,12 +46,16 @@ def classify(*rows: dict) -> dict:
     return MODULE.classify_messages(list(rows), CHAT_ID)
 
 
-def test_verified_admin_and_owner_enter_main_results() -> None:
+def test_verified_admin_and_owner_enter_main_but_identity_does_not_drive_selection() -> None:
     admin = message(1, sender={"sender_id": 10, "is_admin": True, "is_creator": False})
     owner = message(2, sender={"sender_id": 11, "is_admin": True, "is_creator": True})
     result = classify(admin, owner)
-    assert result["summary"]["counts"]["verified_moderator"] == 2
+    assert result["summary"]["counts"]["accepted_pikpak_resource"] == 2
     assert [row["classification"] for row in result["results"]["main"]] == [
+        "accepted_pikpak_resource",
+        "accepted_pikpak_resource",
+    ]
+    assert [row["identity_context"] for row in result["results"]["main"]] == [
         "verified_moderator",
         "verified_moderator",
     ]
@@ -79,10 +83,11 @@ def test_anonymous_admin_and_current_chat_send_as_enter_main_results() -> None:
         },
     )
     result = classify(anonymous, send_as)
-    assert result["summary"]["counts"]["verified_moderator"] == 2
+    assert result["summary"]["main"] == 2
+    assert all(row["identity_context"] == "verified_moderator" for row in result["results"]["main"])
 
 
-def test_known_member_is_excluded_even_when_shape_looks_official() -> None:
+def test_known_member_with_valid_pikpak_link_enters_main() -> None:
     row = message(
         1,
         sender={
@@ -96,28 +101,31 @@ def test_known_member_is_excluded_even_when_shape_looks_official() -> None:
         photo=True,
     )
     result = classify(row)
-    assert result["summary"]["counts"]["excluded_known_member"] == 1
-    assert result["results"]["main"] == []
+    assert result["summary"]["main"] == 1
+    assert result["results"]["main"][0]["classification"] == "accepted_pikpak_resource"
+    assert result["results"]["main"][0]["identity_context"] == "known_sender"
 
 
-def test_unknown_reply_and_photo_is_trusted_business_inference() -> None:
+def test_unknown_reply_and_photo_enters_main_without_identity_gate() -> None:
     result = classify(message(1, reply=9, photo=True))
     row = result["results"]["main"][0]
-    assert row["classification"] == "trusted_official_reply"
-    assert row["evidence"] == [
+    assert row["classification"] == "accepted_pikpak_resource"
+    assert row["identity_context"] == "sender_not_provided"
+    assert row["identity_evidence"] == [
         "telegram_omitted_sender",
         "reply_to_message_present",
         "photo_present",
     ]
 
 
-def test_partial_shape_needs_review_and_no_shape_is_excluded() -> None:
+def test_partial_or_missing_identity_evidence_still_enters_main() -> None:
     result = classify(message(1, reply=9), message(2, photo=True), message(3))
-    assert result["summary"]["counts"]["needs_review"] == 2
-    assert result["summary"]["counts"]["excluded_insufficient_evidence"] == 1
+    assert result["summary"]["main"] == 3
+    assert result["results"]["review"] == []
+    assert result["results"]["excluded"] == []
 
 
-def test_forwarded_unknown_needs_review() -> None:
+def test_forwarded_unknown_with_valid_link_enters_main() -> None:
     row = message(
         1,
         sender={
@@ -128,7 +136,7 @@ def test_forwarded_unknown_needs_review() -> None:
         photo=True,
     )
     result = classify(row)
-    assert result["results"]["review"][0]["classification"] == "needs_review"
+    assert result["results"]["main"][0]["identity_context"] == "forward_origin_only"
 
 
 def test_exact_and_subdomain_match_but_lookalike_domain_does_not() -> None:
@@ -180,6 +188,8 @@ def test_multiple_unassigned_passwords_are_not_guessed() -> None:
     result = classify(row)
     resource = result["results"]["main"][0]["pikpak_resources"][0]
     assert resource["password"] is None
+    assert result["results"]["main"][0]["password_status"] == "ambiguous"
+    assert result["summary"]["counts"]["password_ambiguous"] == 1
 
 
 def test_unlabelled_chinese_text_is_not_absorbed_into_resource() -> None:

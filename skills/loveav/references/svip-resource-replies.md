@@ -1,49 +1,20 @@
-# Svip 官方 PikPak 资源回复
+# Svip PikPak 链接消息
 
-这是 LoveAV 的第六个主功能，用于处理由 `tgctl` 读取的 Svip 结构化消息。用户明确要求直接读取 Telegram 时，LoveAV 可通过适配器调用 `tgctl`；分类器自身不连接 Telegram，不修改消息状态，也不声称能够恢复 Telegram 已省略的真实发送者。用户可在结果确认后另行要求把选中的原消息真实转发到另一个 Telegram 会话。
+这是 LoveAV 的第六个主功能，用于从 `tgctl` 读取的 Svip 结构化消息中提取 PikPak 链接、密码和完整消息，并生成可导入 Raindrop 的 CSV。用户明确要求直接读取 Telegram 时，LoveAV 可通过适配器调用 `tgctl`；分类器本身不连接 Telegram，也不修改消息状态。
 
-## 适用条件
+## 已锁定选择规则
 
-用户提出以下请求时读取本参考：
+发送者身份不再参与筛选。只要消息满足以下条件，就默认进入主结果：
 
-- 读取或整理 Svip 的官方 PikPak 回复；
-- 提取 Svip 中群主或管理员发布的资源链接；
-- 复核 Svip 中发送者未知的 PikPak 消息。
+1. 来自私人配置中稳定键为 `svip` 的精确 `chat_id`；
+2. 包含合法的 `http` 或 `https` PikPak URL；
+3. URL 的 hostname 是 `mypikpak.com` 或其真实子域名。
 
-Svip 的稳定 `chat_id` 必须来自私人配置。不得根据标题模糊匹配后直接处理，也不得把真实 `chat_id` 写入公开 Skill 仓库。
+已知普通成员、匿名管理员、当前管理员、群身份发送、Telegram 未提供发送者以及转发来源不明，都不会因为身份差异被排除。可取得的身份字段只保留为可选上下文，不得把未知身份猜成具体管理员。
 
-## 两层证据
+`mypikpak.com.evil.com`、正文中单纯出现域名文字、其他协议或解析失败的 URL 不属于有效资源。URL 合法性检查不访问链接。
 
-第一层是 Telegram 可验证身份：
-
-- 当前群主；
-- 当前管理员；
-- Telegram 明确标记的匿名管理员；
-- Telegram 明确以当前群组身份发送。
-
-这些记录分类为 `verified_moderator`。
-
-第二层是 Svip 的业务模式：发送者被 Telegram 省略、消息包含真实 PikPak 链接、回复另一条消息且附带图片。它们分类为 `trusted_official_reply`，表示“业务规则高可信”，不表示已经验证出具体管理员身份。
-
-## 确定性分类
-
-按以下顺序分类：
-
-1. 可验证群主、管理员、匿名管理员或本群身份：`verified_moderator`。
-2. Telegram 返回具体发送者但没有管理员证据：`excluded_known_member`。
-3. `telegram_sender_not_provided`，同时具有回复关系和图片：`trusted_official_reply`。
-4. `telegram_sender_not_provided`，只具有回复关系或图片之一：`needs_review`。
-5. `telegram_sender_not_provided`，两项都没有：`excluded_insufficient_evidence`。
-6. `forwarded_message_without_actual_sender`：`needs_review`，不得把转发来源当实际发送者。
-7. 其他身份不明情况：`needs_review`。
-
-主结果只包含 `verified_moderator` 和 `trusted_official_reply`。待复核与排除记录必须分别报告。
-
-## URL 边界
-
-只接受 `http` 或 `https` 的 `mypikpak.com` 及其真实子域名。必须解析 hostname；`mypikpak.com.evil.com`、正文中单纯出现域名文字或其他协议不得匹配。检查过程不访问链接。
-
-## 私人配置
+## 私人来源配置
 
 推荐配置位置：
 
@@ -67,47 +38,104 @@ LoveAV-Data/config/telegram-sources.json
 
 该文件属于私人运行数据，不得提交 GitHub 或随 Skill 分发。
 
-## 运行
+## 读取与分类
 
-优先让适配器自动完成健康检查和分页，不要求用户手工保存、拼接每一页：
+优先让适配器自动完成健康检查和分页：
 
 ```powershell
 python scripts/tg_exporter_adapter.py history --chat <Svip-ref> --total-limit 1000
 ```
 
-也可对管理员与 PikPak 域名做结构化搜索：
-
-```powershell
-python scripts/tg_exporter_adapter.py search --chat <Svip-ref> --sender-role admin --url-domain mypikpak.com --total-limit 1000
-```
-
-适配器输出可直接交给分类器；只有用户明确要求落盘时，才保存 JSON 后运行：
+分类器消费结构化结果：
 
 ```powershell
 python scripts/filter_svip_resource_replies.py <第一页.json> [更多页.json ...] --config <telegram-sources.json>
 ```
 
-只有用户明确要求长期保存时才使用 `--output`。默认在当前对话中返回结果，不把 Telegram 原文写入长期文件或日志。
+分类输出使用 `schema_version=3`。所有合法资源消息的 `classification` 固定为 `accepted_pikpak_resource` 并进入 `results.main`。`identity_context` 和 `identity_evidence` 只描述 Telegram 实际提供的上下文，不决定是否接受。
 
-每个命中记录必须包含：
+每个主结果必须包含：
 
-- `message_text`：保留消息的可见 `text` 和 `caption`；
-- `message_copy_text`：用于整体复制，保留原文，并追加只存在于富文本 entity 中的隐藏 PikPak URL；
-- 消息 ID、日期、是否含图片、PikPak URL、密码、分类和证据。
+- `message_text`：可见 `text` 和 `caption`；
+- `message_copy_text`：完整可复制文字，并追加只存在于富文本 entity 中的隐藏 PikPak URL；
+- 消息 ID、日期、图片与回复关系；
+- `pikpak_resources`：URL、与该 URL 绑定的密码及可复制资源行；
+- `password_status`：`bound`、`not_provided` 或 `ambiguous`；
+- `identity_context`：仅供审计的发送者上下文。
 
-面向用户时，默认一条命中消息对应一个完整消息块，不得只剩 URL。可以额外给出一行一个的纯资源列表，但它不代替完整消息块。
+面向用户时，一条命中消息对应一个完整消息块，不能只剩 URL。
 
-当 URL 后紧跟 `密码`、`提取码`、`访问码`、`口令`、`pwd` 或 `password` 时，必须把密码与对应 URL 绑定。如果整条消息仅有一个 PikPak URL 且仅有一个唯一密码，即使密码在链接前或另一行，也必须回退绑定。多链接或多密码无法确定对应关系时不得猜测，应进入待复核。可复制资源行统一为 `URL 密码: xxxx`。URL 字段本身仍保持合法，不能把“密码”汉字拼进 URL 路径，也不能丢弃访问密码。
+## URL 与密码
+
+当 URL 后紧跟 `密码`、`提取码`、`访问码`、`口令`、`pwd` 或 `password` 时，把密码与该 URL 绑定。如果整条消息只有一个 PikPak URL 和一个唯一密码，即使密码位于链接前或另一行，也可以绑定。
+
+多链接或多密码无法确定关系时不得猜测，但链接仍属于主结果：
+
+- 能确定的密码照常保存；
+- 不能确定的密码留空；
+- `password_status=ambiguous`；
+- Raindrop Note 显示 `密码：待确认`；
+- 添加 `密码待确认` Tag。
+
+可复制资源行使用：
+
+```text
+https://mypikpak.com/s/example 密码: abcd
+```
+
+URL 字段始终只保存合法 URL，不能把密码文字拼进 URL。
+
+## Raindrop 导出
+
+Raindrop 是 Svip PikPak 链接消息的最终管理入口，不建设 Svip 数据库。收藏夹名称固定为：
+
+```text
+Svip PikPak链接消息
+```
+
+分类成功后使用：
+
+```powershell
+python scripts/export_svip_raindrop_csv.py <分类结果.json> --raindrop-library <Raindrop官方导出.csv>
+```
+
+`--raindrop-library` 可省略，但省略时只能做本批内部去重，不能证明链接是否已存在于 Raindrop。
+
+导入 CSV 固定为 UTF-8 BOM 和六列：
+
+```text
+folder,url,title,note,tags,created
+```
+
+字段规则：
+
+- `folder`：固定为 `Svip PikPak链接消息`；
+- `url`：一行一个纯 PikPak URL；
+- `title`：原消息第一行有意义的资源标题；没有标题时使用 `Svip PikPak｜日期｜消息 ID`；一条消息有多个链接时追加 `｜序号/总数`；
+- `note`：完整命中消息、当前资源、密码、消息 ID、消息时间和“发送者身份不参与筛选”的说明；
+- `tags`：固定包含 `Svip, PikPak`，有密码时添加 `有密码`，密码不明确时添加 `密码待确认`；
+- `created`：Telegram 原消息时间，不使用 CSV 生成时间。
+
+输出默认位置：
+
+```text
+LoveAV-Data/svip/outputs/YYYY-MM-DD/YYYY-MM-DD_svip_pikpak_raindrop_import.csv
+LoveAV-Data/svip/update-review/YYYY-MM-DD_svip_pikpak_raindrop_update_review.csv
+```
+
+同一批相同 URL 只输出一次。已有 Raindrop URL 默认不再次输出；新密码补全或密码冲突进入 `update-review`，不能依赖重复导入覆盖已有书签。生成 CSV 只表示 `exported`，不能声称已经成功导入 Raindrop。
+
+允许长期保存的 Telegram 正文只限这些被选中导入 Raindrop 的 Svip PikPak 资源消息。最近 1000 条中的其他消息、排除项和临时读取结果不得长期保存。
 
 ## 转发到收藏群
 
-需要保留原消息的文字、媒体和转发来源时，必须使用 Telegram 真转发，不要用纯文本 `send` 代替。
+需要保留图片、排版和转发来源时，可另行把选中原消息真转发到 Telegram 收藏群。Raindrop 导出与 Telegram 转发相互独立。
 
-1. 先使用 `dialogs --search` 查找目标会话，并以稳定 ID 确认唯一目标；同名、模糊匹配或无权发送时必须停止。
-2. 默认只取 `main` 的原消息 ID；`review` 不得自动混入。
-3. 先执行 dry-run，显示来源、目标、数量、去重后消息 ID 和批次边界。
-4. 转发会改变远程账号状态；只有用户在最终负责时刻明确确认后，才传入 `FORWARD_SVIP_RESOURCES` 实际执行。
-5. 单次最多 200 条。发送后连接中断并返回 `WRITE_OUTCOME_UNKNOWN` 时不得自动重试；应先读取目标群核对已到达的消息。
+1. 先使用 `dialogs --search` 查找目标会话，并用稳定 ID 确认唯一目标；
+2. 只使用已接受主结果的消息 ID；
+3. 先执行 dry-run，展示来源、目标、数量和消息 ID；
+4. 只有用户在最终负责时刻明确确认后，才传入 `FORWARD_SVIP_RESOURCES`；
+5. 单次最多 200 条，写入结果未知时不得自动重试。
 
 预览：
 
@@ -115,19 +143,23 @@ python scripts/filter_svip_resource_replies.py <第一页.json> [更多页.json 
 python scripts/tg_exporter_adapter.py forward --from-chat <Svip-ref> --to-chat <收藏群-ref> --ids <消息ID...>
 ```
 
-在用户确认后真实转发：
+确认后真实转发：
 
 ```powershell
 python scripts/tg_exporter_adapter.py forward --from-chat <Svip-ref> --to-chat <收藏群-ref> --ids <消息ID...> --confirm FORWARD_SVIP_RESOURCES
 ```
 
-## 结果说明
+## 结果报告
 
-面向用户必须明确区分：
+每次至少报告：
 
-- “Telegram 已验证管理员来源”；
-- “Svip 业务规则高可信”；
-- “需要人工复核”；
-- “明确普通成员或证据不足，已排除”。
+- 输入消息数量；
+- 合法 PikPak 消息数量；
+- 唯一 URL 数量；
+- 本批重复数量；
+- Raindrop 历史重复数量；
+- 新增导出数量；
+- 密码补全与密码冲突数量；
+- 无效或伪造域名数量。
 
-不得把 `trusted_official_reply` 描述为已经查明具体管理员。规则只为稳定提取用户所需资源回复，不改变底层 Telegram 身份事实。
+不得继续使用“只有管理员链接才是主结果”或“普通成员链接需要排除”的旧语义。

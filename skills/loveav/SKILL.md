@@ -1,6 +1,6 @@
 ---
 name: loveav
-description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip 官方资源回复、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
+description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip PikPak 链接消息、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
 ---
 
 # 目标
@@ -21,7 +21,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - MissAV 主体库记录；
 - 自适应规则复核；
 - Whos.tv 已解决答案数据。
-- Svip 群中的官方 PikPak 资源回复。
+- Svip 群中的 PikPak 链接消息。
 
 默认使用手动、本地处理。除非存在独立、受支持的适配器且用户明确要求，否则不得切换到 Telegram 联网执行、云端执行、Raindrop 远程写入或 123AV 账号操作。
 
@@ -72,7 +72,7 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 
 Whos.tv 使用单独的返回 JSON 工作流。
 
-Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。该功能在 Telegram 可验证身份之外提供明确标注的业务规则高可信分类，但绝不把业务推定伪装成具体管理员身份。默认结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
+Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。发送者身份只作为可选上下文，不参与接受或排除。只要精确来源匹配且含合法 PikPak URL，就默认进入主结果。结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
 
 用户明确要求直接读取 Telegram 时，优先通过 `scripts/tg_exporter_adapter.py` 自动定位并调用 `tgctl.exe`。先执行健康检查，再按用户要求的总数量自动分页；不得让用户手动拼接各页。任何后续页失败都必须报告部分失败，不能把已取到的前几页声称为完整结果。未明确要求联网读取时，继续使用默认手动输入模式。
 
@@ -160,7 +160,7 @@ Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/
 - **Twitter**：创作者/handle 列表与主页 URL 列表分开；
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
-- **Svip 官方资源回复**：先输出包含原消息文字、PikPak 链接和密码的完整消息块，再可选输出纯资源行；主结果只包含 Telegram 已验证管理员来源与业务规则高可信回复，待复核和明确排除分别报告；
+- **Svip PikPak 链接消息**：精确来源中所有合法 PikPak URL 默认进入主结果；先输出包含原消息文字、链接和密码的完整消息块，再生成收藏夹固定为 `Svip PikPak链接消息` 的 Raindrop CSV；发送者身份不参与筛选，密码无法可靠绑定时仍保留链接并标记 `密码待确认`；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
 条件允许时，应报告：输入数量、时间排除数量、无效数量、重复数量、历史数量、新结果数量、`review` 数量和错误数量。
@@ -169,7 +169,7 @@ Svip 官方资源回复是第六个主功能，使用 `tgctl` 的结构化 JSON/
 
 ## 只保存派生数据
 
-不得把每次运行的全部记录、Telegram 原文或临时预览永久保存。
+不得把每次运行的全部记录、普通 Telegram 原文或临时预览永久保存。唯一例外是用户明确选择保留的 Svip PikPak 资源消息：其完整命中文字可以写入对应 Raindrop CSV 的 `note` 字段，未命中的其余消息仍不得保存。
 
 只保存用户明确保留的派生行，以及主体库合并所需的最小元数据，例如：
 
@@ -232,13 +232,15 @@ node scripts/organize_whos_answers.js <JSON路径>
 
 Whos.tv 文档与 MissAV 主体库必须分开。只有用户另外选择，才能把 Whos.tv 中提取出的番号加入主体库。
 
-# Svip 官方 PikPak 资源回复
+# Svip PikPak 链接消息
 
-把读取指定范围、识别官方资源形态、绑定 PikPak URL 与访问密码、保留命中消息的完整文字、输出主结果并单列可疑项视为第六个主功能。执行前读取 `references/svip-resource-replies.md`，并使用 `scripts/filter_svip_resource_replies.py` 完成确定性分类。
+把读取指定范围、提取全部合法 PikPak URL、绑定访问密码、保留命中消息的完整文字并生成 Raindrop CSV 视为第六个主功能。执行前读取 `references/svip-resource-replies.md`，使用 `scripts/filter_svip_resource_replies.py` 完成确定性分类，再使用 `scripts/export_svip_raindrop_csv.py` 完成去重和 CSV 生成。
 
-识别和输出默认只读：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。主结果、待复核和明确排除必须分别报告。
+识别和输出默认只读：不修改 Telegram、不标记已读、不下载媒体，也不把 Telegram 已省略的发送者推定成具体管理员。发送者身份不得影响结果；精确来源内所有合法 PikPak URL 都进入主结果。密码关系不明确时不得猜测，但链接仍进入主结果并标记 `密码待确认`。
 
-用户明确要求转发主结果时，先通过会话列表确认唯一目标群组，再生成 dry-run 预览，显示来源、目标、消息数和消息 ID 范围。只有用户在最终负责时刻再次确认后，才能通过 `tgctl forward` 真实转发。默认只转发主结果；`review` 项需用户单独选中。不得用 `send` 重新拼接来替代真转发，除非用户明确要求发送重组文本。适配器自动定位、兼容性检查、分页、转发预览和失败语义见 `references/tg-exporter-integration.md`。
+Raindrop 收藏夹固定为 `Svip PikPak链接消息`，CSV 固定为 `folder,url,title,note,tags,created` 六列。每个链接一行，`url` 只保存纯 URL，完整消息及密码写入 `note`，并以 Telegram 原消息时间作为 `created`。如果提供 Raindrop 官方导出 CSV，先按规范 URL 查重；已有 URL 的新密码补全或密码冲突进入单独的更新复核 CSV，不依赖重复导入覆盖已有书签。
+
+用户明确要求转发主结果时，先通过会话列表确认唯一目标群组，再生成 dry-run 预览，显示来源、目标、消息数和消息 ID 范围。只有用户在最终负责时刻再次确认后，才能通过 `tgctl forward` 真实转发。默认只转发已接受的 PikPak 资源消息。不得用 `send` 重新拼接来替代真转发，除非用户明确要求发送重组文本。适配器自动定位、兼容性检查、分页、转发预览和失败语义见 `references/tg-exporter-integration.md`。
 
 # 宿主逻辑操作
 
@@ -254,6 +256,7 @@ script.generate(codes, missav_library, both_blacklists)
 whostv.script.generate(mode, pages_or_cutoff)
 whostv.answers.validate / whostv.answers.organize / whostv.state.update
 svip.resources.classify(tgctl_messages, private_source_config)
+svip.resources.raindrop_export(classified_results, raindrop_library)
 svip.resources.forward_preview(source_chat, destination_chat, message_ids)
 svip.resources.forward_confirmed(source_chat, destination_chat, message_ids)
 library.preview_import / library.commit_confirmed / library.query / library.update / library.remove
@@ -327,8 +330,8 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 6. 可复制结果中没有混入解释文字；
 7. 只保存了用户明确选择的派生数据，且 MissAV 默认只落盘本批 Raindrop 导入 CSV；
 8. 所有失败和未完成步骤都被准确报告；
-9. 没有泄露或持久化敏感凭据和 Telegram 原文。
-10. Svip 业务规则结果没有被错误描述为已验证的具体管理员身份。
+9. 没有泄露或持久化敏感凭据；除用户明确保留的 Svip 资源消息外，没有持久化 Telegram 原文。
+10. Svip 发送者身份没有被用作筛选门槛，也没有把未知身份猜成具体管理员。
 
 # 示例
 
@@ -357,7 +360,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/rule-learning.md`：候选复核、规则建议、晋级和回归；
 - `references/examples.md`：自然语言请求和预期回复结构；
 - `references/whostv-solved-answers.md`：Whos.tv 抓取、截止点、校验、分类和 Markdown 规则。
-- `references/svip-resource-replies.md`：Svip 官方 PikPak 回复的双层证据、分类与私人来源配置。
+- `references/svip-resource-replies.md`：Svip PikPak 链接消息的来源校验、完整消息、密码、Raindrop CSV 与私人配置。
 - `references/tg-exporter-integration.md`：内嵌 TG Exporter、自动定位、健康检查、自动分页和安全边界。
 
 如需从旧 SQLite 数据库执行一次性本地迁移，使用：

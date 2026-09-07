@@ -30,7 +30,7 @@
 - 四个前置工具统一接受 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG、多文件和粘贴文本；支持时间筛选、选择、查重和历史语义。
 - 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
-- Svip 官方 PikPak 资源回复：区分 Telegram 已验证管理员来源、业务规则高可信回复、待复核与明确普通成员；输出保留命中消息的完整文字、链接与密码。
+- Svip PikPak 链接消息：精确来源内全部合法 PikPak URL 默认接受，发送者身份不参与筛选；输出保留完整消息、链接与密码，并生成独立收藏夹的 Raindrop CSV。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
 - Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手只读访问个人账号的会话历史与搜索。Bot、自动检查点和标记已读不启用。
 
@@ -43,6 +43,7 @@
 - Whos.tv 保持既有固定目录、状态与 Markdown 流程，不移动。
 - MissAV 只维护一个 `missav-library.csv` 主体库，并用行级标记记录“来自 Raindrop”和“来自 Skill 新增”。
 - 每批 MissAV 结果默认只保存可导入 Raindrop 的 CSV；番号、链接和浏览器脚本在对话中返回，不额外落盘。
+- 每批 Svip 结果默认生成收藏夹 `Svip PikPak链接消息` 的 Raindrop CSV；已有链接跳过，密码补全或冲突进入单独复核 CSV，不另建 Svip 数据库。
 - 主体库、批次 CSV 和私人备份可由用户自行使用 Google Drive 同步，但不得提交 GitHub。
 
 主体库导入默认只预览：
@@ -58,7 +59,7 @@ Skill 决定流程、规则和输出；完整 TG Exporter 源码作为本地读�
 直接读取 Telegram 前先在 TG Exporter GUI 登录。之后可以让 LoveAV 自动读取，例如：
 
 ```text
-用 LoveAV 读取 Svip 最近 1000 条，提取官方 PikPak 资源回复，并单列可疑项。
+用 LoveAV 读取 Svip 最近 1000 条，提取全部 PikPak 链接消息，并生成 Raindrop 导入 CSV。
 ```
 
 如果要单独检查适配器：
@@ -74,6 +75,6 @@ python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 
 规则基线：Windows `missav-manager` v0.5.13（稳定提交 `4e2aad0`）。123AV 和 Telegram 的联网部分仅作为兼容参考，不属于当前启用范围；当前默认不联网、不自动标记已读、不直写 Raindrop。
 
-当前六个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip 官方 PikPak 资源回复。
+当前六个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息。
 
-Svip 官方资源回复消费 `tgctl` 结构化 JSON，完成来源证据分类、URL 与密码绑定、完整消息文字输出、主结果提取和可疑项单列；还可在受确认保护的流程中把选中的原消息转发到收藏群。它是独立的第六个主功能。
+Svip PikPak 链接消息消费 `tgctl` 结构化 JSON，校验精确来源并提取全部合法 URL，完成密码绑定、完整消息输出、Raindrop 去重与六列 CSV 生成；发送者身份只作为上下文，不影响筛选。它还可在受确认保护的流程中把选中的原消息转发到收藏群，是独立的第六个主功能。

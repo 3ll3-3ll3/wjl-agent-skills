@@ -107,18 +107,18 @@ MissAV 来源提取番号，Twitter 来源提取博主；排除 MissAV 主体库
 3. 报告四类数量和纯番号数量。
 4. 成功后再把截止点推进到第一条记录的 pathname。
 
-## Svip 官方 PikPak 回复
+## Svip PikPak 链接消息
 
 用户：
 
 ```text
-读取 Svip 最近 1000 条，只返回官方 PikPak 资源回复，并单列可疑项。
+读取 Svip 最近 1000 条，提取全部 PikPak 链接消息，并生成 Raindrop 导入 CSV。
 ```
 
 预期行为：
 
 1. 使用私人来源配置中的精确 `chat_id` 调用或消费 `tgctl` 只读结果。
-2. 用 `scripts/filter_svip_resource_replies.py` 确定性分类。
-3. 主结果包含 Telegram 已验证管理员来源和“发送者省略＋回复＋图片”的业务规则高可信结果。
-4. 明确普通成员发送的链接予以排除；部分证据和转发未知来源进入待复核。
-5. 回复中明确区分“身份已验证”和“业务规则高可信”，不把后者说成已查明具体管理员。
+2. 用 `scripts/filter_svip_resource_replies.py` 提取精确来源内全部合法 PikPak URL；发送者身份只保留为上下文。
+3. 每个命中项保留完整消息、链接和密码；密码关系不明确时标为 `密码待确认`，但不排除链接。
+4. 用 `scripts/export_svip_raindrop_csv.py` 按 URL 去重并生成 `Svip PikPak链接消息` 收藏夹的六列 CSV。
+5. 若提供 Raindrop 官方导出 CSV，则跳过已有 URL，把密码补全和冲突单列到更新复核 CSV。
