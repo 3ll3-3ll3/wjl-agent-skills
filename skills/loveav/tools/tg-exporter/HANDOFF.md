@@ -33,12 +33,15 @@ LoveAV tests: 61 passed
 embedded TG Exporter tests: 155 passed
 compileall: PASS
 git diff --check: PASS
-real Telegram writes/read acknowledgement: NOT RUN
+real Telegram E2E: PASS (9/9 keyword jobs; 1 new resource saved; 9 already present; 0 review; 0 unknown write outcome)
+read acknowledgement: one frozen source explicitly acknowledged; the other was deliberately not acknowledged because its frozen count proof was incomplete
 Windows packaged build/smoke: PASS
 GitHub Actions push run: 34226158199 = SUCCESS
 GitHub Actions PR run: 34226163539 = SUCCESS
 candidate code head: da4e5430634bc298d64123c2dcb8f4b26ae5c846
 ```
+
+After the real E2E, a separate read-only snapshot reported zero current unread in both sources. Do not infer that LoveAV acknowledged the second source: the executor report explicitly says it did not; another Telegram client/state transition may have changed that source afterwards.
 
 # Current Project State
 
