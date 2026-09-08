@@ -8,10 +8,17 @@ import csv
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Iterable
 
 from manage_missav_library import comparable_key, normalize_candidate
+
+
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if callable(_reconfigure):
+        _reconfigure(encoding="utf-8", errors="backslashreplace")
 
 
 ROOT = Path(__file__).resolve().parents[1]

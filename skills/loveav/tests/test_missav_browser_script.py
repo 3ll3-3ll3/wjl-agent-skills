@@ -18,8 +18,13 @@ class MissavBrowserScriptTest(unittest.TestCase):
     def test_bundled_assets_match_v0513_baseline(self) -> None:
         template = ROOT / "assets" / "missav-browser-script.txt"
         boundaries = ROOT / "assets" / "missav-type-boundary-tags.txt"
-        self.assertEqual(hashlib.sha256(template.read_bytes()).hexdigest(), "32b928f1b3ba310c3a5c0f56a393c47ee628d1ca1822e42dc09665e9ba81c505")
-        self.assertEqual(hashlib.sha256(boundaries.read_bytes()).hexdigest(), "b872f9fde88f64feb6ab2181b5223cd5e8d8a09a9b348cce928b903b3f1bb4aa")
+        # Git may materialize the same text asset with LF or CRLF.  The
+        # v0.5.13 contract is the script text, not the checkout's newline
+        # convention, so hash its canonical LF representation.
+        template_bytes = template.read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
+        boundary_bytes = boundaries.read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
+        self.assertEqual(hashlib.sha256(template_bytes).hexdigest(), "f6e00d62cc0df9ee0b7a266f3278f1d3fb1685efe13144117e7081867bccdb5c")
+        self.assertEqual(hashlib.sha256(boundary_bytes).hexdigest(), "7afbc6e0d1d9607ba60700478288c64d4c62d5687d7d34dd3422857bd3a25ea4")
 
     def test_blacklist_comment_lines_are_not_tags(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
