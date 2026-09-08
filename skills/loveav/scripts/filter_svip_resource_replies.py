@@ -8,29 +8,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
-from typing import Any, Iterable
-from urllib.parse import urlsplit
+from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from pikpak_resources import PASSWORD_ANYWHERE_RE, canonical_resources
 
 
 SCHEMA_VERSION = 3
-TARGET_DOMAIN = "mypikpak.com"
-URL_RE = re.compile(
-    r"(?:https?://|www\.)[^\s<>\"'\u3400-\u9fff，。；：！？【】（）《》「」『』]+",
-    re.IGNORECASE,
-)
-PASSWORD_AFTER_URL_RE = re.compile(
-    r"^[\s,，;；|]*(?:密码|提取码|访问码|口令|pwd|password)\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})",
-    re.IGNORECASE,
-)
-PASSWORD_ANYWHERE_RE = re.compile(
-    r"(?:密码|提取码|访问码|口令|pwd|password)\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})",
-    re.IGNORECASE,
-)
-
-
 class InputError(ValueError):
     """输入或私人配置不满足契约。"""
 
@@ -94,71 +83,11 @@ def _load_chat_id(config_path: Path, source_name: str) -> int:
     return chat_id
 
 
-def _iter_url_candidates(message: dict[str, Any]) -> Iterable[tuple[str, str | None]]:
-    for key in ("text", "caption"):
-        value = message.get(key)
-        if not isinstance(value, str):
-            continue
-        for match in URL_RE.finditer(value):
-            raw = match.group(0).rstrip(".,;:!?)]}，。；：！？】）》」』")
-            password_match = PASSWORD_AFTER_URL_RE.match(value[match.end() :])
-            password = password_match.group(1) if password_match else None
-            yield raw, password
-
-    entities = message.get("entities")
-    if isinstance(entities, list):
-        for entity in entities:
-            if not isinstance(entity, dict):
-                continue
-            value = entity.get("url")
-            if isinstance(value, str) and value:
-                yield value, None
-
-
 def _canonical_pikpak_resources(message: dict[str, Any]) -> list[dict[str, str | None]]:
-    result: list[dict[str, str | None]] = []
-    positions: dict[str, int] = {}
-    for raw, password in _iter_url_candidates(message):
-        candidate = raw if "://" in raw else f"http://{raw}"
-        try:
-            parsed = urlsplit(candidate)
-            hostname = (parsed.hostname or "").encode("idna").decode("ascii").lower().rstrip(".")
-        except (UnicodeError, ValueError):
-            continue
-        if hostname != TARGET_DOMAIN and not hostname.endswith(f".{TARGET_DOMAIN}"):
-            continue
-        if parsed.scheme.lower() not in {"http", "https"}:
-            continue
-        normalized = raw.rstrip(".,;:!?)]}")
-        key = normalized.casefold()
-        copy_text = f"{normalized} 密码: {password}" if password else normalized
-        resource = {"url": normalized, "password": password, "copy_text": copy_text}
-        if key not in positions:
-            positions[key] = len(result)
-            result.append(resource)
-        elif password and not result[positions[key]]["password"]:
-            result[positions[key]] = resource
-
-    # Svip 的部分资源消息会把密码放在链接之前或另一行。只有当整条消息仅有
-    # 一个 PikPak 链接且仅有一个唯一密码时才回退绑定，避免多链接时猜错对应关系。
-    if len(result) == 1 and not result[0]["password"]:
-        password_candidates: list[str] = []
-        for key in ("text", "caption"):
-            value = message.get(key)
-            if not isinstance(value, str):
-                continue
-            for match in PASSWORD_ANYWHERE_RE.finditer(value):
-                password = match.group(1)
-                if password.casefold() not in {item.casefold() for item in password_candidates}:
-                    password_candidates.append(password)
-        if len(password_candidates) == 1:
-            password = password_candidates[0]
-            result[0] = {
-                "url": result[0]["url"],
-                "password": password,
-                "copy_text": f"{result[0]['url']} 密码: {password}",
-            }
-    return result
+    return [
+        {"url": row["url"], "password": row["password"], "copy_text": row["copy_text"]}
+        for row in canonical_resources(message)
+    ]
 
 
 def _message_content(message: dict[str, Any], resources: list[dict[str, str | None]]) -> tuple[str, str]:

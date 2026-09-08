@@ -240,3 +240,62 @@ def test_forward_rejects_more_than_two_hundred_messages(tmp_path: Path) -> None:
             message_ids=list(range(1, 202)),
         )
     assert exc_info.value.code == "FORWARD_BATCH_TOO_LARGE"
+
+
+def test_collect_unread_reuses_signed_snapshot_across_pages(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    calls: list[list[str]] = []
+
+    def runner(command: list[str], _timeout: float):
+        calls.append(command)
+        if "--cursor" not in command:
+            return completed(command, {"ok": True, "data": {
+                "lower": 10, "upper": 12, "unread_count": 2, "snapshot_token": "signed",
+                "items": [{"chat_id": -1, "message_id": 11}], "has_more": True, "next_cursor": "p2",
+            }})
+        return completed(command, {"ok": True, "data": {
+            "lower": 10, "upper": 12, "unread_count": 2, "snapshot_token": "signed",
+            "items": [{"chat_id": -1, "message_id": 12}], "has_more": False, "next_cursor": None,
+        }})
+
+    result = adapter.collect_unread_snapshot(located, chat="-1", page_size=1, runner=runner)
+    assert [row["message_id"] for row in result["items"]] == [11, 12]
+    assert result["snapshot_token"] == "signed"
+    assert calls[1][calls[1].index("--cursor") + 1] == "p2"
+
+
+def test_collect_unread_rejects_changed_snapshot(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    count = 0
+
+    def runner(command: list[str], _timeout: float):
+        nonlocal count
+        count += 1
+        return completed(command, {"ok": True, "data": {
+            "lower": 10, "upper": 12 + count, "unread_count": 2, "snapshot_token": f"signed-{count}",
+            "items": [], "has_more": count == 1, "next_cursor": "p2" if count == 1 else None,
+        }})
+
+    with pytest.raises(adapter.AdapterError) as exc_info:
+        adapter.collect_unread_snapshot(located, chat="-1", page_size=1, runner=runner)
+    assert exc_info.value.code == "TGCTL_SNAPSHOT_CHANGED"
+
+
+def test_redeem_adapter_defaults_to_dry_run_and_real_write_needs_exact_confirmation(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    calls: list[list[str]] = []
+
+    def runner(command: list[str], _timeout: float):
+        calls.append(command)
+        return completed(command, {"ok": True, "data": {"captured": [], "captured_count": 0}})
+
+    adapter.send_and_capture(located, destination_chat="-1", text="#demo", runner=runner)
+    adapter.send_and_capture(
+        located,
+        destination_chat="-1",
+        text="#demo",
+        confirmation=adapter.REDEEM_CONFIRMATION,
+        runner=runner,
+    )
+    assert "--dry-run" in calls[0]
+    assert "--dry-run" not in calls[1]

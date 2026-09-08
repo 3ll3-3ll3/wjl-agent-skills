@@ -80,7 +80,7 @@ python scripts/tg_exporter_adapter.py health
 python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 ```
 
-适配器默认不保存原始消息，不发送、不下载媒体。Svip 仍默认只读；MissAV 五个固定来源按 `references/missav-telegram-sources.md` 处理，但当前正式 `tgctl` 尚无命令行标已读接口，无法执行时必须如实报告。Svip 主结果可在目标群唯一确认、dry-run 预览和用户最终确认后，通过 Telegram 真转发保留原消息内容和媒体。
+适配器普通模式默认不保存原始消息，不发送、不下载媒体。Svip 仍默认只读；MissAV 固定来源按 `references/missav-telegram-sources.md` 处理。LoveAV 内嵌 v0.3.3 开发版已有冻结未读和精确已读能力；实际可执行性以 health capability 为准。Svip 主结果可在目标群唯一确认、dry-run 预览和用户最终确认后，通过 Telegram 真转发保留原消息内容和媒体。
 
 ## 版本与边界
 
@@ -90,4 +90,4 @@ python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 
 Svip PikPak 链接消息消费 `tgctl` 结构化 JSON，校验精确来源并提取全部合法 URL，完成密码绑定、完整消息输出、Raindrop 去重与六列 CSV 生成；发送者身份只作为上下文，不影响筛选。它还可在受确认保护的流程中把选中的原消息转发到收藏群，是独立的第六个主功能。
 
-PikPak 通知关键词批量兑换是独立的第七个主功能。确定性计划器已支持两个未读快照的关键词提取、交集去重和来源映射；全自动发送后即时捕获、收藏群写入及精确已读仍要求 TG Exporter 提供对应的原子执行器能力。在该能力验收前不得用分离的 `send`/`history` 命令假装完成。
+PikPak 通知关键词批量兑换是独立的第七个主功能。确定性计划器与 `scripts/run_pikpak_notification_redeem.py` 已组成完整执行链：冻结两群未读、交集去重、同请求发送即时捕获、收藏去重与成功后已读。默认只生成预览；真实执行需精确确认词 `RUN_PIKPAK_REDEEM`。任一写入结果不确定时停止且不确认来源已读。

@@ -2,7 +2,7 @@
 
 > 当前开发/发布交接快照。任何 Agent 接手前先读 `AGENTS.md`，再读本文件；GitHub 当前事实优先。
 
-更新时间：2026-09-06
+更新时间：2026-09-08
 
 # LoveAV 内嵌开发状态
 
@@ -12,6 +12,30 @@
 - 当前内嵌开发版本：v0.3.3，新增 `tgctl version --json` 与增强的 `tgctl status --json`，供 LoveAV 自动适配器检查版本、Schema、IPC 和能力。
 - LoveAV 自动定位和多页读取逻辑位于上级 `scripts/tg_exporter_adapter.py`；TG Exporter 仍保持通用 Telegram 层，不内置 LoveAV/PikPak 业务分类。
 - v0.3.3 当前是源码开发状态，不是正式 Release；必须通过完整测试和 Windows 构建后才能称为 Candidate。
+
+## 2026-09-08 LoveAV 第七功能执行层
+
+当前开发分支：`codex/loveav-pikpak-redeem-executor`。尚未合并、未发布 Release、未对真实 Telegram 账号执行写入 E2E。
+
+已实现：
+
+1. `messages unread`：冻结 current-unread `lower/upper`，后续页复用 HMAC/query-bound cursor 和 snapshot token；
+2. `send-capture`：在同一 daemon 请求内先订阅、再发送，有界等待并可选按 URL domain 过滤；
+3. `messages mark-read`：只接受与会话及冻结边界绑定的签名 token，不允许越界 max-id；
+4. 上级 LoveAV `run_pikpak_notification_redeem.py`：双来源冻结、关键词交集去重、即时兑换、URL+密码去重、收藏查重/写入、失败安全已读；
+5. 第七功能默认只 dry-run，真实运行要求 `RUN_PIKPAK_REDEEM`；`WRITE_OUTCOME_UNKNOWN` 立即停止且不确认已读；
+6. 测试环境的 daemon 任务与检查点被强制隔离到 `tmp_path`，不再触及用户真实 APPDATA。
+
+本地自动化结果：
+
+```text
+LoveAV tests: 61 passed
+embedded TG Exporter tests: 155 passed
+compileall: PASS
+git diff --check: PASS
+real Telegram writes/read acknowledgement: NOT RUN
+Windows packaged build: pending
+```
 
 # Current Project State
 
