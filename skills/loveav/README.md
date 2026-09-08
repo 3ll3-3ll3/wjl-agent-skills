@@ -33,6 +33,7 @@
 - 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
 - Svip PikPak 链接消息：精确来源内全部合法 PikPak URL 默认接受，发送者身份不参与筛选；输出保留完整消息、链接与密码，并生成独立收藏夹的 Raindrop CSV。
+- PikPak 通知关键词批量兑换：读取两个通知群当前未读，按关键词合并去重，逐个到提取群即时兑换，把唯一资源写入收藏群，并只在成功保存后安全确认来源已读。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
 - Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手访问个人账号的会话历史与搜索。MissAV 支持一个手动范围来源和五个固定未读来源；五群在每次被调用时合并生成脚本，并在能力可用时分别确认本轮冻结范围已读。Skill 不在后台自动巡检。
 
@@ -64,6 +65,14 @@ Skill 决定流程、规则和输出；完整 TG Exporter 源码作为本地读�
 用 LoveAV 读取 Svip 最近 1000 条，提取全部 PikPak 链接消息，并生成 Raindrop 导入 CSV。
 ```
 
+第七功能可以这样调用：
+
+```text
+用 LoveAV 处理两个 PikPak 通知群当前未读：交集关键词只兑换一次，把每个资源保存到 pikpak链接收藏，成功后再确认来源已读。
+```
+
+它与 Svip 功能不同：Svip 直接提取已有链接；第七功能先从通知中取得关键词，再到资源群兑换链接。完整冻结、去重、即时捕获和已读语义见 `references/pikpak-notification-redeem.md`。
+
 如果要单独检查适配器：
 
 ```powershell
@@ -77,6 +86,8 @@ python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 
 规则基线：Windows `missav-manager` v0.5.13（稳定提交 `4e2aad0`）。123AV 和 Telegram 的联网部分仅作为兼容参考，不属于当前启用范围；当前默认不联网、不自动标记已读、不直写 Raindrop。
 
-当前六个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息。
+当前七个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息、PikPak 通知关键词批量兑换。
 
 Svip PikPak 链接消息消费 `tgctl` 结构化 JSON，校验精确来源并提取全部合法 URL，完成密码绑定、完整消息输出、Raindrop 去重与六列 CSV 生成；发送者身份只作为上下文，不影响筛选。它还可在受确认保护的流程中把选中的原消息转发到收藏群，是独立的第六个主功能。
+
+PikPak 通知关键词批量兑换是独立的第七个主功能。确定性计划器已支持两个未读快照的关键词提取、交集去重和来源映射；全自动发送后即时捕获、收藏群写入及精确已读仍要求 TG Exporter 提供对应的原子执行器能力。在该能力验收前不得用分离的 `send`/`history` 命令假装完成。

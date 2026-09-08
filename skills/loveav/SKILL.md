@@ -1,6 +1,6 @@
 ---
 name: loveav
-description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip PikPak 链接消息、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
+description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
 ---
 
 # 目标
@@ -22,12 +22,13 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - 自适应规则复核；
 - Whos.tv 已解决答案数据。
 - Svip 群中的 PikPak 链接消息。
+- 两个 PikPak 通知群未读关键词的合并兑换、收藏与成功后已读确认。
 
 默认使用手动、本地处理。除非存在独立、受支持的适配器且用户明确要求，否则不得切换到 Telegram 联网执行、云端执行、Raindrop 远程写入或 123AV 账号操作。
 
 # 工作流
 
-如果用户只调用 `$loveav` 而没有指定业务功能，先列出六个主功能：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息，并只询问要进入哪一个。选中 MissAV 后立即切换到 `references/missav-conversation-workflow.md`，不把其他功能的选项混入 MissAV 向导。
+如果用户只调用 `$loveav` 而没有指定业务功能，先列出七个主功能：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息、PikPak 通知关键词批量兑换，并只询问要进入哪一个。选中 MissAV 后立即切换到 `references/missav-conversation-workflow.md`，不把其他功能的选项混入 MissAV 向导。
 
 1. 识别输入来源、所选工具、时间范围和资料库策略。
 2. 预览并规范化全部临时输入。
@@ -75,6 +76,8 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 Whos.tv 使用单独的返回 JSON 工作流。
 
 Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。发送者身份只作为可选上下文，不参与接受或排除。只要精确来源匹配且含合法 PikPak URL，就默认进入主结果。结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
+
+PikPak 通知关键词批量兑换是第七个主功能，使用两个私人配置的通知群当前未读快照、一个资源提取群和一个收藏群。执行前必须读取 `references/pikpak-notification-redeem.md` 和 `references/tg-exporter-integration.md`。两个来源的关键词先按规范键合并去重，交集只发送一次，但必须保留其映射到的全部来源消息。资源成功写入收藏群后，才可按各来源冻结上界安全确认已读；失败、待复核以及快照后新消息保持未读。
 
 用户明确要求直接读取 Telegram 时，优先通过 `scripts/tg_exporter_adapter.py` 自动定位并调用 `tgctl.exe`。先执行健康检查，再按用户要求的总数量自动分页；不得让用户手动拼接各页。任何后续页失败都必须报告部分失败，不能把已取到的前几页声称为完整结果。未明确要求联网读取时，继续使用默认手动输入模式。
 
@@ -177,6 +180,7 @@ MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sour
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；其中 Bad.news 的可复制链接列表每个代码块最多 25 条，超过 25 条时按原始顺序依次拆分为多个代码块，不得省略链接；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
 - **Svip PikPak 链接消息**：精确来源中所有合法 PikPak URL 默认进入主结果；先输出包含原消息文字、链接和密码的完整消息块，再生成收藏夹固定为 `Svip PikPak链接消息` 的 Raindrop CSV；发送者身份不参与筛选，密码无法可靠绑定时仍保留链接并标记 `密码待确认`；
+- **PikPak 通知关键词批量兑换**：两个通知群当前未读关键词先合并去重，再逐个到提取群兑换；每个唯一资源以“标题、链接、密码”一条消息写入当前收藏群；只有已兑换并成功保存的来源范围才确认已读；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
 条件允许时，应报告：输入数量、时间排除数量、无效数量、重复数量、历史数量、新结果数量、`review` 数量和错误数量。
@@ -258,6 +262,18 @@ Raindrop 收藏夹固定为 `Svip PikPak链接消息`，CSV 固定为 `folder,ur
 
 用户明确要求转发主结果时，先通过会话列表确认唯一目标群组，再生成 dry-run 预览，显示来源、目标、消息数和消息 ID 范围。只有用户在最终负责时刻再次确认后，才能通过 `tgctl forward` 真实转发。默认只转发已接受的 PikPak 资源消息。不得用 `send` 重新拼接来替代真转发，除非用户明确要求发送重组文本。适配器自动定位、兼容性检查、分页、转发预览和失败语义见 `references/tg-exporter-integration.md`。
 
+# PikPak 通知关键词批量兑换
+
+把读取两个通知群当前未读消息、提取关键词、跨群去重、发送到资源提取群、即时捕获 PikPak 回复、写入收藏群并在成功后安全确认来源已读，视为第七个主功能。执行前读取 `references/pikpak-notification-redeem.md`。
+
+本功能只在用户明确调用时运行，不后台监控。每次分别冻结两个来源的 `lower` 与 `upper`；同一关键词无论出现于一个还是两个来源，本轮只兑换一次，并把成功结果关联回全部来源消息。使用 `scripts/plan_pikpak_notification_redeem.py` 生成不含完整正文的确定性去重计划。
+
+发送关键词和捕获回复必须是同一个 TG Exporter daemon 请求：发送前订阅，发送后立即等待并收集短时回复。不得用先运行 `send`、待其退出后再冷启动 `history` 的方式推断失败。多机器人返回同一资源时按规范 URL 与密码去重。
+
+每个唯一资源在当前唯一收藏群中发送一条重组文本，包含资源标题或关键词、纯 PikPak URL 和密码；没有密码时明确写 `密码：未提供`，不得猜测。调用第七功能并明确开始处理，即授权在本轮冻结范围内发送关键词、保存重组资源消息和按成功边界确认已读，不需要逐条重复确认；但目标群不唯一、写入结果未知或执行器能力不足时必须停止相关写操作。
+
+已读确认只能发生在资源成功保存之后。默认按来源整段确认：该来源冻结范围全部成功才确认到其 `upper`；若执行器能证明从 `lower` 开始的连续成功前缀，也只能确认到第一条失败之前。任何失败、待复核或快照后新消息都不得被越过或确认。
+
 # 宿主逻辑操作
 
 把以下逻辑操作映射到当前可用的 MCP、CLI 或本地适配器：
@@ -275,6 +291,11 @@ svip.resources.classify(tgctl_messages, private_source_config)
 svip.resources.raindrop_export(classified_results, raindrop_library)
 svip.resources.forward_preview(source_chat, destination_chat, message_ids)
 svip.resources.forward_confirmed(source_chat, destination_chat, message_ids)
+pikpak.notifications.freeze_unread(primary_source, secondary_source)
+pikpak.notifications.plan_deduplicated(keywords, source_message_map)
+pikpak.notifications.send_and_capture(extraction_group, keyword)
+pikpak.notifications.save_resources(collection_group, resources)
+pikpak.notifications.ack_successful_sources(frozen_bounds, outcomes)
 library.preview_import / library.commit_confirmed / library.query / library.update / library.remove
 library.backup / library.verify / library.raindrop_filter
 rules.export / rules.import_preview
@@ -327,6 +348,8 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 
 - 不得因为存在兼容适配器就自动切换为联网模式。
 - 只有 `references/missav-telegram-sources.md` 白名单中的五个固定来源，才在用户调用 MissAV Telegram 工作流时自动检查未读；Skill 不具备后台常驻能力，也不得在未被调用时声称自动监控。
+- 第七功能的两个通知来源只在用户调用该功能时检查当前未读；不得把标题相似的其他群加入，也不得用同名旧收藏群代替私人配置中的稳定目标 ID。
+- 第七功能不能使用分离的 `send` 与冷启动 `history` 冒充即时捕获；当前执行器缺少原子“发送并捕获”或精确已读能力时，只能输出计划并报告能力缺口。
 - 不得因为格式陌生就直接丢弃候选。
 - 不得把一次智能猜测固化为永久规则。
 - 不得把未选择的候选当作主体库历史。
@@ -349,6 +372,8 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 8. 所有失败和未完成步骤都被准确报告；
 9. 没有泄露或持久化敏感凭据；除用户明确保留的 Svip 资源消息外，没有持久化 Telegram 原文。
 10. Svip 发送者身份没有被用作筛选门槛，也没有把未知身份猜成具体管理员。
+11. 第七功能的两个来源已分别冻结，重合关键词只兑换一次，且映射关系没有丢失。
+12. 第七功能只在资源成功保存后确认已读，没有越过失败、待复核或快照后消息。
 
 # 示例
 
@@ -380,6 +405,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/examples.md`：自然语言请求和预期回复结构；
 - `references/whostv-solved-answers.md`：Whos.tv 抓取、截止点、校验、分类和 Markdown 规则。
 - `references/svip-resource-replies.md`：Svip PikPak 链接消息的来源校验、完整消息、密码、Raindrop CSV 与私人配置。
+- `references/pikpak-notification-redeem.md`：两个通知群未读关键词的冻结、合并去重、即时兑换、收藏群写入和成功后已读规则。
 - `references/tg-exporter-integration.md`：内嵌 TG Exporter、自动定位、健康检查、自动分页和安全边界。
 
 如需从旧 SQLite 数据库执行一次性本地迁移，使用：

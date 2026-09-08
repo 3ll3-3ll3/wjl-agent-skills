@@ -1,4 +1,4 @@
 interface:
   display_name: "LoveAV"
-  short_description: "处理 TG 文本、Svip 资源、番号、MissAV 主体库与 Whos.tv 答案"
+  short_description: "处理 TG 文本、Svip/PikPak 资源、番号、MissAV 主体库与 Whos.tv 答案"
   default_prompt: "使用 $loveav 开始工作；如果我没有给齐选项，先用简短的对话式操作面板引导我选择功能、来源和范围。"
