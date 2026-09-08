@@ -381,7 +381,7 @@
       panel.innerHTML = `
         <div style="font-weight:bold;margin-bottom:8px;font-size:16px;">MissAV 导入脚本启动面板</div>
         <div id="missav-status" style="white-space:normal;color:#ddd;">请按顺序操作</div>
-        <button id="missav-pick-csv" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">1. 选择旧女优 tag 合集 CSV</button>
+        <button id="missav-pick-csv" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">1. 选择当前女优 Tag 合集 CSV</button>
         <button id="missav-pick-dir" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">2. 选择基础输出文件夹</button>
         <button id="missav-start" style="margin-top:8px;width:100%;padding:8px;font-weight:bold;cursor:pointer;">3. 开始处理</button>
         <button id="missav-close" style="margin-top:8px;width:100%;padding:6px;cursor:pointer;">关闭面板</button>
@@ -394,15 +394,15 @@
       panel.querySelector('#missav-pick-csv').onclick = async () => {
         try {
           state.oldCollectionFile = await chooseFileText(
-            '完整女优 tag 番号统计 CSV',
+            '当前女优 Tag 合集 CSV',
             '.csv,text/csv,text/plain'
           );
 
-          status.innerHTML = `已选择 tag 合集：<br><b>${escapeHtml(state.oldCollectionFile.name)}</b>`;
-          console.log('已选择旧 tag 合集：', state.oldCollectionFile.name);
+          status.innerHTML = `已选择当前女优 Tag 合集：<br><b>${escapeHtml(state.oldCollectionFile.name)}</b>`;
+          console.log('已选择当前女优 Tag 合集：', state.oldCollectionFile.name);
         } catch (e) {
           console.error(e);
-          status.textContent = '选择 tag 合集失败';
+          status.textContent = '选择当前女优 Tag 合集失败';
         }
       };
 
@@ -420,7 +420,7 @@
 
       panel.querySelector('#missav-start').onclick = () => {
         if (!state.oldCollectionFile) {
-          alert('请先选择旧女优 tag 合集 CSV');
+          alert('请先选择当前女优 Tag 合集 CSV');
           return;
         }
 
@@ -1101,9 +1101,9 @@ ${folderBlock(OTHER_FOLDER_NAME, otherRows)}
   const collectionRows = parseActressCollectionCSV(oldCollectionFile.text);
   const existingCodeMap = buildExistingCodeMap(collectionRows);
 
-  console.log('已选择旧 tag 合集：', oldCollectionFile.name);
-  console.log('旧 tag 合集女优行数：', collectionRows.length);
-  console.log('旧 tag 合集已收录唯一番号数：', existingCodeMap.size);
+  console.log('已选择当前女优 Tag 合集：', oldCollectionFile.name);
+  console.log('当前女优 Tag 合集女优行数：', collectionRows.length);
+  console.log('当前女优 Tag 合集已收录唯一番号数：', existingCodeMap.size);
 
   const rawInputCodes = CODE_TEXT
     .split(/\r?\n/)
@@ -1153,7 +1153,7 @@ ${folderBlock(OTHER_FOLDER_NAME, otherRows)}
         url: candidateUrls(code)[0],
         status: 'already_exists_in_tag_collection',
         include_in_import: false,
-        notes: '已存在于旧 tag 合集，不重复导入',
+        notes: '已存在于当前女优 Tag 合集，不重复导入',
         existing_tags: existingTags,
         actress_raw: '',
         actress_tags: existingTags,
@@ -1175,7 +1175,7 @@ ${folderBlock(OTHER_FOLDER_NAME, otherRows)}
 
   console.log('本次输入番号数：', rawInputCodes.length);
   console.log('本次输入内部重复数：', duplicateInputRows.length);
-  console.log('旧 tag 合集中已存在数：', alreadyExistsRows.length);
+  console.log('当前女优 Tag 合集中已存在数：', alreadyExistsRows.length);
   console.log('本次需要实际抓取数：', codesToProcess.length);
   console.log('中途停止：window.__STOP_MISSAV_TAG_FETCH = true');
 
@@ -1295,7 +1295,7 @@ ${folderBlock(OTHER_FOLDER_NAME, otherRows)}
   }
 
   if (alreadyExistsRows.length) {
-    console.log('旧 tag 合集中已经存在的番号：');
+    console.log('当前女优 Tag 合集中已经存在的番号：');
     console.table(alreadyExistsRows.map(r => ({
       code: r.code,
       existing_tags: r.existing_tags

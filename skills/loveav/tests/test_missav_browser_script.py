@@ -18,7 +18,7 @@ class MissavBrowserScriptTest(unittest.TestCase):
     def test_bundled_assets_match_v0513_baseline(self) -> None:
         template = ROOT / "assets" / "missav-browser-script.txt"
         boundaries = ROOT / "assets" / "missav-type-boundary-tags.txt"
-        self.assertEqual(hashlib.sha256(template.read_bytes()).hexdigest(), "309a30fbfaa39649daf3e8272b7fb4e4022ce2c05144bf27108551c0aa034e4c")
+        self.assertEqual(hashlib.sha256(template.read_bytes()).hexdigest(), "32b928f1b3ba310c3a5c0f56a393c47ee628d1ca1822e42dc09665e9ba81c505")
         self.assertEqual(hashlib.sha256(boundaries.read_bytes()).hexdigest(), "b872f9fde88f64feb6ab2181b5223cd5e8d8a09a9b348cce928b903b3f1bb4aa")
 
     def test_blacklist_comment_lines_are_not_tags(self) -> None:
@@ -105,6 +105,8 @@ class MissavBrowserScriptTest(unittest.TestCase):
             self.assertEqual(report["reference_tags_injected"], 2)
             self.assertIn("ABF-123", generated)
             self.assertIn("FC2-PPV-1234567", generated)
+            self.assertIn("选择当前女优 Tag 合集 CSV", generated)
+            self.assertNotIn("选择旧女优 tag 合集 CSV", generated)
             self.assertIn('"女优甲"', generated)
             self.assertIn('"女优丙"', generated)
             self.assertNotIn('"女优乙"', generated)

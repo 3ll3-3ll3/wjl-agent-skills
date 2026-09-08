@@ -27,7 +27,7 @@ LoveAV-Data/
    └─ backups/                 # 每次确认写库前的主体库备份
 ```
 
-`missav-library.csv` 是唯一权威主体库。不得长期并行维护“Raindrop 库”和“Skill 新增库”两个真源，也不得再把 `seen-index.csv` 当作第二套历史库。
+`missav-library.csv` 是唯一权威主体库和最终查重真源。不得长期并行维护“Raindrop 库”和“Skill 新增库”两个真源，也不得再把 `seen-index.csv` 当作第二套历史库。`初始女优Tag合集.csv` 和每批 `*_女优tag合集.csv` 是浏览器运行检查点，不是主体库；最新合集不得自动覆盖或反向合并到主体库。
 
 ## 两种输入来源
 
@@ -145,7 +145,8 @@ YYYY-MM-DD_HHmm_missav_raindrop_import_threeway.csv
 
 ## 与规则和 Whos.tv 的边界
 
-- 不再维护独立参考女优 Tag 文件；它由主体库实时派生。参考 Tag 黑名单和 Raindrop 导出黑名单仍维持独立文件与语义，本契约不搬迁或覆盖它们。
+- 不再维护独立的参考女优 Tag 真源；注入脚本的参考集合由主体库实时派生。浏览器仍保留 `初始女优Tag合集.csv` 和每批 `*_女优tag合集.csv` 作为运行检查点，用于跳过已处理番号和延续女优映射，但它们不具备主体库身份。参考 Tag 黑名单和 Raindrop 导出黑名单仍维持独立文件与语义，本契约不搬迁或覆盖它们。
+- 只有用户明确确认保留的 Raindrop CSV 才能经过预览与确认流程合并进主体库；浏览器当前合集不能直接入库。
 - 主体库同时是历史查重真源和浏览器脚本参考女优 Tag 真源。生成脚本时只读扫描主 Tags 与全部来源变体，按 `missav-browser-script.md` 的类型边界规则派生女优 Tag；该过程不修改主体库，也不把普通类型 Tags 或一次模型猜测晋级为女优 Tag。
 - Whos.tv 继续使用既有固定目录和状态文件；其中番号只有在用户明确选择后才能作为 MissAV 来源导入主体库。
 - Google Drive 可以同步整个私人数据目录，但 GitHub 只保存 Skill、脚本、测试和契约，不提交主体库、批次 CSV 或私人备份。
