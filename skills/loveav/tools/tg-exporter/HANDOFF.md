@@ -11,7 +11,7 @@
 - 原独立仓库正式 v0.3.2、历史 Tag 与 Release 保持不变，不做归档或反向修改。
 - 当前内嵌开发版本：v0.3.3，新增 `tgctl version --json` 与增强的 `tgctl status --json`，供 LoveAV 自动适配器检查版本、Schema、IPC 和能力。
 - LoveAV 自动定位和多页读取逻辑位于上级 `scripts/tg_exporter_adapter.py`；TG Exporter 仍保持通用 Telegram 层，不内置 LoveAV/PikPak 业务分类。
-- v0.3.3 当前是源码开发状态，不是正式 Release；必须通过完整测试和 Windows 构建后才能称为 Candidate。
+- v0.3.3 当前是 LoveAV 仓库 PR #1 的 Candidate，不是正式 Release；不得修改或覆盖独立仓库的 v0.3.2 Release。
 
 ## 2026-09-08 LoveAV 第七功能执行层
 
@@ -34,7 +34,10 @@ embedded TG Exporter tests: 155 passed
 compileall: PASS
 git diff --check: PASS
 real Telegram writes/read acknowledgement: NOT RUN
-Windows packaged build: pending
+Windows packaged build/smoke: PASS
+GitHub Actions push run: 34226158199 = SUCCESS
+GitHub Actions PR run: 34226163539 = SUCCESS
+candidate code head: da4e5430634bc298d64123c2dcb8f4b26ae5c846
 ```
 
 # Current Project State
