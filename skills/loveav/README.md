@@ -41,6 +41,8 @@
 
 生成 MissAV 浏览器脚本时，注入脚本的参考女优 Tag 不再读取 `Miss_AV.html` 或独立 Tag 库，而是扫描正式 `missav-library.csv` 的主 Tags 与全部来源变体。浏览器首次运行选择从正式库生成的 `初始女优Tag合集.csv`，以后选择上次生成的最新 `*_女优tag合集.csv` 作为“当前女优 Tag 合集”；这些合集只用于恢复处理进度和女优映射，不是正式主体库，也不会自动写回主体库。确定性生成器、命令和双层黑名单规则见 `references/missav-browser-script.md`。
 
+浏览器启动面板默认使用 `E:\Desktop\codex项目\LoveAV-Data\missav\results`。首次在 Chrome 中授权这一目录后，后续运行会自动找到其中最新的女优 Tag 合集，并在同一目录下新建本批输出子目录，不再要求每次重复选择 CSV 和输出路径。
+
 ## 长期数据设计
 
 - Whos.tv 保持既有固定目录、状态与 Markdown 流程，不移动。

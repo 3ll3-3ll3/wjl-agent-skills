@@ -27,6 +27,7 @@ DEFAULT_TYPE_BOUNDARIES = ROOT / "assets" / "missav-type-boundary-tags.txt"
 REFERENCE_BLACKLIST_FILE = "1-参考女优Tag库黑名单.txt"
 EXPORT_BLACKLIST_FILE = "2-Raindrop导出黑名单.txt"
 RUNTIME_OPTIMIZATION_VERSION = "safe-fetch-v1"
+WORKSPACE_LAUNCHER_VERSION = "remembered-results-v1"
 
 SYSTEM_TAGS = {"未知女优", "#未知女优", "需要查找", "已存在", "重复输入"}
 EXPLICIT_TYPE_TAGS = {"教师", "女优", "女優", "演员", "演員", "VR"}
@@ -240,6 +241,362 @@ def apply_runtime_optimization(script: str) -> str:
     return result
 
 
+def apply_workspace_launcher(script: str) -> str:
+    """把原版的“每次选 CSV + 每次选输出目录”改为单目录工作区。
+
+    浏览器不允许脚本凭绝对路径直接读写磁盘，因此首次仍由用户在
+    Chrome 目录选择器中授权 results 目录。授权后把 DirectoryHandle 保存到
+    IndexedDB；后续运行自动找到最新的女优 Tag 合集，并在同一目录下创建
+    本次输出子目录。
+    """
+    start_marker = "  function chooseFileText(label, accept = '*') {"
+    end_marker = "  function parseCSVLine(line) {"
+    if script.count(start_marker) != 1 or script.count(end_marker) != 1:
+        raise ValueError(
+            f"MissAV 原版模板无法应用 {WORKSPACE_LAUNCHER_VERSION}：启动面板锚点不唯一。"
+        )
+
+    start = script.index(start_marker)
+    end = script.index(end_marker)
+    if end <= start:
+        raise ValueError(
+            f"MissAV 原版模板无法应用 {WORKSPACE_LAUNCHER_VERSION}：启动面板范围无效。"
+        )
+
+    launcher = r'''  const LOVEAV_WORKSPACE_DB = 'loveav-missav-workspace-v1';
+  const LOVEAV_WORKSPACE_STORE = 'directory-handles';
+  const LOVEAV_WORKSPACE_KEY = 'results-directory';
+  const LOVEAV_DIRECTORY_PICKER_ID = 'loveav-missav-results';
+  const LOVEAV_DEFAULT_RESULTS_PATH_HINT = 'E:\\Desktop\\codex项目\\LoveAV-Data\\missav\\results';
+
+  function chooseFileText(label, accept = '*') {
+    return new Promise((resolve, reject) => {
+      console.log('请选择文件：' + label);
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = accept;
+
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return reject(new Error('没有选择文件：' + label));
+
+        const reader = new FileReader();
+
+        reader.onload = () => resolve({
+          text: String(reader.result || ''),
+          name: file.name,
+          lastModified: Number(file.lastModified || 0)
+        });
+
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file, 'utf-8');
+      };
+
+      input.click();
+    });
+  }
+
+  function openLoveavWorkspaceDb() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) return reject(new Error('当前浏览器不支持 IndexedDB。'));
+
+      const request = indexedDB.open(LOVEAV_WORKSPACE_DB, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(LOVEAV_WORKSPACE_STORE)) {
+          db.createObjectStore(LOVEAV_WORKSPACE_STORE);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('打开工作目录配置失败。'));
+    });
+  }
+
+  async function readRememberedResultsDirectory() {
+    const db = await openLoveavWorkspaceDb();
+    try {
+      return await new Promise((resolve, reject) => {
+        const transaction = db.transaction(LOVEAV_WORKSPACE_STORE, 'readonly');
+        const request = transaction.objectStore(LOVEAV_WORKSPACE_STORE).get(LOVEAV_WORKSPACE_KEY);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error || new Error('读取工作目录配置失败。'));
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  async function rememberResultsDirectory(handle) {
+    const db = await openLoveavWorkspaceDb();
+    try {
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction(LOVEAV_WORKSPACE_STORE, 'readwrite');
+        transaction.objectStore(LOVEAV_WORKSPACE_STORE).put(handle, LOVEAV_WORKSPACE_KEY);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error('保存工作目录配置失败。'));
+        transaction.onabort = () => reject(transaction.error || new Error('保存工作目录配置已取消。'));
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  async function hasDirectoryPermission(handle, requestIfNeeded = false) {
+    if (!handle) return false;
+    const options = { mode: 'readwrite' };
+    if (await handle.queryPermission(options) === 'granted') return true;
+    if (!requestIfNeeded || typeof handle.requestPermission !== 'function') return false;
+    return await handle.requestPermission(options) === 'granted';
+  }
+
+  function isCollectionCsvName(name) {
+    return name.toLowerCase().endsWith('.csv') && /女优\s*tag\s*合集/i.test(name);
+  }
+
+  async function findLatestCollectionCsv(baseDirHandle) {
+    const candidates = [];
+
+    async function walk(directoryHandle, relativePath = '', depth = 0) {
+      for await (const entry of directoryHandle.values()) {
+        const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+        if (entry.kind === 'file' && isCollectionCsvName(entry.name)) {
+          const file = await entry.getFile();
+          candidates.push({ entry, file, entryPath });
+        } else if (entry.kind === 'directory' && depth < 4) {
+          await walk(entry, entryPath, depth + 1);
+        }
+      }
+    }
+
+    await walk(baseDirHandle);
+    if (!candidates.length) {
+      throw new Error(`默认工作目录中没有找到女优 Tag 合集 CSV：${LOVEAV_DEFAULT_RESULTS_PATH_HINT}`);
+    }
+
+    candidates.sort((a, b) => {
+      const timeDiff = Number(b.file.lastModified || 0) - Number(a.file.lastModified || 0);
+      return timeDiff || b.entryPath.localeCompare(a.entryPath, 'zh-Hans-CN');
+    });
+
+    const latest = candidates[0];
+    return {
+      text: await latest.file.text(),
+      name: latest.file.name,
+      relativePath: latest.entryPath,
+      lastModified: Number(latest.file.lastModified || 0)
+    };
+  }
+
+  async function chooseAndRememberResultsDirectory() {
+    if (!window.showDirectoryPicker) {
+      throw new Error('当前浏览器不支持工作目录授权，请使用 Chrome。');
+    }
+
+    console.log('首次请选择默认工作目录：', LOVEAV_DEFAULT_RESULTS_PATH_HINT);
+    const handle = await window.showDirectoryPicker({
+      id: LOVEAV_DIRECTORY_PICKER_ID,
+      mode: 'readwrite'
+    });
+    await rememberResultsDirectory(handle);
+    return handle;
+  }
+
+  async function createOutputDirectory(baseDirHandle) {
+    const runPrefix = timePrefixToMinute();
+    const folderName = `${runPrefix}_missav_import`;
+    const runDirHandle = await baseDirHandle.getDirectoryHandle(folderName, { create: true });
+
+    return {
+      runPrefix,
+      baseDirHandle,
+      runDirHandle,
+      folderName
+    };
+  }
+
+  async function saveTextFile(filename, text, type = 'text/plain;charset=utf-8', outputDirInfo = null) {
+    const dirHandle = outputDirInfo?.runDirHandle || null;
+
+    if (dirHandle) {
+      const fileHandle = await dirHandle.getFileHandle(filename, {
+        create: true
+      });
+
+      const writable = await fileHandle.createWritable();
+      const blob = new Blob([text], { type });
+
+      await writable.write(blob);
+      await writable.close();
+
+      console.log('已保存到本次输出文件夹：', filename);
+      return;
+    }
+
+    const blob = new Blob([text], { type });
+    const a = document.createElement('a');
+
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(a.href);
+
+    console.log('已下载：', filename);
+  }
+
+  function prepareRunByUserClick() {
+    return new Promise(resolve => {
+      const state = {
+        oldCollectionFile: null,
+        baseDirHandle: null
+      };
+
+      const oldPanel = document.querySelector('#missav-import-panel');
+      if (oldPanel) oldPanel.remove();
+
+      const panel = document.createElement('div');
+      panel.id = 'missav-import-panel';
+      panel.style.cssText = `
+        position: fixed;
+        z-index: 999999;
+        top: 20px;
+        right: 20px;
+        width: 410px;
+        padding: 14px;
+        background: #111;
+        color: #fff;
+        border: 1px solid #555;
+        border-radius: 10px;
+        font-size: 14px;
+        line-height: 1.6;
+        box-shadow: 0 4px 20px rgba(0,0,0,.35);
+        font-family: Arial, "Microsoft YaHei", sans-serif;
+      `;
+
+      panel.innerHTML = `
+        <div style="font-weight:bold;margin-bottom:8px;font-size:16px;">MissAV 导入脚本启动面板</div>
+        <div style="font-size:12px;color:#aaa;word-break:break-all;">默认工作目录：${escapeHtml(LOVEAV_DEFAULT_RESULTS_PATH_HINT)}</div>
+        <div id="missav-status" style="margin-top:6px;white-space:normal;color:#ddd;">正在读取已保存的目录授权……</div>
+        <button id="missav-pick-workspace" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">1. 首次授权 / 更换默认工作目录</button>
+        <button id="missav-rescan" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">2. 重新扫描最新女优 Tag 合集</button>
+        <button id="missav-pick-csv" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">备用：手动选择当前女优 Tag 合集</button>
+        <button id="missav-start" style="margin-top:8px;width:100%;padding:8px;font-weight:bold;cursor:pointer;">3. 开始处理</button>
+        <button id="missav-close" style="margin-top:8px;width:100%;padding:6px;cursor:pointer;">关闭面板</button>
+      `;
+
+      document.body.appendChild(panel);
+      const status = panel.querySelector('#missav-status');
+
+      const showReadyStatus = () => {
+        if (!state.baseDirHandle || !state.oldCollectionFile) return;
+        const when = state.oldCollectionFile.lastModified
+          ? new Date(state.oldCollectionFile.lastModified).toLocaleString()
+          : '时间未知';
+        status.innerHTML = `
+          已就绪，后续无需重复选路径。<br>
+          工作目录：<b>${escapeHtml(state.baseDirHandle.name)}</b><br>
+          当前合集：<b>${escapeHtml(state.oldCollectionFile.relativePath || state.oldCollectionFile.name)}</b><br>
+          合集时间：${escapeHtml(when)}<br>
+          输出：自动创建本次 <b>*_missav_import</b> 子目录
+        `;
+      };
+
+      const loadFromHandle = async (handle, requestPermission) => {
+        if (!await hasDirectoryPermission(handle, requestPermission)) return false;
+        state.baseDirHandle = handle;
+        state.oldCollectionFile = await findLatestCollectionCsv(handle);
+        showReadyStatus();
+        return true;
+      };
+
+      panel.querySelector('#missav-pick-workspace').onclick = async () => {
+        try {
+          const remembered = await readRememberedResultsDirectory().catch(() => null);
+          if (remembered && await loadFromHandle(remembered, true)) return;
+          const selected = await chooseAndRememberResultsDirectory();
+          await loadFromHandle(selected, false);
+        } catch (e) {
+          console.error(e);
+          status.textContent = '默认工作目录授权或读取失败：' + String(e?.message || e);
+        }
+      };
+
+      panel.querySelector('#missav-rescan').onclick = async () => {
+        try {
+          const handle = state.baseDirHandle || await readRememberedResultsDirectory();
+          if (!handle || !await loadFromHandle(handle, true)) {
+            throw new Error('请先授权默认工作目录。');
+          }
+        } catch (e) {
+          console.error(e);
+          status.textContent = '重新扫描失败：' + String(e?.message || e);
+        }
+      };
+
+      panel.querySelector('#missav-pick-csv').onclick = async () => {
+        try {
+          state.oldCollectionFile = await chooseFileText(
+            '当前女优 Tag 合集 CSV',
+            '.csv,text/csv,text/plain'
+          );
+          state.oldCollectionFile.relativePath = state.oldCollectionFile.name;
+          if (state.baseDirHandle) showReadyStatus();
+          else status.innerHTML = `已手动选择合集：<br><b>${escapeHtml(state.oldCollectionFile.name)}</b><br>仍需授权默认输出目录。`;
+        } catch (e) {
+          console.error(e);
+          status.textContent = '手动选择当前女优 Tag 合集失败。';
+        }
+      };
+
+      panel.querySelector('#missav-start').onclick = async () => {
+        if (!state.baseDirHandle || !state.oldCollectionFile) {
+          alert('请先授权默认工作目录，并确认已读取当前女优 Tag 合集。');
+          return;
+        }
+
+        try {
+          const outputDirInfo = await createOutputDirectory(state.baseDirHandle);
+          panel.remove();
+          resolve({
+            oldCollectionFile: state.oldCollectionFile,
+            outputDirInfo
+          });
+        } catch (e) {
+          console.error(e);
+          status.textContent = '创建本次输出文件夹失败：' + String(e?.message || e);
+        }
+      };
+
+      panel.querySelector('#missav-close').onclick = () => {
+        panel.remove();
+      };
+
+      (async () => {
+        try {
+          const remembered = await readRememberedResultsDirectory();
+          if (!remembered) {
+            status.textContent = '首次运行：点击“首次授权”，选择上方默认工作目录。以后将自动恢复。';
+            return;
+          }
+          if (!await loadFromHandle(remembered, false)) {
+            status.textContent = '已记住工作目录，但 Chrome 需要重新授权。请点击第 1 个按钮，无需重新定位文件夹。';
+          }
+        } catch (e) {
+          console.warn('自动恢复默认工作目录失败：', e);
+          status.textContent = '无法自动恢复工作目录，请点击第 1 个按钮重新选择。';
+        }
+      })();
+    });
+  }
+
+'''
+    return script[:start] + launcher + script[end:]
+
+
 def inject_script(template: str, codes: list[str], reference_tags: list[str], export_blacklist: list[str]) -> str:
     if "(async () =>" not in template:
         raise ValueError("MissAV 模板不是可直接运行的异步浏览器脚本。")
@@ -285,8 +642,10 @@ def main() -> int:
     export_blacklist = split_lines(export_blacklist_path)
     reference_tags, stats = extract_reference_tags(args.library, reference_blacklist)
     template = args.template.read_text(encoding="utf-8-sig")
-    script = apply_runtime_optimization(
-        inject_script(template, codes, reference_tags, export_blacklist)
+    script = apply_workspace_launcher(
+        apply_runtime_optimization(
+            inject_script(template, codes, reference_tags, export_blacklist)
+        )
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -307,6 +666,7 @@ def main() -> int:
         "output": str(args.output.resolve()),
         "output_sha256": sha256_file(args.output),
         "runtime_optimization": RUNTIME_OPTIMIZATION_VERSION,
+        "workspace_launcher": WORKSPACE_LAUNCHER_VERSION,
         "codes_injected": len(codes),
         "export_blacklist_tags_injected": len(export_blacklist),
         **stats,
