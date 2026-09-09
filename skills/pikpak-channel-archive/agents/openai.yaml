@@ -1,0 +1,4 @@
+interface:
+  display_name: "PikPak 资源频道归档"
+  short_description: "归档 Telegram PikPak 资源频道并生成本地主库和 Raindrop CSV"
+  default_prompt: "使用 $pikpak-channel-archive 归档指定的 PikPak 资源频道。"

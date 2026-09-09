@@ -23,7 +23,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - Whos.tv 已解决答案数据。
 - Svip 群中的 PikPak 链接消息。
 - 两个 PikPak 通知群未读关键词的合并兑换、收藏与成功后已读确认。
-- 指定 PikPak 资源频道的完整历史归档与 Raindrop CSV。
+- 指定 PikPak 资源频道的完整历史归档与 Raindrop CSV（兼容入口；独立入口为 `$pikpak-channel-archive`）。
 
 默认使用手动、本地处理。除非存在独立、受支持的适配器且用户明确要求，否则不得切换到 Telegram 联网执行、云端执行、Raindrop 远程写入或 123AV 账号操作。
 
@@ -78,7 +78,7 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。发送者身份只作为可选上下文，不参与接受或排除。只要精确来源匹配且含合法 PikPak URL，就默认进入主结果。结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
 
-用户要求把指定 PikPak 资源频道的全部发布资源保存为本地库时，使用第六功能的频道归档模式，并读取 `references/pikpak-channel-archive.md`。该模式只保留含合法 PikPak URL 的资源帖，同时检查可见正文、caption 和富文本隐藏链接；不保存图片、纯每日更新播报或普通公告。数据流固定为“Telegram → 本地主库 → Raindrop CSV”，使用固定 `current`、按日期时间的 `updates` 和更新前 `snapshots`；不得设计 Raindrop 导出回灌、比较或自动合并步骤。
+用户要求把指定 PikPak 资源频道的全部发布资源保存为本地库时，优先切换到独立 `$pikpak-channel-archive`；本 Skill 保留第六功能的兼容入口，并读取 `references/pikpak-channel-archive.md`。该模式只保留含合法 PikPak URL 的资源帖，同时检查可见正文、caption 和富文本隐藏链接；不保存图片、纯每日更新播报或普通公告。数据流固定为“Telegram → 本地主库 → Raindrop CSV”，使用固定 `current`、按日期时间的 `updates` 和更新前 `snapshots`；不得设计 Raindrop 导出回灌、比较或自动合并步骤。
 
 PikPak 通知关键词批量兑换是第七个主功能，使用两个私人配置的通知群当前未读快照、一个资源提取群和一个收藏群。执行前必须读取 `references/pikpak-notification-redeem.md` 和 `references/tg-exporter-integration.md`。两个来源的关键词先按规范键合并去重，交集只发送一次，但必须保留其映射到的全部来源消息。资源成功写入收藏群后，才可按各来源冻结上界安全确认已读；失败、待复核以及快照后新消息保持未读。
 
