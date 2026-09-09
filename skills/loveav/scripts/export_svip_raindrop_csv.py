@@ -161,7 +161,7 @@ def _load_raindrop_library(path: Path | None, folder: str) -> dict[str, dict[str
 
 
 def _password_from_note(note: str) -> str:
-    match = PASSWORD_RE.search(note or "")
+    match = PASSWORD_RE.search(URL_RE.sub(" ", note or ""))
     return match.group(1) if match else ""
 
 

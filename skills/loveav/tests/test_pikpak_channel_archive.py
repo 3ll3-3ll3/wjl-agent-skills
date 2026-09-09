@@ -48,7 +48,19 @@ def test_only_messages_with_pikpak_urls_are_archived() -> None:
     assert summary["resource_messages"] == 1
     assert len(records) == 1
     assert records[0]["title"] == "资源甲"
-    assert records[0]["tags"] == ["主播", "合集"]
+    assert records[0]["password_tag"] == "#无密码"
+    assert records[0]["tags"] == ["无密码", "主播", "合集"]
+
+
+def test_pwd_inside_share_token_is_not_misread_as_password() -> None:
+    records, summary = MODULE.build_library(
+        payload(message(1, "资源\nhttps://mypikpak.com/s/VOpWD9FOgelsUicSi8wYrl60o2")),
+        folder="层楼PikPak资源社",
+    )
+    assert summary["resources_with_password"] == 0
+    assert records[0]["password"] == ""
+    assert records[0]["password_status"] == "not_provided"
+    assert records[0]["password_tag"] == "#无密码"
 
 
 def test_hidden_text_url_is_not_lost() -> None:
@@ -97,7 +109,13 @@ def test_files_are_atomic_raindrop_compatible_and_hashed() -> None:
             row = next(reader)
             assert row["folder"] == "层楼PikPak资源社"
             assert row["url"] == "https://mypikpak.com/s/a"
-            assert "密码" in row["note"]
+            assert row["note"].splitlines()[:3] == [
+                "https://mypikpak.com/s/a",
+                "#有密码",
+                "密码：abcd",
+            ]
+            assert row["note"].count("https://mypikpak.com/s/a") == 1
+            assert "有密码" in row["tags"]
         update = Path(manifest["update_dir"])
         with (update / "raindrop-added.csv").open("r", encoding="utf-8-sig", newline="") as handle:
             assert len(list(csv.DictReader(handle))) == 1
@@ -105,6 +123,19 @@ def test_files_are_atomic_raindrop_compatible_and_hashed() -> None:
         assert manifest["raindrop_direction"] == "local_to_raindrop_only"
         assert manifest["images_downloaded"] is False
         assert json.loads((root / "current" / "manifest.json").read_text(encoding="utf-8"))["telegram_state_changed"] is False
+
+
+def test_raindrop_note_puts_link_and_no_password_tag_before_original_message() -> None:
+    records, _ = MODULE.build_library(
+        payload(message(1, "资源标题\n第一段\nhttps://mypikpak.com/s/a\n第二段")),
+        folder="层楼PikPak资源社",
+    )
+    row = MODULE._raindrop_row(records[0])
+    lines = row["note"].splitlines()
+    assert lines[:2] == ["https://mypikpak.com/s/a", "#无密码"]
+    assert lines.index("资源标题") < lines.index("第一段") < lines.index("第二段")
+    assert row["note"].count("https://mypikpak.com/s/a") == 1
+    assert "无密码" in row["tags"]
 
 
 def test_second_run_creates_incremental_delta_and_snapshot() -> None:

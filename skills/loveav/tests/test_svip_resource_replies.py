@@ -182,6 +182,15 @@ def test_single_password_elsewhere_in_message_is_bound() -> None:
     }
 
 
+def test_pwd_inside_share_token_is_not_bound_as_password() -> None:
+    row = message(14, reply=9, photo=True)
+    row["text"] = "资源 https://mypikpak.com/s/VOpWD9FOgelsUicSi8wYrl60o2"
+    result = classify(row)
+    resource = result["results"]["main"][0]["pikpak_resources"][0]
+    assert resource["password"] is None
+    assert result["results"]["main"][0]["password_status"] == "not_provided"
+
+
 def test_multiple_unassigned_passwords_are_not_guessed() -> None:
     row = message(12, reply=9, photo=True)
     row["text"] = "密码: abcd\n备用密码: efgh\nhttps://mypikpak.com/s/abc"

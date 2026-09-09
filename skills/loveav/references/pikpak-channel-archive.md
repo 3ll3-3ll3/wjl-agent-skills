@@ -33,6 +33,8 @@ LoveAV-Data/config/telegram-sources.json
 - 每个规范 PikPak URL 在主库中只有一条记录；重复发布消息完整保存在 `source_messages`。
 - 一条消息含多个 PikPak URL 时，每个 URL 建立独立资源记录。
 - 密码能唯一绑定时保存；同一 URL 出现多个不同密码时标记 `conflict`，不得猜测。
+- 密码只能从 PikPak URL 之外的明确密码标签识别；链接 token 内自然出现的 `pwd` 不得误判。
+- 每条本地主库记录必须显式包含 `#有密码` 或 `#无密码`；结构化 `tags` 列对应保存 `有密码` 或 `无密码`。
 
 ## 本地文件
 
@@ -58,6 +60,7 @@ LoveAV-Data/pikpak/cenglou-vip/
 - `current/resource-library.jsonl`：唯一正式主库，保存每个 URL 及全部来源消息。
 - `current/resource-library.csv`：方便 Excel 查看，不作为另一份真源。
 - `current/raindrop-full.csv`：固定六列 `folder,url,title,note,tags,created`，用于完整重建 Raindrop 收藏夹。
+- Raindrop `note` 的第一行固定为当前 PikPak URL，第二行为 `#有密码` 或 `#无密码`；有密码时第三行写密码。随后移除当前 URL 的一次重复并按原顺序保留消息其余内容，最后附 Telegram 来源。
 - `updates/.../raindrop-added.csv`：只含本次新增 URL，是日常应导入 Raindrop 的文件。
 - `updates` 的其他文件分别保存新增、变化、当前缺失和密码冲突；即使本次没有变化，也生成报告作为运行记录。
 - `snapshots`：只在数据变化或旧布局迁移时生成，保存更新前的完整版本。

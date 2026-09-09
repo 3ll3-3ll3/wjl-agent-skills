@@ -87,7 +87,10 @@ def canonical_resources(message: dict[str, Any]) -> list[dict[str, str | None]]:
             value = message.get(key)
             if not isinstance(value, str):
                 continue
-            for match in PASSWORD_ANYWHERE_RE.finditer(value):
+            # 分享 token 可能自然包含 ``pwd``（例如 ``.../VOpWD9...``）。
+            # 密码标签只能从 URL 之外的正文识别，不能把链接自身拆成密码。
+            value_without_urls = URL_RE.sub(" ", value)
+            for match in PASSWORD_ANYWHERE_RE.finditer(value_without_urls):
                 password = match.group(1)
                 if password.casefold() not in {item.casefold() for item in candidates}:
                     candidates.append(password)

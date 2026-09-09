@@ -104,6 +104,10 @@ def test_existing_url_with_missing_password_enters_update_review() -> None:
     assert summary["password_updates"] == 1
 
 
+def test_pwd_inside_url_in_existing_note_is_not_a_password() -> None:
+    assert MODULE._password_from_note("https://mypikpak.com/s/VOpWD9FOgelsUicSi8wYrl60o2") == ""
+
+
 def test_same_batch_conflicting_password_is_not_silently_merged() -> None:
     first = record()
     second = record(

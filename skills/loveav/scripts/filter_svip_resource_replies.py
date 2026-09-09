@@ -16,7 +16,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from pikpak_resources import PASSWORD_ANYWHERE_RE, canonical_resources
+from pikpak_resources import PASSWORD_ANYWHERE_RE, URL_RE, canonical_resources
 
 
 SCHEMA_VERSION = 3
@@ -186,7 +186,7 @@ def _password_status(message: dict[str, Any], resources: list[dict[str, str | No
         value = message.get(key)
         if not isinstance(value, str):
             continue
-        for match in PASSWORD_ANYWHERE_RE.finditer(value):
+        for match in PASSWORD_ANYWHERE_RE.finditer(URL_RE.sub(" ", value)):
             candidates.add(match.group(1).casefold())
     if bound or len(candidates) > 1 or (len(resources) > 1 and candidates):
         return "ambiguous"

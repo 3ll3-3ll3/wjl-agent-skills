@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 from pikpak_resources import canonical_resources, resource_title
 
 
-SCHEMA = "loveav.pikpak-channel-library.v1"
+SCHEMA = "loveav.pikpak-channel-library.v2"
 RAINDROP_COLUMNS = ["folder", "url", "title", "note", "tags", "created"]
 LIBRARY_COLUMNS = [
     "url",
@@ -28,6 +28,7 @@ LIBRARY_COLUMNS = [
     "note",
     "password",
     "password_status",
+    "password_tag",
     "tags",
     "created",
     "last_posted_at",
@@ -166,8 +167,11 @@ def build_library(payload: Any, *, folder: str) -> tuple[list[dict[str, Any]], d
         passwords = list(dict.fromkeys(source["password"] for source in sources if source["password"]))
         if len(passwords) > 1:
             password_conflicts += 1
-        tags: list[str] = []
+        password_status = "conflict" if len(passwords) > 1 else ("provided" if passwords else "not_provided")
+        password_tag = "#有密码" if passwords else "#无密码"
+        tags: list[str] = [password_tag.removeprefix("#")]
         seen_tags: set[str] = set()
+        seen_tags.add(tags[0].casefold())
         for source in sources:
             for tag in source["tags"]:
                 if tag.casefold() not in seen_tags:
@@ -178,7 +182,8 @@ def build_library(payload: Any, *, folder: str) -> tuple[list[dict[str, Any]], d
             "title": latest["title"],
             "note": latest["full_message"],
             "password": passwords[0] if len(passwords) == 1 else "",
-            "password_status": "conflict" if len(passwords) > 1 else ("provided" if passwords else "not_provided"),
+            "password_status": password_status,
+            "password_tag": password_tag,
             "passwords": passwords,
             "tags": tags,
             "created": sources[0]["created"],
@@ -223,6 +228,7 @@ def _library_row(record: dict[str, Any]) -> dict[str, str]:
         "note": _formula_safe(record["note"]),
         "password": _formula_safe(record["password"]),
         "password_status": record["password_status"],
+        "password_tag": record["password_tag"],
         "tags": _formula_safe(", ".join(record["tags"])),
         "created": record["created"],
         "last_posted_at": record["last_posted_at"],
@@ -233,28 +239,41 @@ def _library_row(record: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _raindrop_note(record: dict[str, Any]) -> str:
-    password = record["password"] or ("存在冲突，见本地主库" if record["password_status"] == "conflict" else "未提供")
-    sources = "、".join(str(value) for value in record["source_message_ids"])
-    return "\n".join(
-        [
-            "【资源说明】",
-            str(record["note"]),
-            "",
-            f"【密码】{password}",
-            "",
-            "【Telegram 来源】",
-            f"原消息：{record['message_url']}",
-            f"消息 ID：{sources}",
-        ]
+def _remove_current_url_once(message: str, record: dict[str, Any]) -> str:
+    """只移除当前书签 URL 的第一次出现，其余正文保持原顺序。"""
+    result = message
+    candidates = list(
+        dict.fromkeys(
+            value
+            for value in (str(record.get("url") or ""), str(record.get("canonical_url") or ""))
+            if value
+        )
     )
+    for candidate in candidates:
+        index = result.find(candidate)
+        if index >= 0:
+            result = result[:index] + result[index + len(candidate) :]
+            break
+    return result.strip()
+
+
+def _raindrop_note(record: dict[str, Any]) -> str:
+    remainder = _remove_current_url_once(str(record["note"]), record)
+    sources = "、".join(str(value) for value in record["source_message_ids"])
+    lines = [str(record["url"]), str(record["password_tag"])]
+    if record["password_status"] == "provided":
+        lines.append(f"密码：{record['password']}")
+    elif record["password_status"] == "conflict":
+        lines.append("密码：存在冲突，见本地主库")
+    if remainder:
+        lines.extend(["", remainder])
+    lines.extend(["", "【Telegram 来源】", f"原消息：{record['message_url']}", f"消息 ID：{sources}"])
+    return "\n".join(lines)
 
 
 def _raindrop_row(record: dict[str, Any]) -> dict[str, str]:
     tags = ["层楼VIP", "PikPak", *record["tags"]]
-    if record["password_status"] == "provided":
-        tags.append("有密码")
-    elif record["password_status"] == "conflict":
+    if record["password_status"] == "conflict":
         tags.append("密码冲突")
     return {
         "folder": _formula_safe(record["folder"]),
