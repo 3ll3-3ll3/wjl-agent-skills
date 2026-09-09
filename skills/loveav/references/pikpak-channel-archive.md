@@ -10,7 +10,7 @@
 Telegram 资源频道 → 本地主库 → Raindrop 导入 CSV
 ```
 
-Raindrop 只作为搜索和浏览入口。不得把 Raindrop 导出 CSV 自动回灌、比较或合并进本地主库。本地主库每次从该频道当前可访问的完整历史重新生成，并在覆盖前自动备份上一版。
+Raindrop 只作为搜索和浏览入口。不得把 Raindrop 导出 CSV 自动回灌、比较或合并进本地主库。本地主库每次从该频道当前可访问的完整历史重新生成，但输出按增量管理：固定 `current` 保存最新状态，`updates` 保存每次差异，数据变化前在 `snapshots` 保存上一版。
 
 ## 私人来源配置
 
@@ -40,19 +40,31 @@ LoveAV-Data/config/telegram-sources.json
 
 ```text
 LoveAV-Data/pikpak/cenglou-vip/
-├─ library/resource-library.jsonl
-├─ library/resource-library.csv
-├─ raindrop/raindrop-full.csv
+├─ current/resource-library.jsonl
+├─ current/resource-library.csv
+├─ current/raindrop-full.csv
+├─ current/manifest.json
+├─ updates/YYYY-MM-DD/HHMMSS/
+│  ├─ added-resources.jsonl
+│  ├─ updated-resources.jsonl
+│  ├─ removed-resources.jsonl
+│  ├─ conflicts.jsonl
+│  ├─ raindrop-added.csv
+│  └─ report.json
+├─ snapshots/YYYY-MM-DD_HHMMSS/
 ├─ state/checkpoint.json
-├─ backups/
-└─ manifest.json
 ```
 
-- `resource-library.jsonl`：唯一正式主库，保存每个 URL 及全部来源消息。
-- `resource-library.csv`：方便 Excel 查看，不作为另一份真源。
-- `raindrop-full.csv`：固定六列 `folder,url,title,note,tags,created`，可直接导入 Raindrop。
+- `current/resource-library.jsonl`：唯一正式主库，保存每个 URL 及全部来源消息。
+- `current/resource-library.csv`：方便 Excel 查看，不作为另一份真源。
+- `current/raindrop-full.csv`：固定六列 `folder,url,title,note,tags,created`，用于完整重建 Raindrop 收藏夹。
+- `updates/.../raindrop-added.csv`：只含本次新增 URL，是日常应导入 Raindrop 的文件。
+- `updates` 的其他文件分别保存新增、变化、当前缺失和密码冲突；即使本次没有变化，也生成报告作为运行记录。
+- `snapshots`：只在数据变化或旧布局迁移时生成，保存更新前的完整版本。
 - `checkpoint.json`：记录本次完整重建的消息边界。
-- `manifest.json`：记录统计、文件路径、SHA-256、备份位置和无 Telegram 写入声明。
+- `current/manifest.json`：记录统计、增量数量、文件路径、SHA-256、快照位置和无 Telegram 写入声明。
+
+若检测到旧的 `library/`、`raindrop/`、`backups/` 和根目录 `manifest.json`，首次运行会先将它们完整移入带 `legacy-layout` 标记的快照，再建立新布局，不直接删除旧数据。
 
 ## 执行
 
@@ -66,4 +78,4 @@ python scripts/archive_pikpak_channel.py --live
 
 ## 完成报告
 
-至少报告：总消息数、资源消息数、唯一资源数、重复 URL 组数、多链接消息数、隐藏链接数、带密码资源数、密码冲突数、忽略媒体数、消息 ID 边界、输出文件和 SHA-256。
+至少报告：总消息数、资源消息数、唯一资源数、重复 URL 组数、多链接消息数、隐藏链接数、带密码资源数、密码冲突数、忽略媒体数、消息 ID 边界、新增/更新/缺失数量、快照、增量目录、输出文件和 SHA-256。

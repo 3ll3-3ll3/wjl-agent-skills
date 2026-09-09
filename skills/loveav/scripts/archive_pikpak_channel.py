@@ -291,60 +291,188 @@ def _atomic_write(path: Path, data: bytes) -> None:
     temporary.replace(path)
 
 
-def _backup_existing(root: Path, paths: list[Path]) -> str | None:
-    existing = [path for path in paths if path.is_file()]
-    if not existing:
-        return None
-    stamp = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d-%H%M%S")
-    backup = root / "backups" / stamp
-    backup.mkdir(parents=True, exist_ok=False)
-    for path in existing:
-        shutil.copy2(path, backup / path.name)
-    return str(backup.resolve())
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    if not path.is_file():
+        return records
+    for line_number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        value = json.loads(raw)
+        if not isinstance(value, dict) or not value.get("canonical_url"):
+            raise ArchiveError(f"旧主库第 {line_number} 行缺少 canonical_url。")
+        records.append(value)
+    return records
+
+
+def _record_map(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for record in records:
+        key = str(record.get("canonical_url") or "").casefold()
+        if not key:
+            raise ArchiveError("主库记录缺少 canonical_url。")
+        if key in result:
+            raise ArchiveError(f"主库存在重复 canonical_url：{record.get('canonical_url')}")
+        result[key] = record
+    return result
+
+
+def _same_record(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    return json.dumps(left, ensure_ascii=False, sort_keys=True, separators=(",", ":")) == json.dumps(
+        right, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+
+def _compare_records(
+    previous: list[dict[str, Any]], current: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], int]:
+    before = _record_map(previous)
+    after = _record_map(current)
+    added = [after[key] for key in after.keys() - before.keys()]
+    removed = [before[key] for key in before.keys() - after.keys()]
+    updated = [
+        {"canonical_url": after[key]["canonical_url"], "before": before[key], "after": after[key]}
+        for key in after.keys() & before.keys()
+        if not _same_record(before[key], after[key])
+    ]
+    conflicts = [record for record in current if record.get("password_status") == "conflict"]
+    unchanged = len(after.keys() & before.keys()) - len(updated)
+    order = lambda row: str(row.get("created") or row.get("after", {}).get("created") or "")
+    return sorted(added, key=order), sorted(updated, key=order), sorted(removed, key=order), conflicts, unchanged
+
+
+def _new_run_dir(parent: Path, now: datetime) -> Path:
+    base = parent / now.strftime("%Y-%m-%d") / now.strftime("%H%M%S")
+    candidate = base
+    suffix = 2
+    while candidate.exists():
+        candidate = base.with_name(f"{base.name}-{suffix}")
+        suffix += 1
+    candidate.mkdir(parents=True, exist_ok=False)
+    return candidate
+
+
+def _snapshot_current(root: Path, now: datetime, *, legacy: bool) -> Path:
+    suffix = "-legacy-layout" if legacy else ""
+    snapshot = root / "snapshots" / f"{now.strftime('%Y-%m-%d_%H%M%S')}{suffix}"
+    counter = 2
+    while snapshot.exists():
+        snapshot = root / "snapshots" / f"{now.strftime('%Y-%m-%d_%H%M%S')}{suffix}-{counter}"
+        counter += 1
+    snapshot.mkdir(parents=True, exist_ok=False)
+    sources = (
+        [
+            root / "library" / "resource-library.jsonl",
+            root / "library" / "resource-library.csv",
+            root / "raindrop" / "raindrop-full.csv",
+            root / "manifest.json",
+            root / "state" / "checkpoint.json",
+        ]
+        if legacy
+        else [
+            root / "current" / "resource-library.jsonl",
+            root / "current" / "resource-library.csv",
+            root / "current" / "raindrop-full.csv",
+            root / "current" / "manifest.json",
+            root / "state" / "checkpoint.json",
+        ]
+    )
+    for path in sources:
+        if path.is_file():
+            shutil.copy2(path, snapshot / path.name)
+    return snapshot
+
+
+def _retire_legacy_layout(root: Path, snapshot: Path) -> None:
+    legacy = snapshot / "original-layout"
+    legacy.mkdir(parents=True, exist_ok=True)
+    for name in ("library", "raindrop", "backups"):
+        path = root / name
+        if path.exists():
+            shutil.move(str(path), str(legacy / name))
+    manifest = root / "manifest.json"
+    if manifest.exists():
+        shutil.move(str(manifest), str(legacy / manifest.name))
 
 
 def write_archive(records: list[dict[str, Any]], summary: dict[str, Any], root: Path) -> dict[str, Any]:
-    library_dir = root / "library"
-    raindrop_dir = root / "raindrop"
+    current_dir = root / "current"
     state_dir = root / "state"
-    jsonl_path = library_dir / "resource-library.jsonl"
-    csv_path = library_dir / "resource-library.csv"
-    raindrop_path = raindrop_dir / "raindrop-full.csv"
+    jsonl_path = current_dir / "resource-library.jsonl"
+    csv_path = current_dir / "resource-library.csv"
+    raindrop_path = current_dir / "raindrop-full.csv"
+    manifest_path = current_dir / "manifest.json"
     state_path = state_dir / "checkpoint.json"
-    manifest_path = root / "manifest.json"
-    targets = [jsonl_path, csv_path, raindrop_path, state_path, manifest_path]
-    backup = _backup_existing(root, targets)
 
-    blobs = {
+    legacy_jsonl = root / "library" / "resource-library.jsonl"
+    previous_path = jsonl_path if jsonl_path.is_file() else legacy_jsonl
+    legacy_migration = previous_path == legacy_jsonl and legacy_jsonl.is_file()
+    previous = _read_jsonl(previous_path)
+    added, updated, removed, conflicts, unchanged = _compare_records(previous, records)
+    changed = bool(added or updated or removed)
+
+    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    completed_at = now.isoformat()
+    snapshot: Path | None = None
+    if previous and (changed or legacy_migration):
+        snapshot = _snapshot_current(root, now, legacy=legacy_migration)
+
+    update_dir = _new_run_dir(root / "updates", now)
+    update_blobs = {
+        update_dir / "added-resources.jsonl": _json_bytes(added, jsonl=True),
+        update_dir / "updated-resources.jsonl": _json_bytes(updated, jsonl=True),
+        update_dir / "removed-resources.jsonl": _json_bytes(removed, jsonl=True),
+        update_dir / "conflicts.jsonl": _json_bytes(conflicts, jsonl=True),
+        update_dir / "raindrop-added.csv": _csv_bytes([_raindrop_row(record) for record in added], RAINDROP_COLUMNS),
+    }
+    for path, data in update_blobs.items():
+        _atomic_write(path, data)
+
+    current_blobs = {
         jsonl_path: _json_bytes(records, jsonl=True),
         csv_path: _csv_bytes([_library_row(record) for record in records], LIBRARY_COLUMNS),
         raindrop_path: _csv_bytes([_raindrop_row(record) for record in records], RAINDROP_COLUMNS),
     }
-    for path, data in blobs.items():
+    for path, data in current_blobs.items():
         _atomic_write(path, data)
 
-    completed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+    delta = {
+        "previous_resources": len(previous),
+        "current_resources": len(records),
+        "added": len(added),
+        "updated": len(updated),
+        "removed": len(removed),
+        "unchanged": unchanged,
+        "conflicts": len(conflicts),
+    }
     checkpoint = {
         "schema": SCHEMA,
         "completed_at": completed_at,
         "newest_message_id": summary["newest_message_id"],
         "oldest_message_id": summary["oldest_message_id"],
-        "strategy": "full_rebuild_from_accessible_history",
+        "strategy": "full_rescan_with_incremental_outputs",
+        "last_update_dir": str(update_dir.resolve()),
     }
     _atomic_write(state_path, _json_bytes(checkpoint))
-    hashes = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in [*blobs, state_path]}
+    hashes = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in [*current_blobs, state_path]}
     manifest = {
         "schema": SCHEMA,
         "completed_at": completed_at,
         "summary": summary,
-        "files": {path.name: str(path.resolve()) for path in [*blobs, state_path]},
+        "delta": delta,
+        "files": {path.name: str(path.resolve()) for path in [*current_blobs, state_path]},
         "sha256": hashes,
-        "backup": backup,
+        "snapshot": str(snapshot.resolve()) if snapshot else None,
+        "update_dir": str(update_dir.resolve()),
+        "legacy_layout_migrated": legacy_migration,
         "raindrop_direction": "local_to_raindrop_only",
         "images_downloaded": False,
         "telegram_state_changed": False,
     }
     _atomic_write(manifest_path, _json_bytes(manifest))
+    _atomic_write(update_dir / "report.json", _json_bytes(manifest))
+    if legacy_migration and snapshot is not None:
+        _retire_legacy_layout(root, snapshot)
     return manifest
 
 
@@ -404,7 +532,10 @@ def main() -> int:
             "summary": summary,
             "files": manifest["files"],
             "sha256": manifest["sha256"],
-            "backup": manifest["backup"],
+            "delta": manifest["delta"],
+            "snapshot": manifest["snapshot"],
+            "update_dir": manifest["update_dir"],
+            "legacy_layout_migrated": manifest["legacy_layout_migrated"],
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0

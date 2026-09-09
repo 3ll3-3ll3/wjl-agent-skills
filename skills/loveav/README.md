@@ -49,7 +49,7 @@
 - MissAV 只维护一个 `missav-library.csv` 主体库，并用行级标记记录“来自 Raindrop”和“来自 Skill 新增”。
 - 每批 MissAV 结果默认只保存可导入 Raindrop 的 CSV；番号、链接和浏览器脚本在对话中返回，不额外落盘。
 - 每批 Svip 结果默认生成收藏夹 `Svip PikPak链接消息` 的 Raindrop CSV；已有链接跳过，密码补全或冲突进入单独复核 CSV，不另建 Svip 数据库。
-- PikPak 资源频道归档模式读取全部可访问历史，只保存含 PikPak URL 的资源帖；本地主库单向生成 Raindrop CSV，不下载图片，也不支持 Raindrop 导出回灌本地主库。
+- PikPak 资源频道归档模式读取全部可访问历史，只保存含 PikPak URL 的资源帖；使用固定 `current` 主库、按日期时间保存的 `updates` 增量和更新前 `snapshots`，并单向生成 Raindrop CSV，不下载图片，也不支持 Raindrop 导出回灌本地主库。
 - 主体库、批次 CSV 和私人备份可由用户自行使用 Google Drive 同步，但不得提交 GitHub。
 
 主体库导入默认只预览：

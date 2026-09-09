@@ -89,18 +89,66 @@ def test_files_are_atomic_raindrop_compatible_and_hashed() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         manifest = MODULE.write_archive(records, summary, root)
-        assert (root / "library" / "resource-library.jsonl").is_file()
-        assert (root / "library" / "resource-library.csv").read_bytes().startswith(b"\xef\xbb\xbf")
-        with (root / "raindrop" / "raindrop-full.csv").open("r", encoding="utf-8-sig", newline="") as handle:
+        assert (root / "current" / "resource-library.jsonl").is_file()
+        assert (root / "current" / "resource-library.csv").read_bytes().startswith(b"\xef\xbb\xbf")
+        with (root / "current" / "raindrop-full.csv").open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
             assert reader.fieldnames == MODULE.RAINDROP_COLUMNS
             row = next(reader)
             assert row["folder"] == "层楼PikPak资源社"
             assert row["url"] == "https://mypikpak.com/s/a"
             assert "密码" in row["note"]
+        update = Path(manifest["update_dir"])
+        with (update / "raindrop-added.csv").open("r", encoding="utf-8-sig", newline="") as handle:
+            assert len(list(csv.DictReader(handle))) == 1
+        assert manifest["delta"]["added"] == 1
         assert manifest["raindrop_direction"] == "local_to_raindrop_only"
         assert manifest["images_downloaded"] is False
-        assert json.loads((root / "manifest.json").read_text(encoding="utf-8"))["telegram_state_changed"] is False
+        assert json.loads((root / "current" / "manifest.json").read_text(encoding="utf-8"))["telegram_state_changed"] is False
+
+
+def test_second_run_creates_incremental_delta_and_snapshot() -> None:
+    initial, first_summary = MODULE.build_library(
+        payload(message(1, "资源甲\nhttps://mypikpak.com/s/a")), folder="层楼PikPak资源社"
+    )
+    changed, second_summary = MODULE.build_library(
+        payload(
+            message(1, "资源甲（已更新）\nhttps://mypikpak.com/s/a"),
+            message(2, "资源乙\nhttps://mypikpak.com/s/b"),
+        ),
+        folder="层楼PikPak资源社",
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        MODULE.write_archive(initial, first_summary, root)
+        result = MODULE.write_archive(changed, second_summary, root)
+        assert result["delta"]["added"] == 1
+        assert result["delta"]["updated"] == 1
+        assert result["delta"]["removed"] == 0
+        assert result["snapshot"] is not None
+        assert (Path(result["snapshot"]) / "resource-library.jsonl").is_file()
+        with (Path(result["update_dir"]) / "raindrop-added.csv").open(
+            "r", encoding="utf-8-sig", newline=""
+        ) as handle:
+            rows = list(csv.DictReader(handle))
+        assert [row["url"] for row in rows] == ["https://mypikpak.com/s/b"]
+
+
+def test_legacy_layout_is_migrated_into_snapshot() -> None:
+    records, summary = MODULE.build_library(
+        payload(message(1, "资源\nhttps://mypikpak.com/s/a")), folder="层楼PikPak资源社"
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        old = root / "library" / "resource-library.jsonl"
+        old.parent.mkdir(parents=True)
+        old.write_bytes(MODULE._json_bytes(records, jsonl=True))
+        (root / "raindrop").mkdir()
+        (root / "raindrop" / "raindrop-full.csv").write_text("old", encoding="utf-8")
+        result = MODULE.write_archive(records, summary, root)
+        assert result["legacy_layout_migrated"] is True
+        assert not (root / "library").exists()
+        assert (Path(result["snapshot"]) / "original-layout" / "library" / "resource-library.jsonl").is_file()
 
 
 class TestPikpakChannelArchive(unittest.TestCase):
