@@ -23,6 +23,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - Whos.tv 已解决答案数据。
 - Svip 群中的 PikPak 链接消息。
 - 两个 PikPak 通知群未读关键词的合并兑换、收藏与成功后已读确认。
+- 指定 PikPak 资源频道的完整历史归档与 Raindrop CSV。
 
 默认使用手动、本地处理。除非存在独立、受支持的适配器且用户明确要求，否则不得切换到 Telegram 联网执行、云端执行、Raindrop 远程写入或 123AV 账号操作。
 
@@ -76,6 +77,8 @@ MissAV、Twitter、Bad.news、海角四个前置工具共用同一输入容器�
 Whos.tv 使用单独的返回 JSON 工作流。
 
 Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。发送者身份只作为可选上下文，不参与接受或排除。只要精确来源匹配且含合法 PikPak URL，就默认进入主结果。结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
+
+用户要求把指定 PikPak 资源频道的全部发布资源保存为本地库时，使用第六功能的频道归档模式，并读取 `references/pikpak-channel-archive.md`。该模式只保留含合法 PikPak URL 的资源帖，同时检查可见正文、caption 和富文本隐藏链接；不保存图片、纯每日更新播报或普通公告。数据流固定为“Telegram → 本地主库 → Raindrop CSV”，不得设计 Raindrop 导出回灌、比较或自动合并步骤。
 
 PikPak 通知关键词批量兑换是第七个主功能，使用两个私人配置的通知群当前未读快照、一个资源提取群和一个收藏群。执行前必须读取 `references/pikpak-notification-redeem.md` 和 `references/tg-exporter-integration.md`。两个来源的关键词先按规范键合并去重，交集只发送一次，但必须保留其映射到的全部来源消息。资源成功写入收藏群后，才可按各来源冻结上界安全确认已读；失败、待复核以及快照后新消息保持未读。
 
@@ -182,6 +185,7 @@ MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sour
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；其中 Bad.news 的可复制链接列表每个代码块最多 25 条，超过 25 条时按原始顺序依次拆分为多个代码块，不得省略链接；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
 - **Svip PikPak 链接消息**：精确来源中所有合法 PikPak URL 默认进入主结果；先输出包含原消息文字、链接和密码的完整消息块，再生成收藏夹固定为 `Svip PikPak链接消息` 的 Raindrop CSV；发送者身份不参与筛选，密码无法可靠绑定时仍保留链接并标记 `密码待确认`；
+- **PikPak 资源频道归档**：每个规范 PikPak URL 在本地主库中只保留一条，重复发布的完整来源消息保存在同一记录内；生成收藏夹对应的六列 Raindrop CSV，但不从 Raindrop 反向更新本地主库；
 - **PikPak 通知关键词批量兑换**：两个通知群当前未读关键词先合并去重，再逐个到提取群兑换；每个唯一资源以“标题、链接、密码”一条消息写入当前收藏群；只有已兑换并成功保存的来源范围才确认已读；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
@@ -293,6 +297,7 @@ svip.resources.classify(tgctl_messages, private_source_config)
 svip.resources.raindrop_export(classified_results, raindrop_library)
 svip.resources.forward_preview(source_chat, destination_chat, message_ids)
 svip.resources.forward_confirmed(source_chat, destination_chat, message_ids)
+pikpak.channel.archive(source_chat, output_root, raindrop_folder)
 pikpak.notifications.freeze_unread(primary_source, secondary_source)
 pikpak.notifications.plan_deduplicated(keywords, source_message_map)
 pikpak.notifications.send_and_capture(extraction_group, keyword)
@@ -407,6 +412,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 - `references/examples.md`：自然语言请求和预期回复结构；
 - `references/whostv-solved-answers.md`：Whos.tv 抓取、截止点、校验、分类和 Markdown 规则。
 - `references/svip-resource-replies.md`：Svip PikPak 链接消息的来源校验、完整消息、密码、Raindrop CSV 与私人配置。
+- `references/pikpak-channel-archive.md`：指定 PikPak 资源频道的完整历史、单向本地主库和 Raindrop CSV 归档规则。
 - `references/pikpak-notification-redeem.md`：两个通知群未读关键词的冻结、合并去重、即时兑换、收藏群写入和成功后已读规则。
 - `references/tg-exporter-integration.md`：内嵌 TG Exporter、自动定位、健康检查、自动分页和安全边界。
 
