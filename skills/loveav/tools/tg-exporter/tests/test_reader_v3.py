@@ -14,7 +14,6 @@ from telegram_exporter.cursor_codec import CursorCodec
 from telegram_exporter.reader_service import PersonalAccountReader
 
 CHANNEL_ID = -(10**12 + 10)
-PUBLIC_CHANNEL_ID = -(10**12 + 77)
 
 
 class User:
@@ -60,7 +59,6 @@ class FakeClient:
             1: User(1, "Alice", username="alice", contact=True),
             2: User(2, "Helper", username="helperbot", bot=True),
             CHANNEL_ID: Channel(10, "Svip", username="svip", megagroup=True),
-            PUBLIC_CHANNEL_ID: Channel(77, "Public Resource", username="public_resource", megagroup=False),
         }
         self.dialogs = [
             FakeDialog(self.entities[1], "Alice", unread=2),
@@ -90,10 +88,6 @@ class FakeClient:
     async def get_entity(self, value):
         if value == "me" or value == 100:
             return self.me
-        if isinstance(value, str):
-            for entity in self.entities.values():
-                if getattr(entity, "username", None) == value.lstrip("@"):
-                    return entity
         return self.entities[value]
 
     def iter_messages(self, _entity, **kwargs):
@@ -277,16 +271,6 @@ def test_repeated_reply_reads_reuse_resolved_dialog(monkeypatch) -> None:
     asyncio.run(reader.messages_replies_page(CHANNEL_ID, 184, limit=10))
 
     assert reader.client.dialog_iterations == 1
-
-
-def test_public_username_can_be_resolved_without_joining_dialog() -> None:
-    reader = _reader()
-
-    row, entity = asyncio.run(reader.resolve_dialog("@public_resource"))
-
-    assert row.chat_id == PUBLIC_CHANNEL_ID
-    assert row.dialog_type == "channel"
-    assert entity.username == "public_resource"
 
 
 def test_message_reply_count_is_exposed(monkeypatch) -> None:

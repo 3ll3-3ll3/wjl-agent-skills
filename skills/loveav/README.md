@@ -85,7 +85,7 @@ Skill 决定流程、规则和输出；完整 TG Exporter 源码作为本地读�
 
 第八功能为每个来源分别维护本地 `resource-library.jsonl` 真源，Raindrop 只用于搜索和浏览。非敏感来源索引位于 `LoveAV-Data/config/pikpak-archive-sources.json`。具体收录、密码、快照、增量和完整历史验收规则见 `references/pikpak-channel-archive.md`。
 
-如果频道本文没有 PikPak 直链，资源藏在评论区的 Bot start 按钮后，第八功能会先完整读取评论并生成 dry-run 计划。只有用户在最后负责时刻确认 `RUN_PIKPAK_CHANNEL_REDEEM` 后，才会向私人配置中的确切资源 Bot 兑换；默认请求间隔至少 65 秒。如果首项没有直接返回 PikPak 链接，或改为返回另一个 Telegram 资源频道，整批会立即停止，先验证第二段链路再继续；全部成功前不更新正式主库。
+第八功能只归档消息正文、caption、富文本或公开 URL 按钮中已经存在的 PikPak 直链。只有 Bot start 按钮而没有 PikPak 直链的来源会被跳过；LoveAV 不发送 Bot 命令，也不追踪 Bot 返回的第二个 Telegram 频道。
 
 如果要单独检查适配器：
 

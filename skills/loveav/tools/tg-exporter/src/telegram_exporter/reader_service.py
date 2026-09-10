@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import time
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -41,7 +40,6 @@ DEFAULT_PAGE_LIMIT = 100
 MAX_PAGE_LIMIT = 500
 ROLE_CACHE_TTL_SECONDS = 60.0
 PARTICIPANT_SCAN_CAP = 5000
-PUBLIC_USERNAME_RE = re.compile(r"^@?[A-Za-z0-9_]{5,32}$")
 
 
 def _display_name(entity: Any) -> str | None:
@@ -643,28 +641,6 @@ class PersonalAccountReader:
                 matches = username_matches
             else:
                 matches = [row for row in rows if row.title.casefold() == raw.casefold()]
-        if not matches and PUBLIC_USERNAME_RE.fullmatch(raw):
-            username = raw[1:] if raw.startswith("@") else raw
-            try:
-                entity = await self.client.get_entity(username)
-            except Exception as exc:
-                raise TelegramBridgeError(CHAT_NOT_FOUND, f"找不到会话「{raw}」。") from exc
-            chat_id = _safe_peer_id(entity)
-            if chat_id is None:
-                raise TelegramBridgeError(CHAT_NOT_FOUND, f"找不到会话「{raw}」。")
-            row = DialogInfo(
-                chat_id=chat_id,
-                title=getattr(entity, "title", None) or _display_name(entity) or username,
-                username=getattr(entity, "username", None),
-                dialog_type=_entity_dialog_type(entity, own_user_id=None),
-            )
-            resolved = (row, entity)
-            self._dialog_resolution_cache[cache_key] = resolved
-            self._dialog_resolution_cache[str(row.chat_id)] = resolved
-            if row.username:
-                self._dialog_resolution_cache[row.username.casefold()] = resolved
-                self._dialog_resolution_cache[f"@{row.username.casefold()}"] = resolved
-            return resolved
         if not matches:
             raise TelegramBridgeError(CHAT_NOT_FOUND, f"找不到会话「{raw}」。")
         if len(matches) > 1:
