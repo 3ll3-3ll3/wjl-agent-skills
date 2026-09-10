@@ -1,6 +1,6 @@
 # TG Exporter 内嵌集成
 
-TG Exporter 是 LoveAV 的本地 Telegram 读取助手，不是第七个业务功能。完整可维护源码位于：
+TG Exporter 是 LoveAV 的本地 Telegram 读取助手，本身不占用业务功能编号。完整可维护源码位于：
 
 ```text
 tools/tg-exporter/
@@ -11,7 +11,7 @@ LoveAV 仓库中的这份源码是后续开发真源。原独立 `tg-exporter` �
 ## 职责分界
 
 - TG Exporter：登录 Telegram、读取会话和消息、分页、返回结构化身份与消息数据。
-- LoveAV：理解自然语言、选择读取范围、自动续页、执行七个业务功能、组织结果和可疑项。
+- LoveAV：理解自然语言、选择读取范围、自动续页、执行八个业务功能、组织结果和可疑项。
 - TG Exporter 不内置 MissAV、PikPak、女优 Tag 或其他 LoveAV 业务分类。
 - LoveAV 不直接打开 Telegram Session，不复制凭据，也不绕过 TG Exporter daemon。
 
