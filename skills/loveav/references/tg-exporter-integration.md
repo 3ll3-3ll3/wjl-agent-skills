@@ -119,11 +119,11 @@ python scripts/tg_exporter_adapter.py dialogs --search "<目标会话名>"
 - 普通读取不自动调用 `send`、媒体下载或标记已读。只有用户明确调用第七功能时，才可由专用执行器按冻结范围发送、收藏和确认已读。
 - Telegram 登录仍由 TG Exporter GUI 完成。
 - 不记录或提交真实聊天正文、URL、群 ID、Session、API 凭据和日志。
-- Svip 分类继续遵循 `svip-resource-replies.md`：发送者身份仅供上下文展示，不参与接受或排除，也不能把未知身份猜成具体管理员。
+- 第六功能分类继续遵循 `svip-resource-replies.md`：发送者身份仅供上下文展示，不参与接受或排除，也不能把未知身份猜成具体管理员。
 
-## MissAV 固定未读来源
+## MissAV 未读候选来源
 
-MissAV 的来源白名单、手动范围群与五个固定未读群定义在 `missav-telegram-sources.md`。来源稳定 ID 必须从私人 `LoveAV-Data/config/telegram-sources.json` 读取，不提交仓库，也不按相似标题猜测。
+MissAV 的动态 `av` 分类候选、手动范围群与未读语义定义在 `missav-telegram-sources.md`。来源稳定 ID 必须从私人 `LoveAV-Data/config/telegram-sources.json` 读取，不提交仓库，也不按相似标题猜测。
 
 自动已读需要机器可读操作精确确认到本轮冻结的 `upper`。正式 v0.3.2 仍没有该命令；LoveAV 内嵌 v0.3.3 开发版已增加 `messages unread` 和 token-bound `messages mark-read`。仍须保持：单来源失败不确认、快照后消息不确认、重复调用幂等、确认结果可核验。
 

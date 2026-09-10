@@ -435,7 +435,13 @@ def _retire_legacy_layout(root: Path, snapshot: Path) -> None:
         shutil.move(str(manifest), str(legacy / manifest.name))
 
 
-def write_archive(records: list[dict[str, Any]], summary: dict[str, Any], root: Path) -> dict[str, Any]:
+def write_archive(
+    records: list[dict[str, Any]],
+    summary: dict[str, Any],
+    root: Path,
+    *,
+    strategy: str = "full_rescan_with_incremental_outputs",
+) -> dict[str, Any]:
     current_dir = root / "current"
     state_dir = root / "state"
     jsonl_path = current_dir / "resource-library.jsonl"
@@ -490,7 +496,7 @@ def write_archive(records: list[dict[str, Any]], summary: dict[str, Any], root: 
         "completed_at": completed_at,
         "newest_message_id": summary["newest_message_id"],
         "oldest_message_id": summary["oldest_message_id"],
-        "strategy": "full_rescan_with_incremental_outputs",
+        "strategy": strategy,
         "last_update_dir": str(update_dir.resolve()),
     }
     _atomic_write(state_path, _json_bytes(checkpoint))

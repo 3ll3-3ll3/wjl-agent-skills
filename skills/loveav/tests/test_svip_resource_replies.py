@@ -239,6 +239,12 @@ def test_hidden_entity_url_is_appended_to_complete_copy_text() -> None:
     assert record["message_copy_text"] == "点击这里查看资源\nhttps://mypikpak.com/s/hidden"
 
 
+def test_source_name_is_preserved_for_non_svip_sources() -> None:
+    result = MODULE.classify_messages([message(15)], CHAT_ID, "vip分类数据库")
+    assert result["source"]["name"] == "vip分类数据库"
+    assert result["results"]["main"][0]["source_name"] == "vip分类数据库"
+
+
 class TestSvipResourceReplies(unittest.TestCase):
     """让仓库现有的标准库 unittest 门禁执行上面的契约用例。"""
 

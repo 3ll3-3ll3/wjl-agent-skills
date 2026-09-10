@@ -22,6 +22,7 @@ def record(
     password_status: str = "bound",
 ) -> dict:
     return {
+        "source_name": "Svip",
         "message_id": message_id,
         "date": "2026-09-07T12:30:00+08:00",
         "message_text": text,
@@ -142,6 +143,16 @@ def test_written_csv_is_utf8_bom_and_has_only_raindrop_columns() -> None:
             reader = csv.DictReader(handle)
             assert reader.fieldnames == MODULE.RAINDROP_COLUMNS
             assert list(reader)[0]["url"] == "https://mypikpak.com/s/a"
+
+
+def test_non_svip_source_uses_its_own_title_note_and_tag() -> None:
+    value = record(text="https://mypikpak.com/s/a")
+    value["source_name"] = "vip分类数据库"
+    rows, _, _ = MODULE.export(payload(value), {}, "vip分类数据库")
+    assert rows[0]["folder"] == "vip分类数据库"
+    assert rows[0]["title"].startswith("vip分类数据库 PikPak")
+    assert "群组：vip分类数据库" in rows[0]["note"]
+    assert rows[0]["tags"].startswith("vip分类数据库, PikPak")
 
 
 class TestSvipRaindropExport(unittest.TestCase):

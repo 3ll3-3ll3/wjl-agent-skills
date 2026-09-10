@@ -88,7 +88,8 @@ def _meaningful_title(record: dict[str, Any], message_id: Any, date: str) -> str
         if len(line) >= 2:
             return line[:80]
     day = date[:10] if date else "未知日期"
-    return f"Svip PikPak｜{day}｜消息 {message_id}"
+    source_name = str(record.get("source_name") or "Svip")
+    return f"{source_name} PikPak｜{day}｜消息 {message_id}"
 
 
 def _note(record: dict[str, Any], resource: dict[str, Any]) -> str:
@@ -97,6 +98,7 @@ def _note(record: dict[str, Any], resource: dict[str, Any]) -> str:
     password_text = password if password else (
         "待确认" if record.get("password_status") == "ambiguous" else "无"
     )
+    source_name = str(record.get("source_name") or "Svip")
     return "\n".join(
         [
             "【原消息】",
@@ -107,12 +109,12 @@ def _note(record: dict[str, Any], resource: dict[str, Any]) -> str:
             f"密码：{password_text}",
             "",
             "【来源】",
-            "群组：Svip",
+            f"群组：{source_name}",
             f"消息 ID：{record.get('message_id', '')}",
             f"消息时间：{record.get('date', '')}",
             "",
             "【判定】",
-            "已识别为 Svip PikPak 链接；发送者身份不参与筛选",
+            "已识别为 PikPak 链接；发送者身份不参与筛选",
         ]
     )
 
@@ -122,7 +124,8 @@ def _row(record: dict[str, Any], resource: dict[str, Any], index: int, total: in
     title = _meaningful_title(record, record.get("message_id", ""), date)
     if total > 1:
         title = f"{title}｜{index}/{total}"
-    tags = ["Svip", "PikPak"]
+    source_name = str(record.get("source_name") or "Svip")
+    tags = [source_name, "PikPak"]
     if resource.get("password"):
         tags.append("有密码")
     elif record.get("password_status") == "ambiguous":

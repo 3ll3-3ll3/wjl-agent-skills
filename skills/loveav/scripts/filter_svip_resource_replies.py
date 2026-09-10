@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""确定性提取 Svip 中的 PikPak 链接消息。
+"""确定性提取指定 Telegram 来源中的 PikPak 链接消息。
 
 脚本只消费已经导出的结构化消息，不连接 Telegram，不修改消息状态。
 """
@@ -65,22 +65,23 @@ def _message_rows(payload: Any) -> list[dict[str, Any]]:
     return rows
 
 
-def _load_chat_id(config_path: Path, source_name: str) -> int:
+def _load_source(config_path: Path, source_key: str) -> tuple[int, str]:
     payload = _load_json_or_jsonl(config_path)
     if not isinstance(payload, dict):
         raise InputError("私人来源配置必须是 JSON 对象。")
     sources = payload.get("sources")
-    source = sources.get(source_name) if isinstance(sources, dict) else None
+    source = sources.get(source_key) if isinstance(sources, dict) else None
     if not isinstance(source, dict):
-        raise InputError(f"私人来源配置中没有 sources.{source_name}。")
+        raise InputError(f"私人来源配置中没有 sources.{source_key}。")
     value = source.get("chat_id")
     try:
         chat_id = int(value)
     except (TypeError, ValueError) as exc:
-        raise InputError(f"sources.{source_name}.chat_id 不是有效整数。") from exc
+        raise InputError(f"sources.{source_key}.chat_id 不是有效整数。") from exc
     if chat_id >= 0:
-        raise InputError("Svip chat_id 应为 Telegram 标记后的负数群组 ID。")
-    return chat_id
+        raise InputError("chat_id 应为 Telegram 标记后的负数群组 ID。")
+    title = str(source.get("title") or source_key).strip() or source_key
+    return chat_id, title
 
 
 def _canonical_pikpak_resources(message: dict[str, Any]) -> list[dict[str, str | None]]:
@@ -193,7 +194,7 @@ def _password_status(message: dict[str, Any], resources: list[dict[str, str | No
     return "not_provided"
 
 
-def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any]:
+def classify_messages(rows: list[dict[str, Any]], chat_id: int, source_name: str = "Svip") -> dict[str, Any]:
     groups = {
         "main": [],
         "review": [],
@@ -243,15 +244,16 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
             "identity_context": identity_context,
             "identity_evidence": identity_evidence,
             "password_status": password_status,
+            "source_name": source_name,
             "input_index": index,
         }
         groups["main"].append(record)
 
     return {
         "schema_version": SCHEMA_VERSION,
-        "source": {"name": "svip", "chat_id": str(chat_id)},
+        "source": {"name": source_name, "chat_id": str(chat_id)},
         "policy": {
-            "selection": "配置的 Svip 来源中，所有合法 PikPak 链接默认进入主结果",
+            "selection": "配置的 PikPak 消息来源中，所有合法 PikPak 链接默认进入主结果",
             "identity": "发送者身份只作上下文，不参与筛选",
         },
         "summary": {
@@ -267,7 +269,7 @@ def classify_messages(rows: list[dict[str, Any]], chat_id: int) -> dict[str, Any
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="提取 Svip PikPak 链接消息")
+    parser = argparse.ArgumentParser(description="提取指定来源的 PikPak 链接消息")
     parser.add_argument("input", type=Path, nargs="+", help="一个或多个 tgctl JSON/JSONL 文件")
     parser.add_argument("--config", type=Path, required=True, help="私人 Telegram 来源配置 JSON")
     parser.add_argument("--source", default="svip", help="配置中的来源名，默认 svip")
@@ -281,8 +283,8 @@ def main() -> int:
         rows: list[dict[str, Any]] = []
         for input_path in args.input:
             rows.extend(_message_rows(_load_json_or_jsonl(input_path)))
-        chat_id = _load_chat_id(args.config, args.source)
-        result = classify_messages(rows, chat_id)
+        chat_id, source_name = _load_source(args.config, args.source)
+        result = classify_messages(rows, chat_id, source_name)
     except (OSError, InputError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 2

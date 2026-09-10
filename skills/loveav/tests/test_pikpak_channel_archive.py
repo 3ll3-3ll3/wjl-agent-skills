@@ -197,6 +197,17 @@ def test_second_run_creates_incremental_delta_and_snapshot() -> None:
         assert [row["url"] for row in rows] == ["https://mypikpak.com/s/b"]
 
 
+def test_incremental_strategy_is_written_to_checkpoint() -> None:
+    records, summary = MODULE.build_library(
+        payload(message(1, "资源\nhttps://mypikpak.com/s/a")), folder="资源群"
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        MODULE.write_archive(records, summary, root, strategy="incremental_unread_merge")
+        checkpoint = json.loads((root / "state" / "checkpoint.json").read_text(encoding="utf-8"))
+        assert checkpoint["strategy"] == "incremental_unread_merge"
+
+
 def test_legacy_layout_is_migrated_into_snapshot() -> None:
     records, summary = MODULE.build_library(
         payload(message(1, "资源\nhttps://mypikpak.com/s/a")), folder="层楼PikPak资源社"
