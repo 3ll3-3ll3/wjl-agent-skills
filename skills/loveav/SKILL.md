@@ -1,6 +1,6 @@
 ---
 name: loveav
-description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 资源频道完整归档、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
+description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘贴文本、MissAV 主体库、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 多来源资源归档、v0.5.13 兼容过滤规则、自适应规则复核以及 Whos.tv 已解决答案。
 ---
 
 # 目标
@@ -23,13 +23,13 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 - Whos.tv 已解决答案数据。
 - Svip 群中的 PikPak 链接消息。
 - 两个 PikPak 通知群未读关键词的合并兑换、收藏与成功后已读确认。
-- 指定 PikPak 资源频道的完整历史归档与 Raindrop CSV。
+- 一个或多个指定 PikPak 资源群组/频道的完整历史归档与 Raindrop CSV。
 
 默认使用手动、本地处理。除非存在独立、受支持的适配器且用户明确要求，否则不得切换到 Telegram 联网执行、云端执行、Raindrop 远程写入或 123AV 账号操作。
 
 # 工作流
 
-如果用户只调用 `$loveav` 而没有指定业务功能，先列出八个主功能：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 资源频道完整归档，并只询问要进入哪一个。选中 MissAV 后立即切换到 `references/missav-conversation-workflow.md`，不把其他功能的选项混入 MissAV 向导。
+如果用户只调用 `$loveav` 而没有指定业务功能，先列出八个主功能：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 多来源资源归档，并只询问要进入哪一个。选中 MissAV 后立即切换到 `references/missav-conversation-workflow.md`，不把其他功能的选项混入 MissAV 向导。
 
 1. 识别输入来源、所选工具、时间范围和资料库策略。
 2. 预览并规范化全部临时输入。
@@ -78,7 +78,7 @@ Whos.tv 使用单独的返回 JSON 工作流。
 
 Svip PikPak 链接消息是第六个主功能，使用 `tgctl` 的结构化 JSON/JSONL；处理前必须读取 `references/svip-resource-replies.md` 和 `references/tg-exporter-integration.md`。发送者身份只作为可选上下文，不参与接受或排除。只要精确来源匹配且含合法 PikPak URL，就默认进入主结果。结果必须保留命中消息的完整可见文字，并确保富文本隐藏的 PikPak URL 也出现在可复制内容中。
 
-用户要求把指定 PikPak 资源频道的全部发布资源保存为本地库时，进入 LoveAV 第八个主功能，并读取 `references/pikpak-channel-archive.md` 和 `references/tg-exporter-integration.md`。该模式只保留含合法 PikPak URL 的资源帖，同时检查可见正文、caption 和富文本隐藏链接；不保存图片、纯每日更新播报或普通公告。数据流固定为“Telegram → 本地主库 → Raindrop CSV”，使用固定 `current`、按日期时间的 `updates` 和更新前 `snapshots`；不得设计 Raindrop 导出回灌、比较或自动合并步骤。
+用户要求把指定 PikPak 资源群组或频道的全部发布资源保存为本地库时，进入 LoveAV 第八个主功能“PikPak 多来源资源归档”，并读取 `references/pikpak-channel-archive.md` 和 `references/tg-exporter-integration.md`。该模式只保留含合法 PikPak URL 的资源帖，同时检查可见正文、caption 和富文本隐藏链接；不保存图片、纯每日更新播报或普通公告。每个来源独立使用 `current`、按日期时间的 `updates` 和更新前 `snapshots`，不在来源之间静默合并或覆盖数据。数据流固定为“Telegram → 本地主库 → Raindrop CSV”；不得设计 Raindrop 导出回灌、比较或自动合并步骤。
 
 PikPak 通知关键词批量兑换是第七个主功能，使用两个私人配置的通知群当前未读快照、一个资源提取群和一个收藏群。执行前必须读取 `references/pikpak-notification-redeem.md` 和 `references/tg-exporter-integration.md`。两个来源的关键词先按规范键合并去重，交集只发送一次，但必须保留其映射到的全部来源消息。资源成功写入收藏群后，才可按各来源冻结上界安全确认已读；失败、待复核以及快照后新消息保持未读。
 
@@ -185,7 +185,7 @@ MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sour
 - **Bad.news、海角**：输出规范化后的直达帖子 URL；其中 Bad.news 的可复制链接列表每个代码块最多 25 条，超过 25 条时按原始顺序依次拆分为多个代码块，不得省略链接；
 - **Whos.tv**：先校验 JSON，再按固定四类生成 Markdown；
 - **Svip PikPak 链接消息**：精确来源中所有合法 PikPak URL 默认进入主结果；先输出包含原消息文字、链接和密码的完整消息块，再生成收藏夹固定为 `Svip PikPak链接消息` 的 Raindrop CSV；发送者身份不参与筛选，密码无法可靠绑定时仍保留链接并标记 `密码待确认`；
-- **PikPak 资源频道归档**：每个规范 PikPak URL 在本地主库中只保留一条，重复发布的完整来源消息保存在同一记录内；每条记录显式标记 `#有密码` 或 `#无密码`。Raindrop `note` 必须把当前 PikPak URL 放在第一行、密码状态放在第二行，然后按原顺序保留消息其余内容；生成收藏夹对应的六列 Raindrop CSV，但不从 Raindrop 反向更新本地主库；
+- **PikPak 多来源资源归档**：每个来源独立建库；同一来源内每个规范 PikPak URL 只保留一条，重复发布的完整来源消息保存在同一记录内。每条记录显式标记 `#有密码` 或 `#无密码`。Raindrop `note` 必须把当前 PikPak URL 放在第一行、密码状态放在第二行，然后按原顺序保留消息其余内容；生成该来源收藏夹对应的六列 Raindrop CSV，但不从 Raindrop 反向更新本地主库；
 - **PikPak 通知关键词批量兑换**：两个通知群当前未读关键词先合并去重，再逐个到提取群兑换；每个唯一资源以“标题、链接、密码”一条消息写入当前收藏群；只有已兑换并成功保存的来源范围才确认已读；
 - **通用导出**：其他工具按请求支持 UTF-8 TXT、带公式注入防护的 CSV 和 JSON；MissAV 的长期默认文件遵守上述单 CSV 边界。
 
@@ -280,15 +280,17 @@ Raindrop 收藏夹固定为 `Svip PikPak链接消息`，CSV 固定为 `folder,ur
 
 已读确认只能发生在资源成功保存之后。默认按来源整段确认：该来源冻结范围全部成功才确认到其 `upper`；若执行器能证明从 `lower` 开始的连续成功前缀，也只能确认到第一条失败之前。任何失败、待复核或快照后新消息都不得被越过或确认。
 
-# PikPak 资源频道完整归档
+# PikPak 多来源资源归档
 
-把读取指定 Telegram PikPak 资源频道的全部可访问历史、建立本地唯一消息库、生成增量与快照、并输出 Raindrop 导入 CSV，视为 LoveAV 第八个主功能。执行前必须读取 `references/pikpak-channel-archive.md` 和 `references/tg-exporter-integration.md`。
+把读取一个或多个指定 Telegram PikPak 资源群组/频道的全部可访问历史、分别建立本地唯一消息库、生成增量与快照、并输出 Raindrop 导入 CSV，视为 LoveAV 第八个主功能“PikPak 多来源资源归档”。执行前必须读取 `references/pikpak-channel-archive.md` 和 `references/tg-exporter-integration.md`。
+
+已配置来源的非敏感索引位于 `LoveAV-Data/config/pikpak-archive-sources.json`，只保存 `source_key`、显示名称、输出目录名和 Raindrop 收藏夹名。稳定 `chat_id` 仍只保存在私人 `telegram-sources.json` 中。用户没有指定来源时，列出启用的功能 8 来源供选择“单个”或“全部”；用户已明确群组时不重复询问。
 
 默认通过 LoveAV 内的 `scripts/archive_pikpak_channel.py --live` 调用内嵌 TG Exporter 只读分页到历史尽头；用户也可提供明确标记 `ok=true`、`complete=true`和 `source_exhausted=true` 的完整 history JSON，再使用 `--input <完整历史.json>` 离线归档。没有读到 `source_exhausted=true` 时必须整体失败，不得生成伪完整主库。
 
 只收录含合法 PikPak URL 的资源帖，不下载媒体、不发送、不转发、不标记已读。按规范 URL 合并重复发布，保留全部来源消息；一条消息有多个链接时分别建档。密码只从 URL 外的明确标签识别，每条记录显式标记 `#有密码` 或 `#无密码`；密码冲突保留全部候选供复核，不得猜测。
 
-本地 `current/resource-library.jsonl` 是唯一正式主库；`resource-library.csv` 只用于 Excel 查看，`raindrop-full.csv` 用于完整重建收藏夹，`updates/.../raindrop-added.csv` 用于日常增量导入。数据变化前必须生成快照，更新使用临时文件原子替换并记录 SHA-256。Raindrop 只是搜索和浏览入口，不从 Raindrop 反向回灌或自动合并本地主库。
+每个来源目录内的 `current/resource-library.jsonl` 是该来源的唯一正式主库；`resource-library.csv` 只用于 Excel 查看，`raindrop-full.csv` 用于完整重建该收藏夹，`updates/.../raindrop-added.csv` 用于日常增量导入。数据变化前必须生成快照，更新使用临时文件原子替换并记录 SHA-256。各来源之间不相互覆盖或自动去重；Raindrop 只是搜索和浏览入口，不从 Raindrop 反向回灌或自动合并本地主库。
 
 # 宿主逻辑操作
 
@@ -411,7 +413,7 @@ UI 必须调用同一套宿主操作和规则，不能维护第二套业务实�
 或者：
 
 ```text
-使用 LoveAV 第八功能更新层楼 PikPak 资源频道本地主库，并生成本轮 Raindrop 增量 CSV。
+使用 LoveAV 第八功能“PikPak 多来源资源归档”更新全部已配置来源，并分别生成本轮 Raindrop 增量 CSV。
 ```
 
 # 参考资料

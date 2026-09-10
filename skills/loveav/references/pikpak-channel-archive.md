@@ -1,6 +1,15 @@
-# PikPak 资源频道归档
+# PikPak 多来源资源归档
 
-这是 LoveAV 的第八个主功能。它适用于用户明确指定的 PikPak 资源频道：读取全部可访问历史，只保留真正带 PikPak URL 的资源帖，不保存图片、每日更新播报或普通公告。本功能的执行真源是 LoveAV 内的脚本、参考文档和测试，不再路由到独立 Skill。
+这是 LoveAV 的第八个主功能。它统一管理用户明确指定的多个 PikPak 资源群组或频道：对每个来源读取全部可访问历史，只保留真正带 PikPak URL 的资源帖，不保存图片、每日更新播报或普通公告。本功能的执行真源是 LoveAV 内的脚本、参考文档和测试。
+
+## 多来源管理
+
+- 稳定 `chat_id` 仍只保存在私人 `LoveAV-Data/config/telegram-sources.json`。
+- 功能 8 来源索引保存在 `LoveAV-Data/config/pikpak-archive-sources.json`，只引用 `source_key`，不复制群 ID。
+- 每个来源必须有唯一 `output_slug` 和自己的 `raindrop_folder`。
+- 每个来源在 `LoveAV-Data/pikpak/<output_slug>/` 下独立维护主库、增量、快照和检查点；不因跨群链接重复而丢失任何来源的完整消息。
+- 用户只说“运行功能 8”时，先列出已启用来源，让用户选单个或全部；已明确来源时直接执行。
+- 新增来源时，先用会话发现确认唯一群组，再把稳定 ID 写入私人来源配置，并向功能 8 索引增加一条非敏感记录。
 
 ## 单向数据流
 
@@ -20,7 +29,7 @@ Raindrop 只作为搜索和浏览入口。不得把 Raindrop 导出 CSV 自动�
 LoveAV-Data/config/telegram-sources.json
 ```
 
-推荐来源键为 `cenglou_pikpak_vip`。私人群 ID 和真实归档内容不得提交 GitHub。
+私人群 ID 和真实归档内容不得提交 GitHub。当前已纳入功能 8 的来源名单以私人 `pikpak-archive-sources.json` 为准，Skill 源码不写死用户的群组清单。
 
 ## 收录规则
 
@@ -38,10 +47,10 @@ LoveAV-Data/config/telegram-sources.json
 
 ## 本地文件
 
-默认目录：
+每个来源的默认目录：
 
 ```text
-LoveAV-Data/pikpak/cenglou-vip/
+LoveAV-Data/pikpak/<output_slug>/
 ├─ current/resource-library.jsonl
 ├─ current/resource-library.csv
 ├─ current/raindrop-full.csv

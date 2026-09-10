@@ -34,7 +34,7 @@
 - Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
 - Svip PikPak 链接消息：精确来源内全部合法 PikPak URL 默认接受，发送者身份不参与筛选；输出保留完整消息、链接与密码，并生成独立收藏夹的 Raindrop CSV。
 - PikPak 通知关键词批量兑换：读取两个通知群当前未读，按关键词合并去重，逐个到提取群即时兑换，把唯一资源写入收藏群，并只在成功保存后安全确认来源已读。
-- PikPak 资源频道完整归档：读取指定频道的全部可访问历史，建立本地唯一资源库、增量、快照和 Raindrop 导入 CSV，不下载媒体或修改 Telegram 状态。
+- PikPak 多来源资源归档：统一管理多个指定群组/频道，对每个来源读取全部可访问历史，独立建立本地唯一资源库、增量、快照和 Raindrop 导入 CSV，不下载媒体或修改 Telegram 状态。
 - 123AV 的番号解析、页面证据和导出规则；收藏/关注等账号操作不启用。
 - Telegram Desktop 文件解析、消息规范化和时间筛选；用户明确要求时，可通过内嵌 TG Exporter 助手访问个人账号的会话历史与搜索。MissAV 支持一个手动范围来源和五个固定未读来源；五群在每次被调用时合并生成脚本，并在能力可用时分别确认本轮冻结范围已读。Skill 不在后台自动巡检。
 
@@ -50,7 +50,7 @@
 - MissAV 只维护一个 `missav-library.csv` 主体库，并用行级标记记录“来自 Raindrop”和“来自 Skill 新增”。
 - 每批 MissAV 结果默认只保存可导入 Raindrop 的 CSV；番号、链接和浏览器脚本在对话中返回，不额外落盘。
 - 每批 Svip 结果默认生成收藏夹 `Svip PikPak链接消息` 的 Raindrop CSV；已有链接跳过，密码补全或冲突进入单独复核 CSV，不另建 Svip 数据库。
-- PikPak 资源频道归档模式读取全部可访问历史，只保存含 PikPak URL 的资源帖；使用固定 `current` 主库、按日期时间保存的 `updates` 增量和更新前 `snapshots`，并单向生成 Raindrop CSV，不下载图片，也不支持 Raindrop 导出回灌本地主库。
+- PikPak 多来源资源归档对每个来源读取全部可访问历史，只保存含 PikPak URL 的资源帖；每个来源独立使用固定 `current` 主库、按日期时间保存的 `updates` 增量和更新前 `snapshots`，并单向生成 Raindrop CSV，不下载图片，也不支持 Raindrop 导出回灌本地主库。
 - 主体库、批次 CSV 和私人备份可由用户自行使用 Google Drive 同步，但不得提交 GitHub。
 
 主体库导入默认只预览：
@@ -80,10 +80,10 @@ Skill 决定流程、规则和输出；完整 TG Exporter 源码作为本地读�
 第八功能可以这样调用：
 
 ```text
-用 LoveAV 更新层楼 PikPak 资源频道完整归档，并生成本轮 Raindrop 增量 CSV。
+用 LoveAV 第八功能“PikPak 多来源资源归档”更新全部已配置来源，并分别生成本轮 Raindrop 增量 CSV。
 ```
 
-第八功能以本地 `resource-library.jsonl` 为唯一真源，Raindrop 只用于搜索和浏览。具体收录、密码、快照、增量和完整历史验收规则见 `references/pikpak-channel-archive.md`。
+第八功能为每个来源分别维护本地 `resource-library.jsonl` 真源，Raindrop 只用于搜索和浏览。非敏感来源索引位于 `LoveAV-Data/config/pikpak-archive-sources.json`。具体收录、密码、快照、增量和完整历史验收规则见 `references/pikpak-channel-archive.md`。
 
 如果要单独检查适配器：
 
@@ -98,10 +98,10 @@ python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 
 规则基线：Windows `missav-manager` v0.5.13（稳定提交 `4e2aad0`）。123AV 和 Telegram 的联网部分仅作为兼容参考，不属于当前启用范围；当前默认不联网、不自动标记已读、不直写 Raindrop。
 
-当前八个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 资源频道完整归档。
+当前八个主功能是：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、Svip PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 多来源资源归档。
 
 Svip PikPak 链接消息消费 `tgctl` 结构化 JSON，校验精确来源并提取全部合法 URL，完成密码绑定、完整消息输出、Raindrop 去重与六列 CSV 生成；发送者身份只作为上下文，不影响筛选。它还可在受确认保护的流程中把选中的原消息转发到收藏群，是独立的第六个主功能。
 
 PikPak 通知关键词批量兑换是独立的第七个主功能。确定性计划器与 `scripts/run_pikpak_notification_redeem.py` 已组成完整执行链：冻结两群未读、交集去重、同请求发送即时捕获、收藏去重与成功后已读。默认只生成预览；真实执行需精确确认词 `RUN_PIKPAK_REDEEM`。任一写入结果不确定时停止且不确认来源已读。
 
-PikPak 资源频道完整归档是第八个主功能。它的脚本、规则、测试和运行入口全部位于 LoveAV 内，不再需要安装或调用独立 Skill。
+PikPak 多来源资源归档是第八个主功能。它的脚本、规则、测试和运行入口全部位于 LoveAV 内，每个来源单独建库，以后可继续向私人来源索引追加新群组。
