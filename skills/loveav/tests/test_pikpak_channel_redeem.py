@@ -123,3 +123,69 @@ def test_dry_run_summary_never_exposes_start_payload(monkeypatch, tmp_path: Path
     assert result["unique_start_jobs"] == 1
     assert secret_payload not in repr(result)
     assert "jobs" not in result
+
+
+def test_real_run_stops_batch_after_first_job_without_pikpak(monkeypatch, tmp_path: Path) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        MODULE,
+        "_load_source",
+        lambda _config, _key: {
+            "chat_id": "-1001234567890",
+            "resource_bot_username": "resource_bot",
+        },
+    )
+    monkeypatch.setattr(
+        MODULE.archive,
+        "_fetch_live",
+        lambda *_args, **_kwargs: {
+            "items": [
+                _parent(10),
+                _parent(11),
+                _reply(
+                    101,
+                    10,
+                    {"type": "url", "text": "资源一", "url": "https://t.me/resource_bot?start=first"},
+                ),
+                _reply(
+                    102,
+                    11,
+                    {"type": "url", "text": "资源二", "url": "https://t.me/resource_bot?start=second"},
+                ),
+            ],
+            "comment_messages": 2,
+        },
+    )
+    monkeypatch.setattr(MODULE.adapter, "locate_tgctl", lambda _value: tmp_path / "tgctl.exe")
+    monkeypatch.setattr(MODULE.adapter, "health_check", lambda _value: {"capabilities": []})
+    monkeypatch.setattr(MODULE.adapter, "require_capabilities", lambda *_args: None)
+
+    def fake_capture(_located, **kwargs):
+        calls.append(kwargs["text"])
+        return {
+            "sent_message_id": 1,
+            "captured": [{"text": "资源已转移到另一个 Telegram 频道", "links": ["https://t.me/example"]}],
+        }
+
+    monkeypatch.setattr(MODULE.adapter, "send_and_capture", fake_capture)
+    args = argparse.Namespace(
+        config=tmp_path / "config.json",
+        source_key="demo",
+        tgctl=None,
+        total_limit=100,
+        confirm=MODULE.CONFIRMATION,
+        output_root=tmp_path,
+        folder="demo",
+        first_reply_timeout=8.0,
+        settle_seconds=2.0,
+        pause_seconds=0.0,
+        timeout=30.0,
+    )
+
+    result = MODULE.execute(args)
+
+    assert len(calls) == 1
+    assert result["ok"] is False
+    assert result["archive_updated"] is False
+    assert result["failures"] == [{"job": 1, "status": "no_pikpak_reply"}]
+    assert not (tmp_path / "state" / "redeem-progress.json").exists()

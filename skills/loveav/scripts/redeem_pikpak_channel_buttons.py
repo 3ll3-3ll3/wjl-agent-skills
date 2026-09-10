@@ -157,7 +157,9 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
             captured = capture.get("captured")
             if not isinstance(captured, list) or not any(pikpak_resources.canonical_resources(row) for row in captured):
                 failures.append({"job": index, "status": "no_pikpak_reply"})
-                continue
+                # 这通常意味着 Bot 改了返回链路、进入限流，或将资源放到第二个频道。
+                # 不得在未理解失败原因时继续向整批 Bot 发送命令。
+                break
             completed[key] = {
                 "parent_ids": job["parent_ids"],
                 "captured": captured,
@@ -221,7 +223,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--total-limit", type=int, default=500000)
     value.add_argument("--first-reply-timeout", type=float, default=8.0)
     value.add_argument("--settle-seconds", type=float, default=2.0)
-    value.add_argument("--pause-seconds", type=float, default=0.5)
+    value.add_argument("--pause-seconds", type=float, default=65.0)
     value.add_argument("--timeout", type=float, default=120.0)
     value.add_argument("--confirm")
     return value

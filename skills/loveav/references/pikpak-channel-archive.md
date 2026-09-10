@@ -108,7 +108,7 @@ python scripts/redeem_pikpak_channel_buttons.py `
 RUN_PIKPAK_CHANNEL_REDEEM
 ```
 
-确认后才可向配置 Bot 发送 `/start <payload>`。每个任务只捕获后续 `mypikpak.com` 回复；成功项原子写入 `state/redeem-progress.json`，检查点键为不可逆 SHA-256，不保存 payload。全部任务成功后才更新功能 8 正式主库；部分失败、`FLOOD_WAIT` 或 `WRITE_OUTCOME_UNKNOWN` 都必须停止，不更新主库，下次从检查点续跑。本流程仍不下载媒体、不转发、不标记已读。
+确认后才可向配置 Bot 发送 `/start <payload>`。默认两次成功任务间隔至少 65 秒，不得用并发绕过 Bot 限流。直链型 Bot 的每个任务只捕获后续 `mypikpak.com` 回复；如果第一项没有捕获直链，必须立即停止整批，不得继续发送剩余任务。若 Bot 返回的是另一个 Telegram 资源频道，必须先完成该频道的可读性与结果关联验收，再实现二段捕获；不可把 Telegram 频道链接误当成 PikPak 结果。成功项原子写入 `state/redeem-progress.json`，检查点键为不可逆 SHA-256，不保存 payload。全部任务成功后才更新功能 8 正式主库；部分失败、`FLOOD_WAIT` 或 `WRITE_OUTCOME_UNKNOWN` 都必须停止，不更新主库，下次从检查点续跑。本流程仍不下载媒体、不转发、不标记已读。
 
 ## 完成报告
 
