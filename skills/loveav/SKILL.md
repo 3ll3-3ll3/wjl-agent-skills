@@ -286,9 +286,9 @@ Raindrop 收藏夹固定为 `Svip PikPak链接消息`，CSV 固定为 `folder,ur
 
 已配置来源的非敏感索引位于 `LoveAV-Data/config/pikpak-archive-sources.json`，只保存 `source_key`、显示名称、输出目录名和 Raindrop 收藏夹名。稳定 `chat_id` 仍只保存在私人 `telegram-sources.json` 中。用户没有指定来源时，列出启用的功能 8 来源供选择“单个”或“全部”；用户已明确群组时不重复询问。
 
-默认通过 LoveAV 内的 `scripts/archive_pikpak_channel.py --live` 调用内嵌 TG Exporter 只读分页到历史尽头；用户也可提供明确标记 `ok=true`、`complete=true`和 `source_exhausted=true` 的完整 history JSON，再使用 `--input <完整历史.json>` 离线归档。没有读到 `source_exhausted=true` 时必须整体失败，不得生成伪完整主库。
+默认通过 LoveAV 内的 `scripts/archive_pikpak_channel.py --live` 调用内嵌 TG Exporter 只读分页到历史尽头；私人来源配置启用 `include_comments=true` 时，还必须通过 `messages.replies` 逐帖读取全部评论，并把父帖标题/说明与评论中的资源链接组合后归档。频道评论不得复用 Forum Topic 接口；任一评论线程没有读完时整体失败。若评论中没有 PikPak 直链，只有指向资源 Bot 的公开 `t.me/<bot>?start=...` 按钮，则仅在私人来源配置同时写明确切 `resource_bot_username` 后，进入受确认保护的按钮兑换流程；详细见 `references/pikpak-channel-archive.md`。用户也可提供明确标记 `ok=true`、`complete=true`和 `source_exhausted=true` 的完整 history JSON，再使用 `--input <完整历史.json>` 离线归档。没有读到 `source_exhausted=true` 时必须整体失败，不得生成伪完整主库。
 
-只收录含合法 PikPak URL 的资源帖，不下载媒体、不发送、不转发、不标记已读。按规范 URL 合并重复发布，保留全部来源消息；一条消息有多个链接时分别建档。密码只从 URL 外的明确标签识别，每条记录显式标记 `#有密码` 或 `#无密码`；密码冲突保留全部候选供复核，不得猜测。
+直链归档始终只读：不下载媒体、不发送、不转发、不标记已读。Bot 按钮兑换是唯一例外：先使用 `scripts/redeem_pikpak_channel_buttons.py` 执行 dry-run，只报告父帖数、命中帖数和去重后任务数，不显示 Bot start 参数；到真实发送前必须由用户在最后负责时刻明确确认 `RUN_PIKPAK_CHANNEL_REDEEM`。兑换只能向私人配置中精确指定的 Bot 发送 `/start <payload>`，只捕获 `mypikpak.com` 回复；失败、FloodWait 或写入结果不确定时立即停止，保留检查点且不更新正式归档。归档后按规范 URL 合并重复发布，保留全部来源消息；一条消息有多个链接时分别建档。密码只从 URL 外的明确标签识别，每条记录显式标记 `#有密码` 或 `#无密码`；密码冲突保留全部候选供复核，不得猜测。
 
 每个来源目录内的 `current/resource-library.jsonl` 是该来源的唯一正式主库；`resource-library.csv` 只用于 Excel 查看，`raindrop-full.csv` 用于完整重建该收藏夹，`updates/.../raindrop-added.csv` 用于日常增量导入。数据变化前必须生成快照，更新使用临时文件原子替换并记录 SHA-256。各来源之间不相互覆盖或自动去重；Raindrop 只是搜索和浏览入口，不从 Raindrop 反向回灌或自动合并本地主库。
 

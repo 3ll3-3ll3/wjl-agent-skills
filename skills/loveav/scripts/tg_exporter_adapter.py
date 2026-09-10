@@ -300,6 +300,20 @@ def _command_arguments(mode: str, query: dict[str, Any], cursor: str | None, lim
         for flag in ("since", "until"):
             if query.get(flag):
                 arguments.extend([f"--{flag}", str(query[flag])])
+    elif mode == "replies":
+        arguments = [
+            "messages",
+            "replies",
+            "--chat",
+            str(query["chat"]),
+            "--message-id",
+            str(query["message_id"]),
+            "--limit",
+            str(limit),
+        ]
+        for flag in ("since", "until"):
+            if query.get(flag):
+                arguments.extend([f"--{flag}", str(query[flag])])
     elif mode == "search":
         arguments = ["messages", "search", "--limit", str(limit)]
         option_names = {
@@ -322,7 +336,7 @@ def _command_arguments(mode: str, query: dict[str, Any], cursor: str | None, lim
         if query.get("case_sensitive"):
             arguments.append("--case-sensitive")
     else:
-        raise AdapterError("INVALID_ARGUMENT", "仅支持 history 或 search 分页。")
+        raise AdapterError("INVALID_ARGUMENT", "仅支持 history、replies 或 search 分页。")
     if cursor:
         arguments.extend(["--cursor", cursor])
     arguments.append("--json")
@@ -345,6 +359,8 @@ def collect_pages(
         raise AdapterError("INVALID_ARGUMENT", f"page_size 必须在 1 到 {MAX_PAGE_SIZE} 之间。")
     if mode == "history" and not query.get("chat"):
         raise AdapterError("INVALID_ARGUMENT", "history 必须指定 chat。")
+    if mode == "replies" and (not query.get("chat") or int(query.get("message_id") or 0) <= 0):
+        raise AdapterError("INVALID_ARGUMENT", "replies 必须指定 chat 和正整数 message_id。")
 
     items: list[dict[str, Any]] = []
     seen_messages: set[tuple[Any, Any]] = set()
@@ -726,6 +742,10 @@ def build_parser() -> argparse.ArgumentParser:
     history = subparsers.add_parser("history")
     add_page_options(history, chat_required=True)
 
+    replies = subparsers.add_parser("replies")
+    add_page_options(replies, chat_required=True)
+    replies.add_argument("--message-id", type=int, required=True)
+
     search = subparsers.add_parser("search")
     add_page_options(search, chat_required=False)
     search.add_argument("--contains")
@@ -802,6 +822,7 @@ def main(argv: list[str] | None = None) -> int:
                     "has_link",
                     "url_domain",
                     "case_sensitive",
+                    "message_id",
                 )
                 if hasattr(args, key) and getattr(args, key) not in {None, ""}
             }

@@ -73,6 +73,38 @@ def test_hidden_text_url_is_not_lost() -> None:
     assert records[0]["source_messages"][0]["hidden_link"] is True
 
 
+def test_public_button_url_is_archived() -> None:
+    row = message(1, "插眼成功！")
+    row["buttons"] = [{"text": "打开资源", "type": "url", "url": "https://mypikpak.com/s/button"}]
+    records, summary = MODULE.build_library(payload(row), folder="资源仓库")
+    assert summary["resource_messages"] == 1
+    assert records[0]["canonical_url"] == "https://mypikpak.com/s/button"
+
+
+def test_comment_resource_keeps_parent_post_context() -> None:
+    parent = message(183, "#作者\n作品说明\n评论区查看")
+    reply = message(501, "资源：https://mypikpak.com/s/comment\n密码：abcd")
+    reply["source_chat_id"] = -1009999999999
+    combined = MODULE._reply_with_parent_context(parent, reply)
+    records, summary = MODULE.build_library(
+        {
+            **payload(combined),
+            "comment_threads_scanned": 1,
+            "comment_messages": 1,
+        },
+        folder="资源频道",
+    )
+
+    assert len(records) == 1
+    assert records[0]["title"] == "#作者"
+    assert "作品说明" in records[0]["note"]
+    assert "https://mypikpak.com/s/comment" in records[0]["note"]
+    assert records[0]["password"] == "abcd"
+    assert records[0]["source_messages"][0]["message_url"].endswith("/501")
+    assert summary["comment_threads_scanned"] == 1
+    assert summary["comment_messages"] == 1
+
+
 def test_duplicate_url_keeps_all_source_messages_but_one_library_row() -> None:
     records, summary = MODULE.build_library(
         payload(

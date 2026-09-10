@@ -124,6 +124,26 @@ def test_collects_two_pages_and_removes_boundary_duplicate(tmp_path: Path) -> No
     assert calls[1][calls[1].index("--cursor") + 1] == "page-2"
 
 
+def test_replies_mode_uses_dedicated_message_command(tmp_path: Path) -> None:
+    located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
+    calls: list[list[str]] = []
+
+    def runner(command: list[str], _timeout: float):
+        calls.append(command)
+        return completed(command, {"ok": True, "data": {"items": [], "has_more": False, "next_cursor": None}})
+
+    result = adapter.collect_pages(
+        located,
+        mode="replies",
+        query={"chat": "-1001", "message_id": 183},
+        total_limit=100,
+        runner=runner,
+    )
+
+    assert result["source_exhausted"] is True
+    assert calls[0][1:7] == ["messages", "replies", "--chat", "-1001", "--message-id", "183"]
+
+
 def test_later_page_failure_is_not_reported_as_complete(tmp_path: Path) -> None:
     located = adapter.LocatedTgctl(tmp_path / "tgctl.exe", "test", "0.3.3")
     call_count = 0

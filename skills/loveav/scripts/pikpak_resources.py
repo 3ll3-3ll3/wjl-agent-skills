@@ -45,6 +45,15 @@ def iter_url_candidates(message: dict[str, Any]) -> Iterable[tuple[str, str | No
             if isinstance(value, str) and value:
                 yield value, None
 
+    buttons = message.get("buttons")
+    if isinstance(buttons, (list, tuple)):
+        for button in buttons:
+            if not isinstance(button, dict):
+                continue
+            value = button.get("url")
+            if isinstance(value, str) and value:
+                yield value, None
+
 
 def canonical_url(value: str) -> str:
     candidate = value if "://" in value else f"https://{value}"

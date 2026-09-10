@@ -124,6 +124,9 @@ class MessageInfoV3:
     pinned: bool
     media: MediaMetadata | None
     availability: str = "available"
+    discussion_parent_message_id: int | None = None
+    buttons: tuple[dict[str, Any], ...] = ()
+    reply_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)

@@ -32,6 +32,7 @@ class DaemonServer(V2DaemonServer):
                 "chats.get",
                 "chats.members",
                 "messages.history",
+                "messages.replies",
                 "messages.current_unread_snapshot",
                 "messages.mark_read_frozen_snapshot",
                 "send.capture",

@@ -193,6 +193,12 @@ def _extract_urls(message: Any) -> list[str]:
             # below still handles explicit http(s)/www links.
             pass
 
+    for button_row in getattr(message, "buttons", None) or ():
+        for button in button_row or ():
+            direct = getattr(button, "url", None)
+            if isinstance(direct, str) and direct:
+                urls.append(direct)
+
     text = getattr(message, "message", None) or ""
     urls.extend(match.group(0) for match in _URL_RE.finditer(text))
     return list(dict.fromkeys(urls))

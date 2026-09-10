@@ -72,6 +72,14 @@ tgctl status --json
 python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 ```
 
+读取某条频道帖的全部评论/回复：
+
+```powershell
+python scripts/tg_exporter_adapter.py replies --chat <ref> --message-id <id> --total-limit 500000
+```
+
+`messages.replies` 是频道评论与普通消息回复的专用只读接口，不要求会话是 Forum，也不能用 `topics history` 替代。
+
 按筛选条件搜索：
 
 ```powershell
@@ -105,8 +113,9 @@ python scripts/tg_exporter_adapter.py dialogs --search "<目标会话名>"
 
 ## 安全边界
 
-- 只读阶段调用 `version`、`status`、`dialogs list`、`messages history` 和 `messages search`。
+- 只读阶段调用 `version`、`status`、`dialogs list`、`messages history`、`messages replies` 和 `messages search`。`messages.replies` 可返回公开 URL 按钮的可见文本、URL 和类型，但不返回 callback data。
 - `forward` 是受确认保护的可选写操作；无确认词时适配器只执行 dry-run。
+- 功能 8 的频道评论 Bot 按钮兑换也是受确认保护的写操作；必须先 dry-run，只允许私人配置的精确 Bot，真实发送需用户确认 `RUN_PIKPAK_CHANNEL_REDEEM`。
 - 普通读取不自动调用 `send`、媒体下载或标记已读。只有用户明确调用第七功能时，才可由专用执行器按冻结范围发送、收藏和确认已读。
 - Telegram 登录仍由 TG Exporter GUI 完成。
 - 不记录或提交真实聊天正文、URL、群 ID、Session、API 凭据和日志。

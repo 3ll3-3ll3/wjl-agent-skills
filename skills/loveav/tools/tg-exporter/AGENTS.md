@@ -118,6 +118,7 @@ dialogs.list
 chats.get
 chats.members
 messages.history
+messages.replies
 messages.search
 messages.get
 topics.list
@@ -126,6 +127,8 @@ media metadata
 ```
 
 读取不得 send/forward/delete/leave/change-folder/vote/mark-read/自动下载媒体。
+
+频道评论必须使用 `messages.replies --chat <频道> --message-id <频道帖子>`。它与 Forum 的 `topics.history` 是两套语义：不得要求频道开启 Forum，也不得为了读取评论直接打开或复制第二份 Session。结构化消息可包含公开 URL 按钮的 `text/url/type`，但不得暴露 callback data。
 
 Reader 独立模型，不机械扩大 GUI `GroupInfo`。分页 default 100 / max 500；全局候选 scan 受现有 cap 限制；cursor 必须 opaque/HMAC/query-bound，不含 `access_hash`、`file_reference`、Session/credential。
 

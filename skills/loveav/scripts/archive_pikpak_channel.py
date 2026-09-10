@@ -62,6 +62,25 @@ def _body(message: dict[str, Any]) -> str:
     return "\n\n".join(parts)
 
 
+def _reply_with_parent_context(parent: dict[str, Any], reply: dict[str, Any]) -> dict[str, Any]:
+    """把评论中的资源链接与频道帖标题/说明组合成一条可归档记录。"""
+    combined = dict(reply)
+    parent_body = _body(parent)
+    reply_body = _body(reply)
+    combined["text"] = "\n\n".join(value for value in (parent_body, reply_body) if value)
+    combined["caption"] = None
+    combined["entities"] = [
+        *list(parent.get("entities") or []),
+        *list(reply.get("entities") or []),
+    ]
+    combined["discussion_parent_message_id"] = int(parent.get("message_id") or parent.get("id") or 0)
+    combined["discussion_parent_message_url"] = _message_url(
+        parent.get("source_chat_id", parent.get("chat_id")),
+        parent.get("message_id") or parent.get("id"),
+    )
+    return combined
+
+
 def _hashtags(text: str) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -210,6 +229,8 @@ def build_library(payload: Any, *, folder: str) -> tuple[list[dict[str, Any]], d
         "media_ignored": media_skipped,
         "newest_message_id": max(message_ids, default=0),
         "oldest_message_id": min(message_ids, default=0),
+        "comment_threads_scanned": int(payload.get("comment_threads_scanned", 0) or 0),
+        "comment_messages": int(payload.get("comment_messages", 0) or 0),
     }
     return records, summary
 
@@ -499,22 +520,64 @@ def _read_payload(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def _source_from_config(path: Path, key: str) -> tuple[str, str | None]:
+def _source_from_config(path: Path, key: str) -> tuple[str, str | None, bool]:
     payload = _read_payload(path)
     source = payload.get("sources", {}).get(key) if isinstance(payload, dict) else None
     if not isinstance(source, dict) or not source.get("chat_id"):
         raise ArchiveError(f"私人来源配置缺少 sources.{key}.chat_id。")
-    return str(source["chat_id"]), str(source.get("title") or "") or None
+    return (
+        str(source["chat_id"]),
+        str(source.get("title") or "") or None,
+        bool(source.get("include_comments", False)),
+    )
 
 
-def _fetch_live(chat: str, total_limit: int) -> dict[str, Any]:
-    from tg_exporter_adapter import collect_pages, health_check, locate_tgctl
+def _fetch_live(
+    chat: str,
+    total_limit: int,
+    *,
+    include_comments: bool = False,
+    tgctl: str | Path | None = None,
+) -> dict[str, Any]:
+    from tg_exporter_adapter import AdapterError, collect_pages, health_check, locate_tgctl, require_capabilities
 
-    located = locate_tgctl()
+    located = locate_tgctl(tgctl)
     health = health_check(located)
     if not health.get("authorized"):
         raise ArchiveError("Telegram 尚未登录。")
-    return collect_pages(located, mode="history", query={"chat": chat}, total_limit=total_limit)
+    history = collect_pages(located, mode="history", query={"chat": chat}, total_limit=total_limit)
+    if not include_comments:
+        return history
+
+    try:
+        require_capabilities(health, {"messages.replies"})
+        parents = list(history.get("items") or [])
+        combined = list(parents)
+        comment_messages = 0
+        comment_parents = [parent for parent in parents if int(parent.get("reply_count") or 0) > 0]
+        for parent in comment_parents:
+            parent_id = int(parent.get("message_id") or parent.get("id") or 0)
+            if parent_id <= 0:
+                continue
+            replies = collect_pages(
+                located,
+                mode="replies",
+                query={"chat": chat, "message_id": parent_id},
+                total_limit=total_limit,
+            )
+            if replies.get("source_exhausted") is not True:
+                raise ArchiveError(f"消息 {parent_id} 的评论尚未读取到底。")
+            rows = list(replies.get("items") or [])
+            comment_messages += len(rows)
+            combined.extend(_reply_with_parent_context(parent, reply) for reply in rows)
+    except AdapterError as exc:
+        raise ArchiveError(f"评论读取失败：{exc.code}：{exc.message}") from exc
+    history["items"] = combined
+    history["count"] = len(combined)
+    history["comment_threads_scanned"] = len(comment_parents)
+    history["comment_messages"] = comment_messages
+    history["comments_complete"] = True
+    return history
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -528,6 +591,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--folder", default="层楼PikPak资源社", help="Raindrop 收藏夹")
     parser.add_argument("--output-root", type=Path, default=_data_root() / "pikpak" / "cenglou-vip")
     parser.add_argument("--total-limit", type=int, default=500000, help="live 模式安全上限")
+    parser.add_argument("--tgctl", help="显式指定支持评论读取的 tgctl")
+    parser.add_argument(
+        "--include-comments",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="同时读取每条频道帖的评论/回复；默认采用私人来源配置",
+    )
     return parser
 
 
@@ -535,11 +605,19 @@ def main() -> int:
     args = _parser().parse_args()
     try:
         expected_title = None
+        include_comments = bool(args.include_comments)
         if args.live:
             chat = args.chat
             if not chat:
-                chat, expected_title = _source_from_config(args.config, args.source_key)
-            payload = _fetch_live(chat, args.total_limit)
+                chat, expected_title, configured_comments = _source_from_config(args.config, args.source_key)
+                if args.include_comments is None:
+                    include_comments = configured_comments
+            payload = _fetch_live(
+                chat,
+                args.total_limit,
+                include_comments=include_comments,
+                tgctl=args.tgctl,
+            )
         else:
             payload = _read_payload(args.input)
         records, summary = build_library(payload, folder=args.folder)
@@ -555,6 +633,7 @@ def main() -> int:
             "snapshot": manifest["snapshot"],
             "update_dir": manifest["update_dir"],
             "legacy_layout_migrated": manifest["legacy_layout_migrated"],
+            "comments_included": include_comments,
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0

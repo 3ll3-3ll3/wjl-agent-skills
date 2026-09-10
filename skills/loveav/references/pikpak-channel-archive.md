@@ -10,6 +10,8 @@
 - 每个来源在 `LoveAV-Data/pikpak/<output_slug>/` 下独立维护主库、增量、快照和检查点；不因跨群链接重复而丢失任何来源的完整消息。
 - 用户只说“运行功能 8”时，先列出已启用来源，让用户选单个或全部；已明确来源时直接执行。
 - 新增来源时，先用会话发现确认唯一群组，再把稳定 ID 写入私人来源配置，并向功能 8 索引增加一条非敏感记录。
+- 资源链接位于频道评论区时，在私人来源配置写入 `include_comments=true`。归档器随后逐帖调用 `messages.replies`，而不是把评论误当作 Forum Topic。
+- 若评论只提供资源 Bot 的公开 start 按钮，还需在同一条私人来源配置写入 `resource_bot_username`。它是可发送目标白名单，不得从按钮内容动态改写。
 
 ## 单向数据流
 
@@ -33,7 +35,8 @@ LoveAV-Data/config/telegram-sources.json
 
 ## 收录规则
 
-- 合并检查 `text`、`caption` 和富文本 `entities[].url`。
+- 合并检查 `text`、`caption`、富文本 `entities[].url` 和公开 URL 按钮。不读取或导出 callback data。
+- 评论归档会把父频道帖的标题与说明放在前面，再接评论原文、PikPak URL 和密码；本地主库的来源消息仍指向实际评论消息。
 - URL 必须是 `http/https`，hostname 为 `mypikpak.com` 或真实子域名。
 - 只要消息含合法 PikPak URL，就视为资源帖。
 - 纯每日更新播报、预览群公告、支付入口、频道导航和没有 PikPak URL 的普通消息全部排除。
@@ -86,7 +89,26 @@ LoveAV-Data/pikpak/<output_slug>/
 python scripts/archive_pikpak_channel.py --live
 ```
 
-脚本必须读到 `source_exhausted=true` 才能生成主库；达到安全上限但历史尚未读完时必须失败。执行只读历史请求，不下载媒体、不转发、不发送消息、不标记已读。
+脚本必须读到 `source_exhausted=true` 才能生成主库；启用评论读取时，每一条父帖的评论也必须全部读完。达到安全上限、评论接口不可用或任何评论线程分页失败时必须整体失败。执行只读历史与评论请求，不下载媒体、不转发、不发送消息、不标记已读。
+
+## 评论 Bot 按钮兑换
+
+当频道评论里没有 PikPak 直链，只有 `t.me/<配置 Bot>?start=<payload>` 时，使用：
+
+```powershell
+python scripts/redeem_pikpak_channel_buttons.py `
+  --source-key <私人来源键> `
+  --folder "<Raindrop 收藏夹>" `
+  --output-root "<该来源输出目录>"
+```
+
+默认是 dry-run。它完整读取频道与评论，只接受精确配置 Bot 的 start 链接，按 `Bot + payload` 去重，且只输出聚合数量，不显示 payload。真实兑换前必须在最后负责时刻取得用户精确确认：
+
+```text
+RUN_PIKPAK_CHANNEL_REDEEM
+```
+
+确认后才可向配置 Bot 发送 `/start <payload>`。每个任务只捕获后续 `mypikpak.com` 回复；成功项原子写入 `state/redeem-progress.json`，检查点键为不可逆 SHA-256，不保存 payload。全部任务成功后才更新功能 8 正式主库；部分失败、`FLOOD_WAIT` 或 `WRITE_OUTCOME_UNKNOWN` 都必须停止，不更新主库，下次从检查点续跑。本流程仍不下载媒体、不转发、不标记已读。
 
 ## 完成报告
 

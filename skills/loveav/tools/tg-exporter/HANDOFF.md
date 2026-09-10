@@ -4,6 +4,14 @@
 
 更新时间：2026-09-08
 
+## 2026-09-10 频道评论只读能力
+
+- 内嵌 v0.3.3 新增 `messages.replies` / `tgctl messages replies`，用于读取频道帖子评论或普通消息回复，不再错误复用只支持 Forum 的 `topics.history`。
+- 返回结构保持 Rich MessageInfoV3，并增加 `discussion_parent_message_id` 和公开 URL 按钮 `buttons[text,url,type]`；`source_chat_id` 使用评论消息的实际 peer，callback data 不导出。
+- LoveAV 功能 8 可由私人来源配置 `include_comments=true` 启用逐帖完整评论归档，父帖说明与评论中的 PikPak URL/密码一起进入资源记录。
+- 已证明部分频道的资源链路为“频道帖 → 评论 Bot 回复 → 公开 t.me start 按钮 → 资源 Bot 回复 PikPak”。LoveAV 新增受确认保护的批量兑换执行器；dry-run 不显示 start payload，真实发送需要 `RUN_PIKPAK_CHANNEL_REDEEM`。
+- 普通历史、评论和直链归档仍严格只读。兑换执行器是唯一例外：只向私人配置的 Bot 发送 start 命令，不下载媒体、不转发、不标记已读。
+
 # LoveAV 内嵌开发状态
 
 - 本目录已完整迁入 `3ll3-3ll3/wjl-agent-skills/skills/loveav/tools/tg-exporter`，后续以此处为开发真源。

@@ -146,6 +146,15 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("--until")
     _add_page_output_flags(history)
 
+    replies = messages_sub.add_parser("replies")
+    replies.add_argument("--chat", required=True)
+    replies.add_argument("--message-id", required=True, type=int)
+    replies.add_argument("--cursor")
+    replies.add_argument("--limit", type=int, default=100)
+    replies.add_argument("--since")
+    replies.add_argument("--until")
+    _add_page_output_flags(replies)
+
     unread = messages_sub.add_parser("unread")
     unread.add_argument("--chat", required=True)
     unread.add_argument("--cursor")
@@ -486,6 +495,23 @@ async def run_command(args: argparse.Namespace) -> dict[str, Any]:
                 "messages.history",
                 {
                     "chat": args.chat,
+                    "cursor": args.cursor,
+                    "limit": args.limit,
+                    "since": since.isoformat() if since else None,
+                    "until": until.isoformat() if until else None,
+                },
+            )
+        )
+
+    if args.command == "messages" and args.messages_command == "replies":
+        since = _parse_iso(args.since)
+        until = _parse_iso(args.until)
+        return success(
+            await proxy.ipc.request(
+                "messages.replies",
+                {
+                    "chat": args.chat,
+                    "message_id": args.message_id,
                     "cursor": args.cursor,
                     "limit": args.limit,
                     "since": since.isoformat() if since else None,
