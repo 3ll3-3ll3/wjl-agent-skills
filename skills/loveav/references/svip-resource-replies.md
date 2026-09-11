@@ -1,12 +1,12 @@
-# Svip PikPak 链接消息
+# PikPak 链接消息
 
-这是 LoveAV 的第六个主功能，用于从 `tgctl` 读取的 Svip 结构化消息中提取 PikPak 链接、密码和完整消息，并生成可导入 Raindrop 的 CSV。用户明确要求直接读取 Telegram 时，LoveAV 可通过适配器调用 `tgctl`；分类器本身不连接 Telegram，也不修改消息状态。
+这是 LoveAV 的第六个主功能，用于从 `tgctl` 读取的一个或多个 `pikpak消息` 分类群组中提取 PikPak 链接、密码和完整消息，并分别生成可导入 Raindrop 的 CSV。Svip 是现有来源之一。用户明确要求直接读取 Telegram 时，LoveAV 可通过适配器调用 `tgctl`；分类器本身不连接 Telegram，也不修改消息状态。
 
 ## 已锁定选择规则
 
 发送者身份不再参与筛选。只要消息满足以下条件，就默认进入主结果：
 
-1. 来自私人配置中稳定键为 `svip` 的精确 `chat_id`；
+1. 来自 TG Exporter 当前分类为 `pikpak消息`，且已在私人配置中用稳定 `chat_id` 复核的来源；
 2. 包含合法的 `http` 或 `https` PikPak URL；
 3. URL 的 hostname 是 `mypikpak.com` 或其真实子域名。
 
@@ -30,7 +30,8 @@ LoveAV-Data/config/telegram-sources.json
   "sources": {
     "svip": {
       "chat_id": "<Telegram标记后的负数群组ID>",
-      "title": "Svip"
+      "title": "Svip",
+      "raindrop_folder": "Svip PikPak链接消息"
     }
   }
 }
@@ -40,7 +41,7 @@ LoveAV-Data/config/telegram-sources.json
 
 ## 读取与分类
 
-优先让适配器自动完成健康检查和分页：
+优先让适配器自动完成健康检查和分页；对每个候选来源分别执行：
 
 ```powershell
 python scripts/tg_exporter_adapter.py history --chat <Svip-ref> --total-limit 1000
@@ -87,7 +88,7 @@ URL 字段始终只保存合法 URL，不能把密码文字拼进 URL。
 
 ## Raindrop 导出
 
-Raindrop 是 Svip PikPak 链接消息的最终管理入口，不建设 Svip 数据库。收藏夹名称固定为：
+Raindrop 是第六功能 PikPak 链接消息的最终管理入口，不建设另一套消息数据库。每个来源使用私人配置中的独立 `raindrop_folder`；Svip 当前收藏夹为：
 
 ```text
 Svip PikPak链接消息
@@ -109,11 +110,11 @@ folder,url,title,note,tags,created
 
 字段规则：
 
-- `folder`：固定为 `Svip PikPak链接消息`；
+- `folder`：使用当前来源私人配置中的 `raindrop_folder`；
 - `url`：一行一个纯 PikPak URL；
-- `title`：原消息第一行有意义的资源标题；没有标题时使用 `Svip PikPak｜日期｜消息 ID`；一条消息有多个链接时追加 `｜序号/总数`；
+- `title`：原消息第一行有意义的资源标题；没有标题时使用 `<来源名> PikPak｜日期｜消息 ID`；一条消息有多个链接时追加 `｜序号/总数`；
 - `note`：完整命中消息、当前资源、密码、消息 ID、消息时间和“发送者身份不参与筛选”的说明；
-- `tags`：固定包含 `Svip, PikPak`，有密码时添加 `有密码`，密码不明确时添加 `密码待确认`；
+- `tags`：固定包含 `<来源名>, PikPak`，有密码时添加 `有密码`，密码不明确时添加 `密码待确认`；
 - `created`：Telegram 原消息时间，不使用 CSV 生成时间。
 
 输出默认位置：
@@ -125,7 +126,7 @@ LoveAV-Data/svip/update-review/YYYY-MM-DD_svip_pikpak_raindrop_update_review.csv
 
 同一批相同 URL 只输出一次。已有 Raindrop URL 默认不再次输出；新密码补全或密码冲突进入 `update-review`，不能依赖重复导入覆盖已有书签。生成 CSV 只表示 `exported`，不能声称已经成功导入 Raindrop。
 
-允许长期保存的 Telegram 正文只限这些被选中导入 Raindrop 的 Svip PikPak 资源消息。最近 1000 条中的其他消息、排除项和临时读取结果不得长期保存。
+允许长期保存的 Telegram 正文只限这些被选中导入 Raindrop 的 PikPak 资源消息。读取范围中的其他消息、排除项和临时结果不得长期保存。
 
 ## 转发到收藏群
 

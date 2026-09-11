@@ -42,7 +42,7 @@ Daemon：
 LOCAL status/job/heartbeat → 立即
 export → 独占 Telegram work
 reader → export 活跃时等待
-real send/forward → export 活跃时立即 EXPORT_IN_PROGRESS
+real send/forward/send-capture/mark-read → export 活跃时立即 EXPORT_IN_PROGRESS
 media confirmed download → 按 reader 队列等待 export
 ```
 
@@ -137,6 +137,16 @@ Saved Messages 若未自然作为 dialog 返回，则合成唯一 self row `refe
 群/频道 participant 使用 Telegram participant APIs；Basic Group 使用 full chat participants。role cache 为短 TTL 内存 cache，不持久化成员正文。
 
 `owner/admin/member` 是 current snapshot。匿名管理员/send-as 只表达 Telegram 可证明的身份，不根据显示名推断隐藏 user。
+
+## 有界交互写入
+
+v0.3.3 内嵌开发面新增三个通用能力：
+
+- `messages.unread` 在首页冻结 `lower/upper`，后续页复用 HMAC/query-bound cursor；
+- `send.capture` 在同一 daemon/Session 请求内先订阅、后发送，只捕获有界时间窗；
+- `messages.mark_read` 只接受与会话及冻结边界绑定的签名 token。
+
+它们均通过现有 `OperationCoordinator`，不新建 Session、TCP 或后台 listener。业务层的 PikPak 分类不进入 TG Exporter。详见 ADR-008。
 
 ## 11. MessageInfoV3
 

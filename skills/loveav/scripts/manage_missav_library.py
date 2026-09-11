@@ -13,9 +13,16 @@ import json
 import os
 import re
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
+
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if callable(_reconfigure):
+        _reconfigure(encoding="utf-8", errors="backslashreplace")
 
 
 OFFICIAL_HEADERS = [

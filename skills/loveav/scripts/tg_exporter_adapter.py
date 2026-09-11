@@ -20,6 +20,13 @@ MAX_PAGE_SIZE = 500
 MAX_PAGES = 1000
 MAX_FORWARD_BATCH = 200
 FORWARD_CONFIRMATION = "FORWARD_SVIP_RESOURCES"
+REDEEM_CONFIRMATION = "RUN_PIKPAK_REDEEM"
+READ_ACK_CONFIRMATION = "MARK_READ_FROZEN_SNAPSHOT"
+REDEEM_CAPABILITIES = {
+    "messages.current_unread_snapshot",
+    "messages.mark_read_frozen_snapshot",
+    "send.capture",
+}
 _VERSION_RE = re.compile(r"(?:^|[^0-9])v?(\d+)\.(\d+)\.(\d+)(?:[^0-9]|$)", re.IGNORECASE)
 
 
@@ -293,6 +300,20 @@ def _command_arguments(mode: str, query: dict[str, Any], cursor: str | None, lim
         for flag in ("since", "until"):
             if query.get(flag):
                 arguments.extend([f"--{flag}", str(query[flag])])
+    elif mode == "replies":
+        arguments = [
+            "messages",
+            "replies",
+            "--chat",
+            str(query["chat"]),
+            "--message-id",
+            str(query["message_id"]),
+            "--limit",
+            str(limit),
+        ]
+        for flag in ("since", "until"):
+            if query.get(flag):
+                arguments.extend([f"--{flag}", str(query[flag])])
     elif mode == "search":
         arguments = ["messages", "search", "--limit", str(limit)]
         option_names = {
@@ -315,7 +336,7 @@ def _command_arguments(mode: str, query: dict[str, Any], cursor: str | None, lim
         if query.get("case_sensitive"):
             arguments.append("--case-sensitive")
     else:
-        raise AdapterError("INVALID_ARGUMENT", "仅支持 history 或 search 分页。")
+        raise AdapterError("INVALID_ARGUMENT", "仅支持 history、replies 或 search 分页。")
     if cursor:
         arguments.extend(["--cursor", cursor])
     arguments.append("--json")
@@ -338,6 +359,8 @@ def collect_pages(
         raise AdapterError("INVALID_ARGUMENT", f"page_size 必须在 1 到 {MAX_PAGE_SIZE} 之间。")
     if mode == "history" and not query.get("chat"):
         raise AdapterError("INVALID_ARGUMENT", "history 必须指定 chat。")
+    if mode == "replies" and (not query.get("chat") or int(query.get("message_id") or 0) <= 0):
+        raise AdapterError("INVALID_ARGUMENT", "replies 必须指定 chat 和正整数 message_id。")
 
     items: list[dict[str, Any]] = []
     seen_messages: set[tuple[Any, Any]] = set()
@@ -425,6 +448,186 @@ def collect_pages(
         "next_cursor": cursor if len(items) >= total_limit else None,
         "items": items,
     }
+
+
+def require_capabilities(health: dict[str, Any], required: set[str]) -> None:
+    available = {str(value) for value in health.get("capabilities", [])}
+    missing = sorted(required - available)
+    if missing:
+        raise AdapterError(
+            "TGCTL_CAPABILITY_MISSING",
+            "tgctl 缺少当前工作流需要的能力。",
+            {"missing": missing},
+        )
+
+
+def collect_unread_snapshot(
+    located: LocatedTgctl,
+    *,
+    chat: str,
+    page_size: int = MAX_PAGE_SIZE,
+    timeout: float = 120.0,
+    runner: Runner = _default_runner,
+) -> dict[str, Any]:
+    """分页读取同一个签名的 current-unread 快照。
+
+    后续页必须与首页共用 lower/upper/snapshot_token，否则立即失败，
+    避免把页面读取期间到达的新消息混入本轮。
+    """
+
+    if page_size < 1 or page_size > MAX_PAGE_SIZE:
+        raise AdapterError("INVALID_ARGUMENT", f"page_size 必须在 1 到 {MAX_PAGE_SIZE} 之间。")
+
+    items: list[dict[str, Any]] = []
+    seen_messages: set[tuple[Any, Any]] = set()
+    seen_cursors: set[str] = set()
+    cursor: str | None = None
+    bounds: tuple[int, int, str] | None = None
+    pages = 0
+    duplicates = 0
+    title: str | None = None
+    unread_count = 0
+
+    while True:
+        if pages >= MAX_PAGES:
+            raise AdapterError("PAGE_LIMIT_EXCEEDED", "current-unread 分页超过安全上限。")
+        arguments = ["messages", "unread", "--chat", str(chat), "--limit", str(page_size)]
+        if cursor:
+            arguments.extend(["--cursor", cursor])
+        arguments.append("--json")
+        payload = run_tgctl_json(located.path, arguments, timeout=timeout, runner=runner)
+        data = payload.get("data")
+        if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+            raise AdapterError("TGCTL_INVALID_PAGE", "current-unread 响应缺少 data.items。")
+
+        token = data.get("snapshot_token")
+        page_bounds = (int(data.get("lower", 0)), int(data.get("upper", 0)), str(token or ""))
+        if not page_bounds[2]:
+            raise AdapterError("TGCTL_INVALID_PAGE", "current-unread 响应缺少 snapshot_token。")
+        if bounds is None:
+            bounds = page_bounds
+            title = str(data.get("title") or "") or None
+            unread_count = int(data.get("unread_count", 0) or 0)
+        elif page_bounds != bounds:
+            raise AdapterError("TGCTL_SNAPSHOT_CHANGED", "current-unread 后续页的冻结边界或签名发生变化。")
+
+        pages += 1
+        for raw_item in data["items"]:
+            if not isinstance(raw_item, dict):
+                raise AdapterError("TGCTL_INVALID_PAGE", "current-unread 消息项必须是 object。")
+            key = _message_key(raw_item)
+            if key is not None and key in seen_messages:
+                duplicates += 1
+                continue
+            if key is not None:
+                seen_messages.add(key)
+            items.append(raw_item)
+
+        if not bool(data.get("has_more")):
+            break
+        next_cursor = data.get("next_cursor")
+        if not isinstance(next_cursor, str) or not next_cursor:
+            raise AdapterError("TGCTL_INVALID_PAGE", "current-unread 声明还有数据但缺少游标。")
+        if next_cursor in seen_cursors:
+            raise AdapterError("TGCTL_CURSOR_LOOP", "current-unread 返回重复游标。")
+        seen_cursors.add(next_cursor)
+        cursor = next_cursor
+
+    assert bounds is not None
+    return {
+        "schema": ADAPTER_SCHEMA,
+        "ok": True,
+        "chat": str(chat),
+        "title": title,
+        "lower": bounds[0],
+        "upper": bounds[1],
+        "unread_count": unread_count,
+        "snapshot_token": bounds[2],
+        "pages": pages,
+        "duplicates_removed": duplicates,
+        "count": len(items),
+        "items": items,
+    }
+
+
+def send_and_capture(
+    located: LocatedTgctl,
+    *,
+    destination_chat: str,
+    text: str,
+    confirmation: str | None = None,
+    first_reply_timeout: float = 8.0,
+    settle_seconds: float = 2.0,
+    max_messages: int = 20,
+    url_domain: str = "mypikpak.com",
+    timeout: float = 45.0,
+    runner: Runner = _default_runner,
+) -> dict[str, Any]:
+    confirmed = confirmation == REDEEM_CONFIRMATION
+    arguments = [
+        "send-capture", "--to", str(destination_chat), "--text", str(text),
+        "--first-reply-timeout", str(first_reply_timeout),
+        "--settle-seconds", str(settle_seconds),
+        "--max-messages", str(max_messages),
+        "--url-domain", str(url_domain),
+    ]
+    if not confirmed:
+        arguments.append("--dry-run")
+    arguments.append("--json")
+    payload = run_tgctl_json(located.path, arguments, timeout=timeout, runner=runner)
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise AdapterError("TGCTL_INVALID_RESPONSE", "send-capture 缺少 data object。")
+    return data
+
+
+def send_text(
+    located: LocatedTgctl,
+    *,
+    destination_chat: str,
+    text: str,
+    confirmation: str | None = None,
+    timeout: float = 45.0,
+    runner: Runner = _default_runner,
+) -> dict[str, Any]:
+    confirmed = confirmation == REDEEM_CONFIRMATION
+    arguments = ["send", "--to", str(destination_chat), "--text", str(text)]
+    if not confirmed:
+        arguments.append("--dry-run")
+    arguments.append("--json")
+    payload = run_tgctl_json(located.path, arguments, timeout=timeout, runner=runner)
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise AdapterError("TGCTL_INVALID_RESPONSE", "send 缺少 data object。")
+    return data
+
+
+def mark_unread_snapshot_read(
+    located: LocatedTgctl,
+    *,
+    chat: str,
+    snapshot_token: str,
+    max_id: int,
+    confirmation: str | None = None,
+    timeout: float = 45.0,
+    runner: Runner = _default_runner,
+) -> dict[str, Any]:
+    if confirmation != REDEEM_CONFIRMATION:
+        return {"dry_run": True, "chat": str(chat), "requested_max_id": int(max_id)}
+    payload = run_tgctl_json(
+        located.path,
+        [
+            "messages", "mark-read", "--chat", str(chat),
+            "--snapshot-token", snapshot_token, "--max-id", str(int(max_id)),
+            "--confirm", READ_ACK_CONFIRMATION, "--json",
+        ],
+        timeout=timeout,
+        runner=runner,
+    )
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise AdapterError("TGCTL_INVALID_RESPONSE", "mark-read 缺少 data object。")
+    return data
 
 
 def list_dialogs(
@@ -539,6 +742,10 @@ def build_parser() -> argparse.ArgumentParser:
     history = subparsers.add_parser("history")
     add_page_options(history, chat_required=True)
 
+    replies = subparsers.add_parser("replies")
+    add_page_options(replies, chat_required=True)
+    replies.add_argument("--message-id", type=int, required=True)
+
     search = subparsers.add_parser("search")
     add_page_options(search, chat_required=False)
     search.add_argument("--contains")
@@ -615,6 +822,7 @@ def main(argv: list[str] | None = None) -> int:
                     "has_link",
                     "url_domain",
                     "case_sensitive",
+                    "message_id",
                 )
                 if hasattr(args, key) and getattr(args, key) not in {None, ""}
             }

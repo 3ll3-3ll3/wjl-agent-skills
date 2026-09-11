@@ -1,6 +1,6 @@
 # TG Exporter 内嵌集成
 
-TG Exporter 是 LoveAV 的本地 Telegram 读取助手，不是第七个业务功能。完整可维护源码位于：
+TG Exporter 是 LoveAV 的本地 Telegram 读取助手，本身不占用业务功能编号。完整可维护源码位于：
 
 ```text
 tools/tg-exporter/
@@ -11,7 +11,7 @@ LoveAV 仓库中的这份源码是后续开发真源。原独立 `tg-exporter` �
 ## 职责分界
 
 - TG Exporter：登录 Telegram、读取会话和消息、分页、返回结构化身份与消息数据。
-- LoveAV：理解自然语言、选择读取范围、自动续页、执行七个业务功能、组织结果和可疑项。
+- LoveAV：理解自然语言、选择读取范围、自动续页、执行八个业务功能、组织结果和可疑项。
 - TG Exporter 不内置 MissAV、PikPak、女优 Tag 或其他 LoveAV 业务分类。
 - LoveAV 不直接打开 Telegram Session，不复制凭据，也不绕过 TG Exporter daemon。
 
@@ -72,6 +72,14 @@ tgctl status --json
 python scripts/tg_exporter_adapter.py history --chat <ref> --total-limit 1000
 ```
 
+读取某条频道帖的全部评论/回复：
+
+```powershell
+python scripts/tg_exporter_adapter.py replies --chat <ref> --message-id <id> --total-limit 500000
+```
+
+`messages.replies` 是频道评论与普通消息回复的专用只读接口，不要求会话是 Forum，也不能用 `topics history` 替代。
+
 按筛选条件搜索：
 
 ```powershell
@@ -105,18 +113,19 @@ python scripts/tg_exporter_adapter.py dialogs --search "<目标会话名>"
 
 ## 安全边界
 
-- 只读阶段调用 `version`、`status`、`dialogs list`、`messages history` 和 `messages search`。
+- 只读阶段调用 `version`、`status`、`dialogs list`、`messages history`、`messages replies` 和 `messages search`。`messages.replies` 可返回公开 URL 按钮的可见文本、URL 和类型，但不返回 callback data。
 - `forward` 是受确认保护的可选写操作；无确认词时适配器只执行 dry-run。
-- 不自动调用 `send`、媒体下载或任何标记已读功能。
+- 功能 8 只读取已经存在的 PikPak 直链；评论中的 Bot start 按钮不点击、不兑换，也不追踪其返回的其他 Telegram 频道。
+- 普通读取不自动调用 `send`、媒体下载或标记已读。只有用户明确调用第七功能时，才可由专用执行器按冻结范围发送、收藏和确认已读。
 - Telegram 登录仍由 TG Exporter GUI 完成。
 - 不记录或提交真实聊天正文、URL、群 ID、Session、API 凭据和日志。
-- Svip 分类继续遵循 `svip-resource-replies.md`：发送者身份仅供上下文展示，不参与接受或排除，也不能把未知身份猜成具体管理员。
+- 第六功能分类继续遵循 `svip-resource-replies.md`：发送者身份仅供上下文展示，不参与接受或排除，也不能把未知身份猜成具体管理员。
 
-## MissAV 固定未读来源
+## MissAV 未读候选来源
 
-MissAV 的来源白名单、手动范围群与五个固定未读群定义在 `missav-telegram-sources.md`。来源稳定 ID 必须从私人 `LoveAV-Data/config/telegram-sources.json` 读取，不提交仓库，也不按相似标题猜测。
+MissAV 的动态 `av` 分类候选、手动范围群与未读语义定义在 `missav-telegram-sources.md`。来源稳定 ID 必须从私人 `LoveAV-Data/config/telegram-sources.json` 读取，不提交仓库，也不按相似标题猜测。
 
-自动已读需要机器可读操作精确确认到本轮冻结的 `upper`。正式 v0.3.2 `tgctl` 当前没有该命令，因此适配器不得用“重新读取最新位置”或 GUI 自动化替代，也不得声称已经标记。新增能力后仍须保持：单来源失败不确认、快照后消息不确认、重复调用幂等、确认结果可核验。
+自动已读需要机器可读操作精确确认到本轮冻结的 `upper`。正式 v0.3.2 仍没有该命令；LoveAV 内嵌 v0.3.3 开发版已增加 `messages unread` 和 token-bound `messages mark-read`。仍须保持：单来源失败不确认、快照后消息不确认、重复调用幂等、确认结果可核验。
 
 ## 第七功能所需的执行器契约
 
@@ -128,4 +137,4 @@ PikPak 通知关键词批量兑换的业务判断仍由 LoveAV 完成，TG Expor
 - 把指定会话已读位置确认到不超过本轮冻结上界的精确 `max_id`；
 - 写入后可核验目标消息，且未知结果禁止自动重放。
 
-当前内嵌 TG Exporter 尚未提供完整的原子发送捕获与命令行精确已读接口。在这些能力完成并验收前，LoveAV 只能生成第七功能的去重计划和人工执行清单；不得以两次独立命令冒充可靠自动化。详细业务规则见 `pikpak-notification-redeem.md`。
+当前内嵌 TG Exporter v0.3.3 开发版已提供上述三个能力，LoveAV 通过 `scripts/run_pikpak_notification_redeem.py` 组合成第七功能。默认仅冻结和预览；真实执行要求精确确认词 `RUN_PIKPAK_REDEEM`。若任一 capability 缺失，必须回退为计划并报告缺口，不得以两次独立命令冒充可靠自动化。

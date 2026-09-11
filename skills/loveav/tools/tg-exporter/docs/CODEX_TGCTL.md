@@ -223,6 +223,16 @@ tgctl forward --from <chat> --to me --ids 123 --dry-run --json
 tgctl send --to me --text "test" --dry-run --json
 ```
 
+v0.3.3 内嵌开发版还提供有界原语：
+
+```powershell
+tgctl messages unread --chat <ref> --limit 500 --json
+tgctl send-capture --to <ref> --text "#keyword" --url-domain mypikpak.com --dry-run --json
+tgctl messages mark-read --chat <ref> --snapshot-token <token> --max-id <id> --confirm MARK_READ_FROZEN_SNAPSHOT --json
+```
+
+`messages unread` 的后续页必须传回首页 `next_cursor`。`mark-read` 的 token 与会话、冻结 `lower/upper` 绑定。`send-capture` 真实执行属于 Telegram write；请求已发送后连接中断时不得重放。
+
 - forward = Telegram 真 forward；
 - send = plain text；
 - 默认 forward 20，显式 `--allow-large-batch` 最多 200；
@@ -230,7 +240,7 @@ tgctl send --to me --text "test" --dry-run --json
 - FloodWait → `FLOOD_WAIT/retry_after_seconds`，不 retry storm；
 - write 请求已发送但响应前 transport 中断 → `WRITE_OUTCOME_UNKNOWN`，不自动重发。
 
-Reader 扩展没有扩大 send/forward 授权。
+普通 Reader 扩展不会触发任何写入。`send-capture` 和 `messages mark-read` 是独立的受限执行面，具体安全语义见 ADR-008。
 
 ## 13. 退出码
 

@@ -37,7 +37,19 @@ node scripts/generate_whostv_scraper.js --incremental
 node scripts/generate_whostv_scraper.js --incremental --timeout 45000
 ```
 
-生成器把独立 `.js` 写入 `脚本归档\generated`，并把完整脚本说明追加到 `脚本归档\whostv_scripts.md` 最前面。脚本必须由用户在 whos.tv 已解决列表页面的控制台运行。用户明确要求控制 Chrome 时，可先检查可见账户菜单与“登出”；未确认登录就停止。若安全策略不允许代理运行控制台脚本，交付生成的脚本让用户手动运行，不使用 `javascript:` URL、原始 CDP 或规避手段。
+生成器把独立 `.js` 写入 `脚本归档\generated`，并把完整脚本说明追加到 `脚本归档\whostv_scripts.md` 最前面。脚本必须由用户在已登录的 whos.tv 页面显式启动，Agent 不得代为运行。日常优先使用 `tampermonkey-scripts` 仓库中的 `LoveAV Whos.tv 最新脚本启动器`；油猴入口不可用时，回退为用户在 Console 手动运行。用户明确要求控制 Chrome 时，可先检查可见账户菜单与“登出”；未确认登录就停止。不得使用 `javascript:` URL、原始 CDP 或规避手段。
+
+## 油猴启动器
+
+`LoveAV Whos.tv 最新脚本启动器` 只简化本地脚本选择和启动，不改变抓取、校验或状态语义：
+
+1. 首次在 Whos.tv 页面点击右下角“运行 Whos.tv”，授权 `E:\Desktop\codex项目\whostv-current\脚本归档\generated`。
+2. 后续点击时自动扫描最新的 `whostv_incremental_*.js` 或 `whostv_pages_*.js`。
+3. 运行前显示脚本文件、修改时间、模式、截止帖或页数、输出 JSON 和 SHA-256，并校验关键安全标记。
+4. 只有用户点击“运行最新脚本”才执行；进度仍在 Console 中逐条显示，面板提供“取消抓取”。
+5. 启动器不生成脚本、不读取或写入状态文件、不整理 JSON，也不更新截止点。抓取返回 JSON 后仍必须交给 `organize_whos_answers.js` 校验。
+
+油猴脚本源码位于 `tampermonkey-scripts/scripts/loveav-whostv-runner/`。它是可选的人机入口，不替代 Skill 生成器，也不改变“失败或取消时不下载部分 JSON”的规则。
 
 抓取脚本必须：
 
