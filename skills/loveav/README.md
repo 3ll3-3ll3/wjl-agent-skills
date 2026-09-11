@@ -33,7 +33,7 @@ Twitter 和海角默认静默。没有明确点名时，即使说“全部功能
 - MissAV 番号规范化、详情链接、原版浏览器脚本、从正式主体库实时派生的参考女优 Tag、两层黑名单和三目录 Raindrop CSV 导出。
 - 四个前置工具统一接受 Telegram Desktop HTML/JSON、TXT、CSV、MD、LOG、多文件和粘贴文本；支持时间筛选、选择、查重和历史语义。
 - 单一 MissAV 主体库、Raindrop 官方/脚本 CSV 合并查重、规则包、TXT/CSV/JSON 输出，以及 v0.5.13 业务数据迁移契约。
-- Whos.tv 已解决答案：控制台抓取脚本、增量截止点、JSON 校验、四类 Markdown 和脚本归档。
+- Whos.tv 已解决答案：增量或指定页抓取脚本、油猴一键启动器、动态截止点、JSON 校验、四类 Markdown 和脚本归档。
 - PikPak 链接消息：动态读取 TG Exporter 中所有 `pikpak消息` 分类来源；精确来源内全部合法 PikPak URL 默认接受，发送者身份不参与筛选，并按来源分别生成 Raindrop CSV。
 - PikPak 通知关键词批量兑换：读取两个通知群当前未读，按关键词合并去重，逐个到提取群即时兑换，把唯一资源写入收藏群，并只在成功保存后安全确认来源已读。
 - PikPak 多来源资源归档：统一管理多个指定群组/频道，对每个来源读取全部可访问历史，独立建立本地唯一资源库、增量、快照和 Raindrop 导入 CSV，不下载媒体或修改 Telegram 状态。
@@ -45,6 +45,8 @@ Twitter 和海角默认静默。没有明确点名时，即使说“全部功能
 生成 MissAV 浏览器脚本时，注入脚本的参考女优 Tag 不再读取 `Miss_AV.html` 或独立 Tag 库，而是扫描正式 `missav-library.csv` 的主 Tags 与全部来源变体。浏览器首次运行选择从正式库生成的 `初始女优Tag合集.csv`，以后选择上次生成的最新 `*_女优tag合集.csv` 作为“当前女优 Tag 合集”；这些合集只用于恢复处理进度和女优映射，不是正式主体库，也不会自动写回主体库。确定性生成器、命令和双层黑名单规则见 `references/missav-browser-script.md`。
 
 浏览器启动面板默认使用 `E:\Desktop\codex项目\LoveAV-Data\missav\results`。首次在 Chrome 中授权这一目录后，后续运行会自动找到其中最新的女优 Tag 合集，并在同一目录下新建本批输出子目录，不再要求每次重复选择 CSV 和输出路径。
+
+Whos.tv 日常运行可安装 `tampermonkey-scripts` 仓库中的 `LoveAV Whos.tv 最新脚本启动器`。首次授权 `E:\Desktop\codex项目\whostv-current\脚本归档\generated` 后，页面右下角可自动扫描并校验最新脚本，再由用户点击运行；无需重复复制完整脚本到 Console。启动器不更新截止点，下载的 JSON 仍须交回 LoveAV 校验和整理。
 
 ## 长期数据设计
 
