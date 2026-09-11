@@ -105,7 +105,7 @@ class MissavBrowserScriptTest(unittest.TestCase):
 
             self.assertEqual(report["codes_injected"], 2)
             self.assertEqual(report["runtime_optimization"], "safe-fetch-v1")
-            self.assertEqual(report["workspace_launcher"], "remembered-results-v2")
+            self.assertEqual(report["workspace_launcher"], "remembered-results-v3-project-only")
             self.assertEqual(report["actress_tags_before_blacklist"], 3)
             self.assertEqual(report["reference_blacklist_matches"], 1)
             self.assertEqual(report["reference_tags_injected"], 2)
@@ -137,6 +137,9 @@ class MissavBrowserScriptTest(unittest.TestCase):
             self.assertIn("indexedDB.open(LOVEAV_WORKSPACE_DB, 1)", generated)
             self.assertIn("await findLatestCollectionCsv(handle)", generated)
             self.assertIn("await createOutputDirectory(state.baseDirHandle)", generated)
+            self.assertIn("为避免文件落入浏览器 Downloads", generated)
+            self.assertNotIn("a.download = filename", generated)
+            self.assertNotIn("console.log('已下载：'", generated)
             self.assertNotIn("请选择基础输出文件夹：E:\\Desktop\\王家乐", generated)
             self.assertIn('"女优甲"', generated)
             self.assertIn('"女优丙"', generated)

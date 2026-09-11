@@ -172,7 +172,7 @@ MissAV 直接读取 Telegram 时还必须读取 `references/missav-telegram-sour
 
 若输入来自 MissAV Telegram 未读候选来源，浏览器脚本默认合并本轮所有成功来源的新番号，只生成一个脚本；同时报告各群组读取范围和计数。Telegram 已读确认只代表消息已被完整提取和形成校验通过的本轮结果，不等待用户在 MissAV 网页运行脚本。
 
-本机默认把 `E:\Desktop\codex项目\LoveAV-Data\missav\results` 同时作为当前女优 Tag 合集的扫描父目录和每批输出根目录。首次必须由用户在 Chrome 中授权该目录；脚本把目录句柄保存到站点本地 IndexedDB，以后自动选择最新合集并创建本次输出子目录。详细权限、失效与纠错规则见 `references/missav-browser-script.md`。
+本机默认把 `E:\Desktop\codex项目\LoveAV-Data\missav\results` 同时作为当前女优 Tag 合集的扫描父目录和每批输出根目录。首次必须由用户在 Chrome 中授权该目录；脚本把目录句柄保存到站点本地 IndexedDB，以后自动选择最新合集并创建本次输出子目录。所有 MissAV 浏览器结果必须写入这个项目目录；缺少目录权限或浏览器不支持目录写入时必须在处理前停止，不得回退到浏览器 Downloads。详细权限、失效与纠错规则见 `references/missav-browser-script.md`。
 
 ## MissAV 两层黑名单
 

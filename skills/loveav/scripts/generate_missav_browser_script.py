@@ -27,7 +27,7 @@ DEFAULT_TYPE_BOUNDARIES = ROOT / "assets" / "missav-type-boundary-tags.txt"
 REFERENCE_BLACKLIST_FILE = "1-参考女优Tag库黑名单.txt"
 EXPORT_BLACKLIST_FILE = "2-Raindrop导出黑名单.txt"
 RUNTIME_OPTIMIZATION_VERSION = "safe-fetch-v1"
-WORKSPACE_LAUNCHER_VERSION = "remembered-results-v2"
+WORKSPACE_LAUNCHER_VERSION = "remembered-results-v3-project-only"
 
 SYSTEM_TAGS = {"未知女优", "#未知女优", "需要查找", "已存在", "重复输入"}
 EXPLICIT_TYPE_TAGS = {"教师", "女优", "女優", "演员", "演員", "VR"}
@@ -419,35 +419,21 @@ def apply_workspace_launcher(script: str) -> str:
 
   async function saveTextFile(filename, text, type = 'text/plain;charset=utf-8', outputDirInfo = null) {
     const dirHandle = outputDirInfo?.runDirHandle || null;
-
-    if (dirHandle) {
-      const fileHandle = await dirHandle.getFileHandle(filename, {
-        create: true
-      });
-
-      const writable = await fileHandle.createWritable();
-      const blob = new Blob([text], { type });
-
-      await writable.write(blob);
-      await writable.close();
-
-      console.log('已保存到本次输出文件夹：', filename);
-      return;
+    if (!dirHandle) {
+      throw new Error(
+        '没有可写的 LoveAV 项目输出目录。为避免文件落入浏览器 Downloads，请重新授权：' +
+        LOVEAV_DEFAULT_RESULTS_PATH_HINT
+      );
     }
 
+    const fileHandle = await dirHandle.getFileHandle(filename, {
+      create: true
+    });
+    const writable = await fileHandle.createWritable();
     const blob = new Blob([text], { type });
-    const a = document.createElement('a');
-
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    URL.revokeObjectURL(a.href);
-
-    console.log('已下载：', filename);
+    await writable.write(blob);
+    await writable.close();
+    console.log('已保存到 LoveAV 项目本次输出文件夹：', filename);
   }
 
   function prepareRunByUserClick() {

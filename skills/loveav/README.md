@@ -44,7 +44,7 @@ Twitter 和海角默认静默。没有明确点名时，即使说“全部功能
 
 生成 MissAV 浏览器脚本时，注入脚本的参考女优 Tag 不再读取 `Miss_AV.html` 或独立 Tag 库，而是扫描正式 `missav-library.csv` 的主 Tags 与全部来源变体。浏览器首次运行选择从正式库生成的 `初始女优Tag合集.csv`，以后选择上次生成的最新 `*_女优tag合集.csv` 作为“当前女优 Tag 合集”；这些合集只用于恢复处理进度和女优映射，不是正式主体库，也不会自动写回主体库。确定性生成器、命令和双层黑名单规则见 `references/missav-browser-script.md`。
 
-浏览器启动面板默认使用 `E:\Desktop\codex项目\LoveAV-Data\missav\results`。首次在 Chrome 中授权这一目录后，后续运行会自动找到其中最新的女优 Tag 合集，并在同一目录下新建本批输出子目录，不再要求每次重复选择 CSV 和输出路径。
+浏览器启动面板默认使用 `E:\Desktop\codex项目\LoveAV-Data\missav\results`。首次在 Chrome 中授权这一目录后，后续运行会自动找到其中最新的女优 Tag 合集，并在同一目录下新建 `YYYYMMDD_HHmm_missav_import` 本批输出子目录，不再要求每次重复选择 CSV 和输出路径。缺少目录写权限时脚本会停止并要求重新授权，不会再把结果退回浏览器 Downloads。
 
 Whos.tv 日常运行可安装 `tampermonkey-scripts` 仓库中的 `LoveAV Whos.tv 最新脚本启动器`。首次授权 `E:\Desktop\codex项目\whostv-current\脚本归档\generated` 后，页面右下角可自动扫描并校验最新脚本，再由用户点击运行；无需重复复制完整脚本到 Console。启动器不更新截止点，下载的 JSON 仍须交回 LoveAV 校验和整理。
 
