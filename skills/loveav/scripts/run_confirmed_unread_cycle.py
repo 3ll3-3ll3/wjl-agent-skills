@@ -150,6 +150,14 @@ def extract_missav_codes(messages: list[dict[str, Any]]) -> list[str]:
     return output
 
 
+def _codes_from_browser_script(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8-sig")
+    match = re.search(r"const\s+CODE_TEXT\s*=\s*`([\s\S]*?)`\.trim\(\);", text)
+    if not match:
+        raise CycleError(f"无法从浏览器脚本读取 CODE_TEXT：{path}")
+    return missav_generator.normalize_codes(match.group(1).splitlines())
+
+
 def _library_keys(path: Path) -> set[str]:
     keys: set[str] = set()
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
@@ -350,9 +358,24 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     }
 
     missav_sources = _category_sources(settings, config, "av", include_keys=("missav_manual",))
+    if args.missav_source_key:
+        requested = set(args.missav_source_key)
+        missav_sources = [row for row in missav_sources if row["source_key"] in requested]
+        found = {row["source_key"] for row in missav_sources}
+        missing = sorted(requested - found)
+        if missing:
+            raise CycleError(f"MissAV 来源未配置或未归类为 av：{', '.join(missing)}")
     missav_snapshots: list[tuple[dict[str, Any], dict[str, Any]]] = []
     all_codes: list[str] = []
     seen_codes: set[str] = set()
+    seed_codes: list[str] = []
+    for previous_script in args.merge_missav_script:
+        for code in _codes_from_browser_script(previous_script):
+            key = code.replace("-", "").casefold()
+            if key not in seen_codes:
+                seen_codes.add(key)
+                seed_codes.append(code)
+                all_codes.append(code)
     for source in missav_sources:
         try:
             snapshot = _collect(located, source)
@@ -381,6 +404,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         script_report = _write_missav_script(new_codes, args.missav_library, missav_output) if new_codes else None
         result["missav"]["summary"] = {
             "messages": sum(snapshot["count"] for _, snapshot in missav_snapshots),
+            "seed_codes": len(seed_codes),
             "unique_codes": len(all_codes),
             "historical": len(all_codes) - len(new_codes),
             "new_codes": len(new_codes),
@@ -388,6 +412,10 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         }
         for source, snapshot in missav_snapshots:
             result["missav"][source["source_key"]]["ack"] = _ack(located, snapshot)
+
+    if args.only_missav:
+        result["ok"] = not result["errors"]
+        return result
 
     link_features = [("badnews", "badnews")]
     if args.include_haijiao:
@@ -495,6 +523,9 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--tgctl")
     value.add_argument("--missav-library", type=Path, default=root / "missav" / "library" / "missav-library.csv")
     value.add_argument("--include-haijiao", action="store_true", help="用户明确点名海角时才启用；默认静默跳过")
+    value.add_argument("--only-missav", action="store_true", help="只运行 MissAV 未读处理，不触碰其他功能")
+    value.add_argument("--missav-source-key", action="append", default=[], help="只处理指定私人 MissAV 来源键；可重复")
+    value.add_argument("--merge-missav-script", action="append", type=Path, default=[], help="把既有浏览器脚本中的番号合并进本轮；可重复")
     value.add_argument("--report", type=Path, help="可选脱敏运行报告；默认写入私人数据目录 reports/unread-cycles")
     value.add_argument("--confirm-mark-read", required=True)
     return value

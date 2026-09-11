@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -36,6 +37,16 @@ def test_missav_extraction_deduplicates_normalized_codes_and_ignores_noise() -> 
         {"text": "普通分辨率 1920x1080，链接 https://example.com/ABC-999"},
     ]
     assert MODULE.extract_missav_codes(messages) == ["FC2-PPV-123456", "ABP-123"]
+
+
+def test_browser_script_seed_codes_are_loaded_and_normalized() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        script = Path(directory) / "previous.js"
+        script.write_text(
+            "const CODE_TEXT = `\nABP-123\nfc2 ppv 123456\nABP-123\n`.trim();\n",
+            encoding="utf-8",
+        )
+        assert MODULE._codes_from_browser_script(script) == ["ABP-123", "FC2-PPV-123456"]
 
 
 def test_incremental_merge_keeps_old_and_new_source_messages() -> None:
@@ -80,6 +91,24 @@ def test_haijiao_is_silent_in_batch_parser_unless_explicitly_enabled() -> None:
     )
     assert default.include_haijiao is False
     assert explicit.include_haijiao is True
+
+
+def test_missav_targeted_batch_options_are_available() -> None:
+    parser = MODULE.parser()
+    value = parser.parse_args(
+        [
+            "--confirm-mark-read",
+            MODULE.MARK_READ_CONFIRMATION,
+            "--only-missav",
+            "--missav-source-key",
+            "missav_unread_whostv_chat",
+            "--merge-missav-script",
+            "previous.js",
+        ]
+    )
+    assert value.only_missav is True
+    assert value.missav_source_key == ["missav_unread_whostv_chat"]
+    assert value.merge_missav_script == [Path("previous.js")]
 
 
 class TestConfirmedUnreadCycle(unittest.TestCase):
