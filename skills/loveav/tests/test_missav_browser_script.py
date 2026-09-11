@@ -105,7 +105,7 @@ class MissavBrowserScriptTest(unittest.TestCase):
 
             self.assertEqual(report["codes_injected"], 2)
             self.assertEqual(report["runtime_optimization"], "safe-fetch-v1")
-            self.assertEqual(report["workspace_launcher"], "remembered-results-v1")
+            self.assertEqual(report["workspace_launcher"], "remembered-results-v2")
             self.assertEqual(report["actress_tags_before_blacklist"], 3)
             self.assertEqual(report["reference_blacklist_matches"], 1)
             self.assertEqual(report["reference_tags_injected"], 2)
@@ -116,8 +116,24 @@ class MissavBrowserScriptTest(unittest.TestCase):
             self.assertIn("loveav-missav-workspace-v1", generated)
             self.assertIn("LOVEAV_DEFAULT_RESULTS_PATH_HINT", generated)
             self.assertIn(r"E:\\Desktop\\codex项目\\LoveAV-Data\\missav\\results", generated)
-            self.assertIn("首次授权 / 更换默认工作目录", generated)
+            self.assertIn("授权 / 更换默认工作目录", generated)
             self.assertIn("重新扫描最新女优 Tag 合集", generated)
+            self.assertIn("正在打开目录选择器", generated)
+            self.assertIn("正在重新扫描最新女优 Tag 合集", generated)
+            self.assertIn("目录已更新；扫描完成", generated)
+            self.assertIn("重新扫描完成", generated)
+            workspace_handler = generated.split(
+                "panel.querySelector('#missav-pick-workspace').onclick", 1
+            )[1].split("panel.querySelector('#missav-rescan').onclick", 1)[0]
+            self.assertIn("await chooseAndRememberResultsDirectory()", workspace_handler)
+            self.assertNotIn("readRememberedResultsDirectory", workspace_handler)
+            permission_helper = generated.split(
+                "async function hasDirectoryPermission", 1
+            )[1].split("function isCollectionCsvName", 1)[0]
+            self.assertLess(
+                permission_helper.index("handle.requestPermission"),
+                permission_helper.index("handle.queryPermission"),
+            )
             self.assertIn("indexedDB.open(LOVEAV_WORKSPACE_DB, 1)", generated)
             self.assertIn("await findLatestCollectionCsv(handle)", generated)
             self.assertIn("await createOutputDirectory(state.baseDirHandle)", generated)

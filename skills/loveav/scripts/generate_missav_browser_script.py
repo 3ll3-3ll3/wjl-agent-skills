@@ -27,7 +27,7 @@ DEFAULT_TYPE_BOUNDARIES = ROOT / "assets" / "missav-type-boundary-tags.txt"
 REFERENCE_BLACKLIST_FILE = "1-参考女优Tag库黑名单.txt"
 EXPORT_BLACKLIST_FILE = "2-Raindrop导出黑名单.txt"
 RUNTIME_OPTIMIZATION_VERSION = "safe-fetch-v1"
-WORKSPACE_LAUNCHER_VERSION = "remembered-results-v1"
+WORKSPACE_LAUNCHER_VERSION = "remembered-results-v2"
 
 SYSTEM_TAGS = {"未知女优", "#未知女优", "需要查找", "已存在", "重复输入"}
 EXPLICIT_TYPE_TAGS = {"教师", "女优", "女優", "演员", "演員", "VR"}
@@ -345,9 +345,11 @@ def apply_workspace_launcher(script: str) -> str:
   async function hasDirectoryPermission(handle, requestIfNeeded = false) {
     if (!handle) return false;
     const options = { mode: 'readwrite' };
-    if (await handle.queryPermission(options) === 'granted') return true;
-    if (!requestIfNeeded || typeof handle.requestPermission !== 'function') return false;
-    return await handle.requestPermission(options) === 'granted';
+    if (requestIfNeeded && typeof handle.requestPermission === 'function') {
+      // Permission prompts must stay directly inside the user's click gesture.
+      return await handle.requestPermission(options) === 'granted';
+    }
+    return await handle.queryPermission(options) === 'granted';
   }
 
   function isCollectionCsvName(name) {
@@ -481,22 +483,26 @@ def apply_workspace_launcher(script: str) -> str:
         <div style="font-weight:bold;margin-bottom:8px;font-size:16px;">MissAV 导入脚本启动面板</div>
         <div style="font-size:12px;color:#aaa;word-break:break-all;">默认工作目录：${escapeHtml(LOVEAV_DEFAULT_RESULTS_PATH_HINT)}</div>
         <div id="missav-status" style="margin-top:6px;white-space:normal;color:#ddd;">正在读取已保存的目录授权……</div>
-        <button id="missav-pick-workspace" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">1. 首次授权 / 更换默认工作目录</button>
-        <button id="missav-rescan" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">2. 重新扫描最新女优 Tag 合集</button>
-        <button id="missav-pick-csv" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">备用：手动选择当前女优 Tag 合集</button>
-        <button id="missav-start" style="margin-top:8px;width:100%;padding:8px;font-weight:bold;cursor:pointer;">3. 开始处理</button>
-        <button id="missav-close" style="margin-top:8px;width:100%;padding:6px;cursor:pointer;">关闭面板</button>
+        <button type="button" id="missav-pick-workspace" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">1. 授权 / 更换默认工作目录</button>
+        <button type="button" id="missav-rescan" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">2. 重新扫描最新女优 Tag 合集</button>
+        <button type="button" id="missav-pick-csv" style="margin-top:8px;width:100%;padding:8px;cursor:pointer;">备用：手动选择当前女优 Tag 合集</button>
+        <button type="button" id="missav-start" style="margin-top:8px;width:100%;padding:8px;font-weight:bold;cursor:pointer;">3. 开始处理</button>
+        <button type="button" id="missav-close" style="margin-top:8px;width:100%;padding:6px;cursor:pointer;">关闭面板</button>
       `;
 
       document.body.appendChild(panel);
       const status = panel.querySelector('#missav-status');
 
-      const showReadyStatus = () => {
+      const showReadyStatus = (completedMessage = '') => {
         if (!state.baseDirHandle || !state.oldCollectionFile) return;
         const when = state.oldCollectionFile.lastModified
           ? new Date(state.oldCollectionFile.lastModified).toLocaleString()
           : '时间未知';
+        const completedLine = completedMessage
+          ? `${escapeHtml(completedMessage)}<br>`
+          : '';
         status.innerHTML = `
+          ${completedLine}
           已就绪，后续无需重复选路径。<br>
           工作目录：<b>${escapeHtml(state.baseDirHandle.name)}</b><br>
           当前合集：<b>${escapeHtml(state.oldCollectionFile.relativePath || state.oldCollectionFile.name)}</b><br>
@@ -505,20 +511,24 @@ def apply_workspace_launcher(script: str) -> str:
         `;
       };
 
-      const loadFromHandle = async (handle, requestPermission) => {
+      const loadFromHandle = async (handle, requestPermission, completedMessage = '') => {
         if (!await hasDirectoryPermission(handle, requestPermission)) return false;
         state.baseDirHandle = handle;
         state.oldCollectionFile = await findLatestCollectionCsv(handle);
-        showReadyStatus();
+        showReadyStatus(completedMessage);
         return true;
       };
 
       panel.querySelector('#missav-pick-workspace').onclick = async () => {
         try {
-          const remembered = await readRememberedResultsDirectory().catch(() => null);
-          if (remembered && await loadFromHandle(remembered, true)) return;
+          status.textContent = '正在打开目录选择器……';
           const selected = await chooseAndRememberResultsDirectory();
-          await loadFromHandle(selected, false);
+          status.textContent = '目录已选择，正在扫描最新女优 Tag 合集……';
+          await loadFromHandle(
+            selected,
+            false,
+            `目录已更新；扫描完成：${new Date().toLocaleTimeString()}`
+          );
         } catch (e) {
           console.error(e);
           status.textContent = '默认工作目录授权或读取失败：' + String(e?.message || e);
@@ -527,8 +537,13 @@ def apply_workspace_launcher(script: str) -> str:
 
       panel.querySelector('#missav-rescan').onclick = async () => {
         try {
+          status.textContent = '正在重新扫描最新女优 Tag 合集……';
           const handle = state.baseDirHandle || await readRememberedResultsDirectory();
-          if (!handle || !await loadFromHandle(handle, true)) {
+          if (!handle || !await loadFromHandle(
+            handle,
+            true,
+            `重新扫描完成：${new Date().toLocaleTimeString()}`
+          )) {
             throw new Error('请先授权默认工作目录。');
           }
         } catch (e) {
