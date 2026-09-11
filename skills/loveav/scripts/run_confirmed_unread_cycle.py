@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""处理已由用户确认的 LoveAV Telegram 未读批次（不含 Twitter/Whos.tv 网站）。"""
+"""处理已确认的 LoveAV Telegram 未读批次；Twitter/Whos.tv 不在其中，海角默认静默。"""
 
 from __future__ import annotations
 
@@ -343,7 +343,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         "whostv_site_skipped": True,
         "missav": {},
         "badnews": {},
-        "haijiao": {},
+        "haijiao": {"status": "skipped_silent_by_default"},
         "pikpak_messages": {},
         "pikpak_archives": {},
         "errors": [],
@@ -389,7 +389,11 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         for source, snapshot in missav_snapshots:
             result["missav"][source["source_key"]]["ack"] = _ack(located, snapshot)
 
-    for feature, category in (("badnews", "badnews"), ("haijiao", "海角")):
+    link_features = [("badnews", "badnews")]
+    if args.include_haijiao:
+        link_features.append(("haijiao", "海角"))
+        result["haijiao"] = {}
+    for feature, category in link_features:
         sources = _category_sources(settings, config, category)
         if len(sources) != 1:
             result["errors"].append({"feature": feature, "error": f"分类 {category} 必须唯一匹配一个来源。"})
@@ -490,6 +494,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--tools-config", type=Path, default=root / "config" / "tools.json")
     value.add_argument("--tgctl")
     value.add_argument("--missav-library", type=Path, default=root / "missav" / "library" / "missav-library.csv")
+    value.add_argument("--include-haijiao", action="store_true", help="用户明确点名海角时才启用；默认静默跳过")
     value.add_argument("--report", type=Path, help="可选脱敏运行报告；默认写入私人数据目录 reports/unread-cycles")
     value.add_argument("--confirm-mark-read", required=True)
     return value

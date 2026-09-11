@@ -13,6 +13,8 @@
 3. 说明要运行的工具、时间范围、是否排除 MissAV 主体库已有记录和需要的输出。默认只做本地或对话内解析，不连接 Telegram。
 4. 预览完成后，只确认你要长期保留的 MissAV 结果；它们合并进唯一 `missav-library.csv`，未选择的候选不会进入主体库。
 
+Twitter 和海角默认静默。没有明确点名时，即使说“全部功能”或“全部未读”，LoveAV 也不会读取、处理或标记这两个功能的消息；明确说“运行推特”或“包括海角”时仍可正常使用。
+
 如果只说“我要使用 MissAV”，LoveAV 会启动简短的对话式操作面板，依次询问消息来源、仅在需要时询问范围，再选择标准处理、全量重查或只预览。也可以直接说“按默认设置处理 MissAV 日常未读”，跳过向导并使用全部 `av` 分类候选的当前未读、主体库查重和合并脚本预设。
 
 ## 语言规范
@@ -87,7 +89,7 @@ Skill 决定流程、规则和输出；完整 TG Exporter 源码作为本地读�
 
 第八功能只归档消息正文、caption、富文本或公开 URL 按钮中已经存在的 PikPak 直链。只有 Bot start 按钮而没有 PikPak 直链的来源会被跳过；LoveAV 不发送 Bot 命令，也不追踪 Bot 返回的第二个 Telegram 频道。
 
-当用户明确要求“一次处理全部当前未读，并在各来源成功后标已读”时，LoveAV 使用 `scripts/run_confirmed_unread_cycle.py` 统一冻结和处理 MissAV、Bad.news、海角、第六功能与第八功能。它需要精确确认词 `MARK_READ_AFTER_PROCESSING`，并在私人数据目录的 `reports/unread-cycles/` 保存不含消息正文的运行报告。Twitter 与 Whos.tv 网站流程不属于该批处理器。
+当用户明确要求“一次处理全部当前未读，并在各来源成功后标已读”时，LoveAV 使用 `scripts/run_confirmed_unread_cycle.py` 统一冻结和处理 MissAV、Bad.news、第六功能与第八功能。海角默认跳过，只有用户明确点名后才传入 `--include-haijiao`；Twitter 与 Whos.tv 网站流程不属于该批处理器。它需要精确确认词 `MARK_READ_AFTER_PROCESSING`，并在私人数据目录的 `reports/unread-cycles/` 保存不含消息正文的运行报告。
 
 如果要单独检查适配器：
 

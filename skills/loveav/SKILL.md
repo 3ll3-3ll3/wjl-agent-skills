@@ -29,7 +29,7 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 
 # 工作流
 
-如果用户只调用 `$loveav` 而没有指定业务功能，先列出八个主功能：MissAV、Twitter、Bad.news、海角、Whos.tv 已解决答案、PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 多来源资源归档，并只询问要进入哪一个。选中 MissAV 后立即切换到 `references/missav-conversation-workflow.md`，不把其他功能的选项混入 MissAV 向导。
+如果用户只调用 `$loveav` 而没有指定业务功能，先列出六个默认功能：MissAV、Bad.news、Whos.tv 已解决答案、PikPak 链接消息、PikPak 通知关键词批量兑换、PikPak 多来源资源归档，并只询问要进入哪一个。Twitter 和海角仍保留为静默功能，不主动列入日常菜单；只有用户明确点名时才运行。选中 MissAV 后立即切换到 `references/missav-conversation-workflow.md`，不把其他功能的选项混入 MissAV 向导。
 
 1. 识别输入来源、所选工具、时间范围和资料库策略。
 2. 预览并规范化全部临时输入。
@@ -42,6 +42,15 @@ description: 使用本地优先的 LoveAV 工作台处理 Telegram 导出、粘�
 9. 准确报告失败、未完成步骤和部分完成状态。
 
 # 业务规则
+
+## 静默功能
+
+Twitter 和海角是保留但默认静默的功能：
+
+- 用户没有明确说出 `Twitter`、`推特` 或 `海角` 时，不读取其来源、不检查未读、不生成结果，也不改变已读状态；
+- “全部功能”“全部运行一遍”“处理所有未读”等概括说法默认只表示六个非静默功能，不包含 Twitter 和海角；
+- 只有用户明确点名对应功能，或明确说“包括 Twitter/推特/海角”，才把它加入本轮；
+- 静默只改变默认路由，不删除其规则、脚本、来源配置或历史数据。
 
 ## 工作模式
 

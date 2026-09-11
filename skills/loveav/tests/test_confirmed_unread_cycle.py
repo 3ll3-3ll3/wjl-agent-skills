@@ -72,6 +72,16 @@ def test_incremental_merge_keeps_old_and_new_source_messages() -> None:
     assert merged["note"] == "新消息"
 
 
+def test_haijiao_is_silent_in_batch_parser_unless_explicitly_enabled() -> None:
+    parser = MODULE.parser()
+    default = parser.parse_args(["--confirm-mark-read", MODULE.MARK_READ_CONFIRMATION])
+    explicit = parser.parse_args(
+        ["--confirm-mark-read", MODULE.MARK_READ_CONFIRMATION, "--include-haijiao"]
+    )
+    assert default.include_haijiao is False
+    assert explicit.include_haijiao is True
+
+
 class TestConfirmedUnreadCycle(unittest.TestCase):
     def test_contract_cases(self) -> None:
         cases = [value for name, value in globals().items() if name.startswith("test_") and callable(value)]
