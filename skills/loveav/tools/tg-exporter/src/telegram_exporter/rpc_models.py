@@ -7,7 +7,10 @@ from .models import (
     AccountInfo,
     ExportMode,
     FolderRef,
+    ForwardAlbum,
+    ForwardFailure,
     ForwardResult,
+    ForwardedMessage,
     GroupExportPlan,
     GroupInfo,
     SendResult,
@@ -95,13 +98,49 @@ def message_from_dict(payload: dict[str, Any]) -> TelegramMessageInfo:
 
 
 def forward_from_dict(payload: dict[str, Any]) -> ForwardResult:
+    failures = tuple(
+        ForwardFailure(
+            message_id=int(item["message_id"]),
+            code=str(item["code"]),
+            reason=str(item.get("reason") or ""),
+            grouped_id=int(item["grouped_id"]) if item.get("grouped_id") is not None else None,
+        )
+        for item in payload.get("failures", [])
+    )
+    albums = tuple(
+        ForwardAlbum(
+            grouped_id=int(item["grouped_id"]),
+            message_ids=tuple(int(value) for value in item.get("message_ids", [])),
+        )
+        for item in payload.get("albums", [])
+    )
+    forwarded = tuple(
+        ForwardedMessage(
+            source_message_id=int(item["source_message_id"]),
+            target_message_id=int(item["target_message_id"]),
+            grouped_id=int(item["grouped_id"]) if item.get("grouped_id") is not None else None,
+        )
+        for item in payload.get("forwarded", [])
+    )
+    requested_ids = tuple(int(value) for value in payload.get("requested_ids", []))
+    successful_ids = tuple(int(value) for value in payload.get("successful_ids", []))
     return ForwardResult(
         source_chat_id=int(payload["source_chat_id"]),
         destination_chat_id=payload["destination_chat_id"],
-        requested_ids=tuple(int(value) for value in payload.get("requested_ids", [])),
-        successful_ids=tuple(int(value) for value in payload.get("successful_ids", [])),
+        requested_ids=requested_ids,
+        successful_ids=successful_ids,
         failed_ids=tuple(int(value) for value in payload.get("failed_ids", [])),
         dry_run=bool(payload.get("dry_run", False)),
+        requested_count=int(payload.get("requested_count", len(requested_ids))),
+        forwardable_count=int(payload.get("forwardable_count", len(successful_ids))),
+        photo_count=int(payload.get("photo_count", 0)),
+        album_count=int(payload.get("album_count", 0)),
+        planned_ids=tuple(int(value) for value in payload.get("planned_ids", successful_ids)),
+        expanded_ids=tuple(int(value) for value in payload.get("expanded_ids", [])),
+        target_message_ids=tuple(int(value) for value in payload.get("target_message_ids", [])),
+        failures=failures,
+        albums=albums,
+        forwarded=forwarded,
     )
 
 
