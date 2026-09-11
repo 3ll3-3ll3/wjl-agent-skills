@@ -32,6 +32,8 @@ class DaemonServer(V2DaemonServer):
                 "topics.list",
                 "topics.history",
                 "media.download.confirmed",
+                "forward.native_photo_album",
+                "forward.reconcile_ids",
             ):
                 if capability not in capabilities:
                     capabilities.append(capability)
