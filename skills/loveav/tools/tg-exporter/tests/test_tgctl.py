@@ -130,6 +130,9 @@ class FakeMessage:
         self.message = text
         self.date = date
         self.media = media
+        self.action = None
+        self.grouped_id = None
+        self.noforwards = False
 
     async def get_sender(self):
         return SimpleNamespace(first_name="测试", last_name="发送者", title=None, username="sender")
@@ -156,7 +159,7 @@ class FakeClient:
 
     async def forward_messages(self, destination, ids, from_peer=None):
         self.forward_calls.append((destination, list(ids), from_peer))
-        return []
+        return [SimpleNamespace(id=1000 + int(message_id)) for message_id in ids]
 
     async def send_message(self, destination, text, **kwargs):
         self.send_calls.append((destination, text, kwargs))
@@ -227,6 +230,7 @@ def test_forward_real_uses_true_telegram_forward(monkeypatch) -> None:
     result = asyncio.run(service.forward_messages(-1001, "me", [10], dry_run=False))
     assert result.dry_run is False
     assert result.successful_ids == (10,)
+    assert result.target_message_ids == (1010,)
     assert service.client.forward_calls == [("me", [10], -1001)]
     assert service.client.send_calls == []
 
