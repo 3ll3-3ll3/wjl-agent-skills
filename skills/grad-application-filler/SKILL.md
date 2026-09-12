@@ -9,7 +9,7 @@ description: 根据学校或项目网页、HTML、浏览器页面以及用户提
 
 # 私有配置
 
-填写个人或学业字段前，必须读取 `references/profile.local.md`。需要证件照、身份证、学生证、签名、证书或既往材料时，必须读取 `references/source-index.local.md`。这两个文件只存放在本地，不得提交到仓库。
+填写个人或学业字段前，必须读取 `references/profile.local.md`。需要证件照、身份证、学生证、签名、证书或既往材料时，必须读取 `references/source-index.local.md`。撰写个人陈述、个人自述、申请动机或研究计划时，还必须读取 `references/personal-statements.local.md` 和 [references/personal-statement-workflow.md](references/personal-statement-workflow.md)。所有 `.local.md` 文件只存放在本地，不得提交到仓库。
 
 如果私有配置不存在，读取 `references/profile.example.md` 和 `references/source-index.example.md` 了解字段结构，并向用户索取当前任务真正需要的信息。编辑用户文件前，读取 [references/filling-workflow.md](references/filling-workflow.md)。
 
@@ -49,6 +49,12 @@ description: 根据学校或项目网页、HTML、浏览器页面以及用户提
 - 除非用户对当前文件明确授权，不得插入电子签名、代签、盖章、上传、发送或提交。
 - 个人陈述和研究计划可针对当前项目调整，但每项事实必须来自私有档案或当前项目来源。不得复用旧材料中的学校、导师或实验室名称。
 - 内容超出空间时，先压缩措辞，再沿用换行，最后才小幅调整新增文字字号；尽量不改变布局。
+
+# 个人陈述模式
+
+当用户给出目标院校、院系、专业或研究方向并要求新写个人陈述时，按 `personal-statement-workflow.md` 综合既有陈述与当前项目要求。既有材料用于事实核对、经历选择、叙事结构和表达偏好，不得机械拼接，也不得把旧项目名称带入新稿。
+
+用户未提供模板或命名要求时，默认创建排版整洁的 PDF，文件名为 `王家乐_<院校>_<专业或方向>_个人陈述.pdf`。用户给出模板、字数、语言、栏目、命名或版式要求时，以当前要求为准。除非用户明确要求覆盖，不得修改任何既有陈述或模板。
 
 # 验收与交付
 
