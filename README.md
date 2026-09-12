@@ -8,6 +8,7 @@
 wjl-agent-skills/
 ├── skills/
 │   ├── loveav/
+│   ├── grad-application-filler/
 │   └── university-form-ppt-skill/
 ├── AGENTS.md
 └── README.md
@@ -44,6 +45,7 @@ wjl-agent-skills/
 ## 当前 Skills
 
 - `skills/loveav`
+- `skills/grad-application-filler`
 - `skills/university-form-ppt-skill`
 
 本仓库是这些 Skills 的主要源码真源。以后新增 Skill 也默认直接进入本仓库。

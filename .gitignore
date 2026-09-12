@@ -27,3 +27,7 @@
 Thumbs.db
 .vscode/
 .idea/
+
+# Skill-local private profiles and machine-specific source indexes
+**/references/profile.local.md
+**/references/source-index.local.md

@@ -1,0 +1,4 @@
+interface:
+  display_name: "升学申请材料填写"
+  short_description: "根据项目网页和个人档案原样填写研究生申请文件并完成版式检查"
+  default_prompt: "使用 $grad-application-filler 根据当前项目网页和我提供的模板填写申请材料，保留原格式并列出未确认字段。"
