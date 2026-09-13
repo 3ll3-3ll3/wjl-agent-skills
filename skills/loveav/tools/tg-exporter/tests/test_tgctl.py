@@ -37,6 +37,7 @@ def test_version_is_machine_readable_without_starting_daemon(monkeypatch, capsys
             raise AssertionError("version must not create a daemon proxy")
 
     monkeypatch.setattr(tgctl, "DaemonTelegramProxy", ForbiddenProxy)
+
     def forbidden_logging() -> None:
         raise AssertionError("version must not create a log file")
 
@@ -48,7 +49,7 @@ def test_version_is_machine_readable_without_starting_daemon(monkeypatch, capsys
     assert payload == {
         "ok": True,
         "data": {
-            "tgctl_version": "0.3.3",
+            "tgctl_version": "0.3.4",
             "reader_schema": "tgctl.reader.v1",
             "ipc_protocol": "tgipc/1",
         },
@@ -60,7 +61,7 @@ def test_status_adds_versions_schema_capabilities_and_compatibility(monkeypatch)
         async def request(self, method: str):
             assert method == "system.hello"
             return {
-                "daemon_app_version": "0.3.3",
+                "daemon_app_version": "0.3.4",
                 "protocol": "tgipc/1",
                 "reader_schema": "tgctl.reader.v1",
                 "capabilities": ["messages.history"],
@@ -82,8 +83,8 @@ def test_status_adds_versions_schema_capabilities_and_compatibility(monkeypatch)
     assert payload["data"] == {
         "authorized": True,
         "state": "connected",
-        "tgctl_version": "0.3.3",
-        "daemon_version": "0.3.3",
+        "tgctl_version": "0.3.4",
+        "daemon_version": "0.3.4",
         "reader_schema": "tgctl.reader.v1",
         "ipc_protocol": "tgipc/1",
         "compatible": True,
@@ -130,6 +131,10 @@ class FakeMessage:
         self.message = text
         self.date = date
         self.media = media
+        self.grouped_id = None
+        self.action = None
+        self.noforwards = False
+        self.photo = None
 
     async def get_sender(self):
         return SimpleNamespace(first_name="测试", last_name="发送者", title=None, username="sender")
@@ -140,6 +145,7 @@ class FakeClient:
         self.messages = messages
         self.forward_calls = []
         self.send_calls = []
+        self.destination_messages: list[FakeMessage] = []
 
     async def get_entity(self, value):
         return value
@@ -150,13 +156,27 @@ class FakeClient:
                 yield message
         return iterator()
 
-    async def get_messages(self, _entity, ids):
+    async def get_messages(self, _entity, ids=None, limit=None):
+        if ids is None:
+            if limit == 1 and self.destination_messages:
+                return [self.destination_messages[-1]]
+            return []
         by_id = {message.id: message for message in self.messages}
         return [by_id.get(int(message_id)) for message_id in ids]
 
     async def forward_messages(self, destination, ids, from_peer=None):
-        self.forward_calls.append((destination, list(ids), from_peer))
-        return []
+        forwarded_ids = list(ids)
+        self.forward_calls.append((destination, forwarded_ids, from_peer))
+        result = []
+        for source_id in forwarded_ids:
+            message = FakeMessage(
+                9000 + len(self.destination_messages) + 1,
+                "",
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+            )
+            self.destination_messages.append(message)
+            result.append(message)
+        return result
 
     async def send_message(self, destination, text, **kwargs):
         self.send_calls.append((destination, text, kwargs))
@@ -227,6 +247,7 @@ def test_forward_real_uses_true_telegram_forward(monkeypatch) -> None:
     result = asyncio.run(service.forward_messages(-1001, "me", [10], dry_run=False))
     assert result.dry_run is False
     assert result.successful_ids == (10,)
+    assert result.destination_message_ids == (9001,)
     assert service.client.forward_calls == [("me", [10], -1001)]
     assert service.client.send_calls == []
 

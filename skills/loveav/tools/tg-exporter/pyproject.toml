@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tg-exporter"
-version = "0.3.3"
+version = "0.3.4"
 description = "Windows GUI Telegram exporter, single-daemon bridge, and personal-account reader"
 readme = "README.md"
 requires-python = ">=3.11"

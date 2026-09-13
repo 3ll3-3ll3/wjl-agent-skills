@@ -59,6 +59,26 @@ class TelegramMessageInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class ForwardAlbumInfo:
+    grouped_id: int
+    message_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ForwardFailure:
+    message_id: int
+    reason: str
+    grouped_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ForwardedMessageRef:
+    source_message_id: int
+    destination_message_id: int
+    grouped_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ForwardResult:
     source_chat_id: int
     destination_chat_id: int | str
@@ -66,6 +86,17 @@ class ForwardResult:
     successful_ids: tuple[int, ...]
     failed_ids: tuple[int, ...]
     dry_run: bool = False
+    planned_ids: tuple[int, ...] = ()
+    requested_count: int = 0
+    forwardable_count: int = 0
+    photo_count: int = 0
+    album_count: int = 0
+    albums: tuple[ForwardAlbumInfo, ...] = ()
+    excluded: tuple[ForwardFailure, ...] = ()
+    destination_message_ids: tuple[int, ...] = ()
+    forwarded_messages: tuple[ForwardedMessageRef, ...] = ()
+    destination_before_message_id: int | None = None
+    destination_after_message_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
