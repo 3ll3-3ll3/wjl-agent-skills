@@ -253,7 +253,9 @@ node scripts/generate_whostv_scraper.js --pages n
 node scripts/generate_whostv_scraper.js --incremental
 ```
 
-用户提供 `whos_tv_solved_answers*.json` 时，运行：
+Whos.tv 抓取完成的 JSON 自动保存到 `E:\Desktop\codex项目\whostv-current\.loveav\imports`。首次由用户在浏览器授权该目录，后续复用目录句柄；无写入权限时在抓取前停止，不回退 Downloads。同名结果另存副本，保存后回读校验。浏览器不能根据绝对路径自行取得授权，也不能验证所选目录的完整磁盘路径；必须提示用户选择指定的 `imports` 目录。详情见 `references/whostv-solved-answers.md`。
+
+用户提供 `whos_tv_solved_answers*.json`，或告知网页已运行完成时，检查固定导入目录中的本轮新 JSON，展示待整理文件名后运行：
 
 ```powershell
 node scripts/organize_whos_answers.js <JSON路径>

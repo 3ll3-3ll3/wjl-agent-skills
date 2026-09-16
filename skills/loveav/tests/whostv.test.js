@@ -45,15 +45,7 @@ function scraperHarness(script, articles, options = {}) {
   const logs = [];
   const warnings = [];
   const errors = [];
-  let downloadedBlob = null;
-  let downloadedName = "";
-  class CapturingURL extends URL {
-    static createObjectURL(blob) {
-      downloadedBlob = blob;
-      return "blob:whostv-test";
-    }
-    static revokeObjectURL() {}
-  }
+  const savedFiles = [];
   const visibleControl = (textContent, isAccount = false) => ({
     textContent,
     matches: () => isAccount,
@@ -63,8 +55,8 @@ function scraperHarness(script, articles, options = {}) {
   const articlesForPage = (page) => options.pages?.[page] || articles;
   const context = {
     AbortController,
-    Blob,
-    URL: CapturingURL,
+    TextEncoder,
+    URL,
     console: {
       log: (...args) => logs.push(args),
       warn: (...args) => warnings.push(args),
@@ -79,12 +71,7 @@ function scraperHarness(script, articles, options = {}) {
       querySelectorAll: (selector) => selector === "a[href]"
         ? [solvedTabLink]
         : [visibleControl("账户", true), visibleControl("登出")],
-      createElement: () => ({
-        href: "",
-        download: "",
-        click() { downloadedName = this.download; },
-        remove() {},
-      }),
+      createElement: () => ({ remove() {} }),
     },
     DOMParser: class {
       parseFromString(html) {
@@ -99,7 +86,22 @@ function scraperHarness(script, articles, options = {}) {
       const page = Number(new URL(url).pathname.match(/\/page-(\d+)/)?.[1] || 1);
       return { ok: true, text: async () => String(page) };
     },
+    __loveavWhosTvWriteJson: async (saveOptions) => {
+      if (options.writer) return options.writer(saveOptions);
+      saveOptions.checkCancelled();
+      saveOptions.onCommitStart();
+      const bytes = new TextEncoder().encode(saveOptions.content).byteLength;
+      savedFiles.push({ ...saveOptions, bytes });
+      return {
+        ok: true,
+        saved: true,
+        fileName: saveOptions.fileName,
+        bytes,
+        directoryName: "imports",
+      };
+    },
   };
+  context.window = context;
   return {
     requests,
     logs,
@@ -107,8 +109,9 @@ function scraperHarness(script, articles, options = {}) {
     errors,
     run: () => vm.runInNewContext(script, context),
     cancel: () => context.cancelWhosTvScrape?.(),
-    downloadedBlob: () => downloadedBlob,
-    downloadedName: () => downloadedName,
+    savedFiles,
+    savedContent: () => savedFiles.at(-1)?.content ?? null,
+    savedName: () => savedFiles.at(-1)?.fileName ?? "",
   };
 }
 
@@ -208,7 +211,11 @@ test("generator archives newest script first and copies organizer", (t) => {
   assert.doesNotMatch(script, /searchParams\.set\('page', String\(page\)\)/);
   assert.match(script, /else answer = textWithLinks\(answerRegion, pageUrl\)/);
   assert.match(script, /置顶官方公告，不是已解决答案/);
-  assert.match(script, /为避免漏抓，停止且不下载/);
+  assert.match(script, /为避免漏抓，停止且不保存/);
+  assert.match(script, /"outputMode": "project-imports-v1"/);
+  assert.match(script, /__loveavWhosTvWriteJson/);
+  assert.match(script, /JSON 保存目录权限已确认/);
+  assert.doesNotMatch(script, /createObjectURL|anchor\.download|new Blob/);
   assert.match(script, /ignoredNonAnswerCards/);
   assert.match(script, /\/helps\/10250/);
   const archive = fs.readFileSync(report.archiveFile, "utf8");
@@ -238,8 +245,8 @@ test("generated scraper forces solved list and reads an answer container without
 
   await harness.run();
   assert.deepEqual(harness.requests, ["https://whos.tv/helps?tab=solved"]);
-  assert.equal(harness.downloadedName(), "whos_tv_solved_answers_since_2026-08-27.json");
-  const payload = JSON.parse(await harness.downloadedBlob().text());
+  assert.equal(harness.savedName(), "whos_tv_solved_answers_since_2026-08-27.json");
+  const payload = JSON.parse(harness.savedContent());
   assert.equal(payload.count, 1);
   assert.equal(payload.entries[0].url, "https://whos.tv/helps/10261");
   assert.equal(payload.entries[0].answer, "ABC-123\nhttps://example.com/a");
@@ -269,7 +276,7 @@ test("generated scraper refuses an ordinary solved-list card without an answer",
   ]);
 
   await assert.rejects(harness.run(), /没有已采纳答案区域/);
-  assert.equal(harness.downloadedBlob(), null);
+  assert.equal(harness.savedFiles.length, 0);
 });
 
 test("generated scraper logs every accepted row in order with cumulative counts", async (t) => {
@@ -308,7 +315,7 @@ test("generated scraper logs every accepted row in order with cumulative counts"
     "https://whos.tv/helps/page-2?tab=solved",
   ]);
   assert.equal(JSON.stringify([...harness.logs, ...harness.warnings, ...harness.errors]).includes("不应出现在控制台的答案"), false);
-  const payload = JSON.parse(await harness.downloadedBlob().text());
+  const payload = JSON.parse(harness.savedContent());
   assert.equal(payload.count, 3);
   assert.equal(payload.pagesFetched, 2);
   const finalReport = harness.logs.find((args) => args[0] === "[Whos.tv] 运行结束")?.[1];
@@ -317,7 +324,7 @@ test("generated scraper logs every accepted row in order with cumulative counts"
   assert.equal(finalReport.count, 3);
 });
 
-test("generated scraper times out an unfinished page without downloading or changing state", async (t) => {
+test("generated scraper times out an unfinished page without saving or changing state", async (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-runtime-timeout-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const state = path.join(temp, "state.json");
@@ -341,16 +348,16 @@ test("generated scraper times out an unfinished page without downloading or chan
   });
 
   await assert.rejects(harness.run(), /第 1 页请求超过 1000 毫秒/);
-  assert.equal(harness.downloadedBlob(), null);
+  assert.equal(harness.savedFiles.length, 0);
   assert.deepEqual(readJson(state), stateBefore);
   assert.match(harness.logs.map((args) => args[0]).join("\n"), /第 1 页：开始请求/);
-  assert.match(harness.errors.map((args) => args[0]).join("\n"), /未下载文件，也未更新状态/);
+  assert.match(harness.errors.map((args) => args[0]).join("\n"), /未保存文件，也未更新状态/);
   const finalReport = harness.logs.find((args) => args[0] === "[Whos.tv] 运行结束")?.[1];
   assert.equal(finalReport.status, "失败");
-  assert.equal(finalReport.downloaded, false);
+  assert.equal(finalReport.saved, false);
 });
 
-test("generated scraper can be cancelled globally without downloading or changing state", async (t) => {
+test("generated scraper can be cancelled globally without saving or changing state", async (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-runtime-cancel-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const state = path.join(temp, "state.json");
@@ -372,17 +379,17 @@ test("generated scraper can be cancelled globally without downloading or changin
   const pending = harness.run();
   assert.equal(harness.cancel(), true);
   await assert.rejects(pending, /抓取已由用户取消/);
-  assert.equal(harness.downloadedBlob(), null);
+  assert.equal(harness.savedFiles.length, 0);
   assert.deepEqual(readJson(state), stateBefore);
   assert.match(harness.warnings.map((args) => args[0]).join("\n"), /已收到取消请求/);
-  assert.match(harness.warnings.map((args) => args[0]).join("\n"), /未下载文件，也未更新状态/);
+  assert.match(harness.warnings.map((args) => args[0]).join("\n"), /未保存文件，也未更新状态/);
   const finalReport = harness.logs.find((args) => args[0] === "[Whos.tv] 运行结束")?.[1];
   assert.equal(finalReport.status, "已取消");
-  assert.equal(finalReport.downloaded, false);
+  assert.equal(finalReport.saved, false);
   assert.equal(harness.cancel(), false);
 });
 
-test("generated scraper rejects a repeated pagination response without downloading", async (t) => {
+test("generated scraper rejects a repeated pagination response without saving", async (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-runtime-repeat-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const state = path.join(temp, "state.json");
@@ -401,7 +408,7 @@ test("generated scraper rejects a repeated pagination response without downloadi
   });
 
   await assert.rejects(harness.run(), /第 2 页与第 1 页返回相同帖子列表/);
-  assert.equal(harness.downloadedBlob(), null);
+  assert.equal(harness.savedFiles.length, 0);
   assert.equal(harness.errors.length, 1);
   const finalReport = harness.logs.find((args) => args[0] === "[Whos.tv] 运行结束")?.[1];
   assert.equal(finalReport.status, "失败");
@@ -427,13 +434,13 @@ test("generated scraper rejects pagination with no new records even when order c
   });
 
   await assert.rejects(harness.run(), /待收录帖子 URL 全部已在前页出现，分页没有进展/);
-  assert.equal(harness.downloadedBlob(), null);
+  assert.equal(harness.savedFiles.length, 0);
   const finalReport = harness.logs.find((args) => args[0] === "[Whos.tv] 运行结束")?.[1];
   assert.equal(finalReport.status, "失败");
   assert.equal(finalReport.pagesProcessed, 1);
 });
 
-test("generated scraper reports a network failure without downloading", async (t) => {
+test("generated scraper reports a network failure without saving", async (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "whostv-runtime-network-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const state = path.join(temp, "state.json");
@@ -446,8 +453,8 @@ test("generated scraper reports a network failure without downloading", async (t
   });
 
   await assert.rejects(harness.run(), /第 1 页网络请求失败：network down/);
-  assert.equal(harness.downloadedBlob(), null);
-  assert.match(harness.errors.map((args) => args[0]).join("\n"), /未下载文件，也未更新状态/);
+  assert.equal(harness.savedFiles.length, 0);
+  assert.match(harness.errors.map((args) => args[0]).join("\n"), /未保存文件，也未更新状态/);
 });
 
 function readJson(file) {

@@ -46,7 +46,7 @@ Twitter 和海角默认静默。没有明确点名时，即使说“全部功能
 
 浏览器启动面板默认使用 `E:\Desktop\codex项目\LoveAV-Data\missav\results`。首次在 Chrome 中授权这一目录后，后续运行会自动找到其中最新的女优 Tag 合集，并在同一目录下新建 `YYYYMMDD_HHmm_missav_import` 本批输出子目录，不再要求每次重复选择 CSV 和输出路径。缺少目录写权限时脚本会停止并要求重新授权，不会再把结果退回浏览器 Downloads。
 
-Whos.tv 日常运行可安装 `tampermonkey-scripts` 仓库中的 `LoveAV Whos.tv 最新脚本启动器`。首次授权 `E:\Desktop\codex项目\whostv-current\脚本归档\generated` 后，页面右下角可自动扫描并校验最新脚本，再由用户点击运行；无需重复复制完整脚本到 Console。启动器不更新截止点，下载的 JSON 仍须交回 LoveAV 校验和整理。
+Whos.tv 日常运行可安装 `tampermonkey-scripts` 仓库中的 `LoveAV Whos.tv 最新脚本启动器`。首次分别授权 `E:\Desktop\codex项目\whostv-current\脚本归档\generated` 和 `E:\Desktop\codex项目\whostv-current\.loveav\imports`，之后由用户点击运行最新脚本，完整 JSON 自动保存并核验到 imports；同名文件另存副本，权限失效时提示重新授权。运行完成后告诉 LoveAV“整理最新 Whos.tv JSON”即可，无需搬运下载文件。只有整理校验成功才更新截止点。
 
 ## 长期数据设计
 
