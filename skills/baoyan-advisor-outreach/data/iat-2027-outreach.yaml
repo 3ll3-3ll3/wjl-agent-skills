@@ -1,0 +1,544 @@
+snapshot_date: 2026-09-16
+project:
+  school: 中国科学技术大学
+  unit: 国家卓越工程师学院（先进技术研究院）
+  application_stage: 2027推免
+  degree_type: 专业学位硕士
+  program_category: "085400"
+  program_category_name: 电子信息
+purpose: 当前先研院项目已发送导师去重、回信状态恢复与跨邮箱发送历史
+privacy_note: 仅保存导师姓名、公开工作邮箱、招生专业、方向摘要、发送渠道、日期和状态；不保存完整邮件正文、邮箱 message/thread id、附件内部 id、密码、令牌或附件原件。
+
+attachment_set:
+  verified_on: 2026-09-16
+  files:
+    - 王家乐个人简历r2.pdf
+    - 成绩单.pdf
+  note: 这是本次先研院两批实际发送时使用的附件文件名；未来发送仍需重新核验最新版，不得把文件名永久硬编码。
+
+mailbox_workflow:
+  dedupe_sources:
+    - Microsoft Outlook 已发送邮件
+    - Gmail 已发送邮件
+  gmail_labels:
+    project: 保研-中科大先研院-2027推免
+    by_program:
+      "085401": 先研院-085401新一代电子信息技术
+      "085402": 先研院-085402通信工程
+      "085403": 先研院-085403集成电路工程
+      "085404": 先研院-085404计算机技术
+      "085405": 先研院-085405软件工程
+      "085406": 先研院-085406控制工程
+      "085409": 先研院-085409生物医学工程
+  note: 任一邮箱已成功发送即视为已联系；换邮箱前必须跨 Outlook/Gmail 去重。
+
+statistics:
+  total_sent: 54
+  sent_via_outlook: 18
+  sent_via_gmail: 36
+  by_program:
+    "085410": 18
+    "085404": 18
+    "085405": 2
+    "085406": 5
+    "085409": 2
+    "085401": 6
+    "085402": 2
+    "085403": 1
+  reply_state_note: 本文件建立时尚未统一扫描并同步这一批导师的最新回信；收到回信后按实际线程更新 status、reply_summary 和 user_followup。
+
+contacts:
+  - name: 余玉刚
+    public_email: ygyu@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 数智建模与算法、智能优化、数据驱动决策、供应链与智能物流
+  - name: 刘淇
+    public_email: qiliuql@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 数据挖掘、知识发现、机器学习
+  - name: 伍新明
+    public_email: xinmwu@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 人工智能地球物理、地球科学大数据、图像处理、反问题
+  - name: 姚华建
+    public_email: hjyao@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 地震成像、地球物理反演、人工智能地球物理、压缩感知
+  - name: 李俊伦
+    public_email: lijunlun@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 深度学习、地震数据处理、数据生成、反演
+  - name: 李泽峰
+    public_email: zefengli@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 人工智能地震学、科学数据处理、算法设计、神经网络
+  - name: 刘诚
+    public_email: chliu81@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 超光谱遥感、人工智能、高维多源数据分析
+  - name: 吴玉椿
+    public_email: wuyuchun@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 量子人工智能算法
+  - name: 陈伟东
+    public_email: chenweidong@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 多模态数据分析、推理、生成
+  - name: 熊志伟
+    public_email: zwxiong@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 图像处理、计算机视觉、计算摄像、高维信息重建
+  - name: 王子磊
+    public_email: zlwang@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、模式识别、深度学习、人工智能
+  - name: 李厚强
+    public_email: lihq@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、模式识别、机器博弈、人工智能
+  - name: 吉建民
+    public_email: jianmin@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 自动驾驶、机器人决策、深度强化学习
+  - name: 瞿昆
+    public_email: qukun@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 生物信息学、计算生物学、生物大数据、单细胞与空间组学
+  - name: 纪杰
+    public_email: jijie232@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 机器学习火灾预测、消防安全大数据、深度学习与强化学习
+    caution: 导师推免名单为持续更新页面；该导师按发送当时核验结果联系，后续招生资格需以最新官网为准。
+  - name: 何力新
+    public_email: helx@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 第一性原理、机器学习在材料科学中的应用
+  - name: 王青松
+    public_email: pinew@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 新能源与电池安全、风险建模、数据驱动预测
+  - name: 薛天
+    public_email: xuetian@ustc.edu.cn
+    program_code: "085410"
+    program_name: 人工智能
+    sent_on: 2026-09-16
+    send_channel: outlook
+    batch: iat-ai-outlook-1
+    status: sent_no_recorded_reply
+    direction: 视觉神经生物学、神经环路、视觉数据与人工智能交叉
+
+  - name: 陈勋
+    public_email: xunchen@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、脑机接口、信号与信息处理
+  - name: 韩军伟
+    public_email: junweihan2010@gmail.com
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 人工智能、计算机视觉、模式识别、机器学习、医学图像
+  - name: 姜晓枫
+    public_email: jxf@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 无人机集群大模型、多智能体强化学习、量子通信计算
+  - name: 刘爱萍
+    public_email: aipingl@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 医学图像处理、医学人工智能、脑机接口
+  - name: 孙晓艳
+    public_email: sunxiaoyan@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 人工智能、计算机视觉、视频图像处理、类脑计算
+  - name: 杨勋
+    public_email: xyang21@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 跨媒体分析与推理、多媒体理解、视觉媒体关联建模
+  - name: 何华森
+    public_email: hehuasen@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 深度强化学习、无人机路径规划、智能网络
+  - name: 杨坚
+    public_email: jianyang@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 智能网络、网络系统建模优化、智能网络安全监测
+  - name: 李诚
+    public_email: chengli7@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 大模型基础系统软件、AI系统
+  - name: 张启兴
+    public_email: qixing@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 人工智能应用、图像处理、智慧消防、火灾探测
+  - name: 周颢
+    public_email: kitewind@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 物联网、无线网络、优化算法
+  - name: 陈双武
+    public_email: chensw@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 智能网络、工业互联网、网络安全
+  - name: 陈松
+    public_email: songch@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 智能芯片、AI加速器、EDA、算法硬件协同
+  - name: 李俊
+    public_email: ljun@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 控制理论、网络传播系统与控制、优化
+  - name: 吕文君
+    public_email: wlv@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 能源时空智能、时空数据分析、预测建模
+  - name: 沈瑜
+    public_email: shenyu@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 超算调度、HPC、资源优化、强化学习调度
+  - name: 唐飞
+    public_email: ftang@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 灾害监测、智慧消防、公共安全、风险预测
+  - name: 祝宝友
+    public_email: zhuby@ustc.edu.cn
+    program_code: "085404"
+    program_name: 计算机技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 雷暴电学、雷电物理、大气遥感、科学数据分析
+
+  - name: 徐伟
+    public_email: xuweihf@ustc.edu.cn
+    program_code: "085405"
+    program_name: 软件工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: AI推理优化、软件系统、编译优化
+  - name: 王超
+    public_email: cswang@ustc.edu.cn
+    program_code: "085405"
+    program_name: 软件工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 智能计算体系结构、深度学习处理器、FPGA加速
+
+  - name: 宋卫国
+    public_email: wgsong@ustc.edu.cn
+    program_code: "085406"
+    program_name: 控制工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 监测预警、人工智能算法、智能机器人、应急保障
+  - name: 汪玉洁
+    public_email: wangyujie@ustc.edu.cn
+    program_code: "085406"
+    program_name: 控制工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 电池安全管控、人工智能、寿命预测、能源信息系统
+  - name: 孙帅帅
+    public_email: sssun@ustc.edu.cn
+    program_code: "085406"
+    program_name: 控制工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 机器人、智能机电系统、车辆动力学、多传感融合
+  - name: 翟超
+    public_email: zhaichao@ustc.edu.cn
+    program_code: "085406"
+    program_name: 控制工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 测控技术、机电控制、状态监控
+  - name: 徐明俊
+    public_email: mjxu@ustc.edu.cn
+    program_code: "085406"
+    program_name: 控制工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 电气火灾安全、风险建模、实验数据分析
+
+  - name: 张效初
+    public_email: zxcustc@ustc.edu.cn
+    program_code: "085409"
+    program_name: 生物医学工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 脑电、磁共振、神经影像、脑机接口、神经数据分析
+  - name: 唐爱辉
+    public_email: tangah@ustc.edu.cn
+    program_code: "085409"
+    program_name: 生物医学工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 超分辨成像、空间转录组、单分子成像、高维生物数据
+
+  - name: 曹平
+    public_email: cping@ustc.edu.cn
+    program_code: "085401"
+    program_name: 新一代电子信息技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 数据获取与传输、精密测量、机器学习数字触发
+  - name: 王坚
+    public_email: wangjian@ustc.edu.cn
+    program_code: "085401"
+    program_name: 新一代电子信息技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 光电探测、高速信号处理、数据获取、图像信息处理
+  - name: 赵雷
+    public_email: zlei@ustc.edu.cn
+    program_code: "085401"
+    program_name: 新一代电子信息技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 高速高精度信号采集、时间测量、专用集成电路
+  - name: 郝新军
+    public_email: xjhao@ustc.edu.cn
+    program_code: "085401"
+    program_name: 新一代电子信息技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 空间有效载荷、地面标定、测量数据处理
+  - name: 李毅人
+    public_email: lyr@ustc.edu.cn
+    program_code: "085401"
+    program_name: 新一代电子信息技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 空间等离子体探测、标定、探测数据处理
+  - name: 王进红
+    public_email: jinhongwang@ustc.edu.cn
+    program_code: "085401"
+    program_name: 新一代电子信息技术
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 快电子学、专用集成电路、信号处理
+
+  - name: 邱本胜
+    public_email: bqiu@ustc.edu.cn
+    program_code: "085402"
+    program_name: 通信工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 医学图像处理、磁共振快速成像、功能成像
+  - name: 马平
+    public_email: pingma@ustc.edu.cn
+    program_code: "085402"
+    program_name: 通信工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 集成信息光电子、光电融合芯片、信息传输处理
+
+  - name: 许中广
+    public_email: xuxu@ustc.edu.cn
+    program_code: "085403"
+    program_name: 集成电路工程
+    sent_on: 2026-09-16
+    send_channel: gmail
+    batch: iat-adjacent-gmail-2
+    status: sent_no_recorded_reply
+    direction: 新型存储、存算融合、AI硬件加速、智能存储
