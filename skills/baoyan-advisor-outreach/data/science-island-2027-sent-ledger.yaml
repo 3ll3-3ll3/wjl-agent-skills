@@ -1,0 +1,387 @@
+snapshot_date: 2026-09-16
+project:
+  school: 中国科学技术大学
+  unit: 研究生院科学岛分院（合肥物质院）
+  program_code: "085400"
+  program_name: 电子信息
+  application_stage: 2027预推免
+
+purpose: 完整保存已实际发送的导师套磁记录，用于跨会话恢复、邮箱去重和后续回信跟进。
+privacy_note: 不保存完整邮件正文、邮箱 message/thread id、用户邮箱密码、令牌、附件原件或临时文件引用。
+
+send_policy:
+  subject_template: "2027推免咨询｜苏州大学数学与应用数学｜王家乐｜科学岛085400电子信息"
+  one_advisor_per_email: true
+  cc: false
+  bcc: false
+  dedupe_rule: Outlook 或 Gmail 任一侧已成功发送，即视为已联系，不得重复发送首封套磁邮件。
+  reply_sources:
+    - Microsoft Outlook
+    - Gmail
+  gmail_labels:
+    current_batch: 保研-科学岛-本轮投递
+    reply_watch: 保研-导师回复
+
+attachment_history:
+  batch_5:
+    verified: true
+    files:
+      - 王家乐个人简历r2.pdf
+      - 成绩单六学期.pdf
+    note: 2026-09-16 的 Outlook 2 封与 Gmail 15 封均按本次流程附上上述两份 PDF。
+  batches_1_to_4:
+    verified: partial
+    note: 历史套磁流程记录显示发送时使用了简历和成绩单附件；为避免把未重新核验的旧文件名写死，此处不保存具体旧附件文件名。
+
+batches:
+  - batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    count: 13
+  - batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    count: 8
+  - batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    count: 8
+  - batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    count: 8
+  - batch: 5
+    sent_on: 2026-09-16
+    count: 17
+    channel_breakdown:
+      outlook: 2
+      gmail: 15
+    note: Outlook 当日触发发送额度限制后，用户明确授权将剩余邮件改由 Gmail 单独发送。
+
+sent_contacts:
+  - name: 许桃胜
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 谢成军
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 张洁
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 丁增辉
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 成二康
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 王智灵
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 孙智涌
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 宋博
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 王儒敬
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 孙丙宇
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 黄河
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 宋良图
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 高理富
+    batch: 1
+    sent_on: 2026-09-12
+    channel: outlook
+    status: sent_no_recorded_reply
+
+  - name: 孟宪伟
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 陈焱焱
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 姚志明
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 林新华
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 刘友江
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 陈池来
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 张强
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: reply_positive_master
+    reply_summary: 欢迎填报其硕士招生指标，并建议了解机器人跨尺度感知与控制实验室后进一步交流。
+    user_followup: 已回复；用户已在系统中填报张强老师。
+  - name: 杨先军
+    batch: 2
+    sent_on: 2026-09-13
+    channel: outlook
+    status: sent_no_recorded_reply
+
+  - name: 崔超远
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: closed_phd_only_declined
+    reply_summary: 当前只有直博名额，询问是否考虑读博。
+    user_followup: 已礼貌婉拒，说明当前规划仍是先读硕士；若后续有硕士名额希望继续联系。
+  - name: 陈雷
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: reply_quota_unknown
+    reply_summary: 目前招生指标未知，建议通过科学岛面试之后再联系。
+    user_followup: 已简短致谢；通过科学岛面试后可再联系。
+  - name: 王红强
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 孔斌
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 周林立
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 胡泽林
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 魏圆圆
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 张建
+    batch: 3
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+
+  - name: 王焕钦
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 汪增福
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 李文波
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 董翔
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 宋全军
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 高会议
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 李淼
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+  - name: 周旭
+    batch: 4
+    sent_on: 2026-09-15
+    channel: outlook
+    status: sent_no_recorded_reply
+
+  - name: 兰婷
+    batch: 5
+    sent_on: 2026-09-16
+    channel: outlook
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 李海
+    batch: 5
+    sent_on: 2026-09-16
+    channel: outlook
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 李雪玲
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: xlli@cmpt.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 马祖长
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: zcma@iim.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 路巍
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: lw9296@mail.ustc.edu.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 孙怡宁
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: ynsun@iim.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 王枫
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: wangfeng@ipp.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 李实
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: lishi@ipp.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 高理升
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: lsgao@iim.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 张祖超
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: zzc@ipp.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 王慧
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: wanghui@iim.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 吴仲城
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: zcwu@iim.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 李阳铭
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: ymli@iim.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 罗正平
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: zhpluo@ipp.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 石建涛
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: jtshi@cmpt.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 王贵师
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: gswang@aiofm.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+  - name: 张文
+    batch: 5
+    sent_on: 2026-09-16
+    channel: gmail
+    recipient_email: zhangwen@aiofm.ac.cn
+    status: sent_no_recorded_reply
+    attachments_verified: true
+
+statistics:
+  total_sent: 54
+  sent_via_outlook: 39
+  sent_via_gmail: 15
+  replied_positive_master: 1
+  replied_quota_unknown: 1
+  closed_phd_only_declined: 1
+  sent_no_recorded_reply: 51
+
+not_sent:
+  - name: 王华忠
+    status: pending_email_verification
+    reason: 尚未核到足够可靠的个人直达邮箱，因此不计入已发送记录。
