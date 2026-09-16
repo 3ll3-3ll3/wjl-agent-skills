@@ -9,7 +9,8 @@ wjl-agent-skills/
 ├── skills/
 │   ├── loveav/
 │   ├── grad-application-filler/
-│   └── university-form-ppt-skill/
+│   ├── university-form-ppt-skill/
+│   └── baoyan-advisor-outreach/
 ├── AGENTS.md
 └── README.md
 ```
@@ -23,7 +24,7 @@ wjl-agent-skills/
 - 新的个人 Skill 默认添加到 `skills/<skill-name>/`，不再为每个 Skill 单独创建仓库。
 - 每个 Skill 必须保留自己的 `SKILL.md`，并把只属于该 Skill 的脚本、参考资料、资源、测试和文档放在其目录内。
 - 只有两个或更多 Skill 确实复用同一套实现时，才考虑抽取到 `shared/`。
-- 不提交运行时私有数据、凭据、令牌、会话、浏览器资料、本地数据库、Telegram 导出或用户生成记录。
+- 不提交运行时私有数据、凭据、令牌、会话、浏览器资料、本地数据库、Telegram 导出或用户生成记录；若某个 Skill 经用户明确要求版本化维护非秘密、结构化业务状态，则只能保存最小必要字段，且不得包含认证信息、完整私人正文或原始附件。
 - 某个 Skill 只有在确实需要独立发布、问题跟踪、分发或单独维护生命周期时，才考虑重新拆成独立仓库。
 
 ## 语言规范
@@ -47,5 +48,6 @@ wjl-agent-skills/
 - `skills/loveav`
 - `skills/grad-application-filler`
 - `skills/university-form-ppt-skill`
+- `skills/baoyan-advisor-outreach`
 
 本仓库是这些 Skills 的主要源码真源。以后新增 Skill 也默认直接进入本仓库。

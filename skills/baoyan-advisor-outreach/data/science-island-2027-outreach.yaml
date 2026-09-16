@@ -1,0 +1,217 @@
+snapshot_date: 2026-09-16
+project:
+  school: 中国科学技术大学
+  unit: 研究生院科学岛分院（合肥物质院）
+  program_code: "085400"
+  program_name: 电子信息
+  application_stage: 2027预推免
+purpose: 已联系导师去重与回信状态恢复
+privacy_note: 仅保存导师姓名、批次、方向摘要和联系状态；不保存完整邮件正文、Outlook message id、用户邮箱密码、令牌或附件原件。
+
+contacts:
+  - name: 许桃胜
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 遥感智能分析、高光谱分类、高维/时序数据、机器学习、多模态、大数据
+  - name: 谢成军
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、深度学习、遥感、多模态、视觉语言模型、增量学习
+  - name: 张洁
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 遥感图像、深度学习、领域泛化、多模态、图像融合
+  - name: 丁增辉
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 大模型、强化学习、人工智能推理与评测
+  - name: 成二康
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、机器学习、医学图像、检测跟踪分割、自动驾驶感知
+  - name: 王智灵
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 自动驾驶、环境感知、多传感器融合、点云、3D目标检测、智能决策
+  - name: 孙智涌
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 机器人感知、决策与控制、移动机器人、人机交互、微纳机器人
+  - name: 宋博
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 机器人感知与决策、智能控制、人机协作、工业与医疗机器人
+  - name: 王儒敬
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 智慧农业、大数据、数据挖掘、智能决策、大模型、多智能体
+  - name: 孙丙宇
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 模式识别、机器学习、智能决策、复杂数据分类预测
+  - name: 黄河
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、三维数据、遥感、NeRF、SAM、智慧农业
+  - name: 宋良图
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 信息获取、物联网、大数据平台、智慧农业、智能信息系统
+  - name: 高理富
+    batch: 1
+    sent_on: 2026-09-12
+    status: sent_no_recorded_reply
+    direction: 机器人、力传感与控制、智能感知、导航定位
+
+  - name: 孟宪伟
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 时空数据挖掘、多源融合、智能导航、定位
+  - name: 陈焱焱
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 人工智能与主动健康、大数据、智能感知、健康信息技术
+  - name: 姚志明
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 智慧健康、智能交互、多模态信息、健康数据分析
+  - name: 林新华
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 信号处理、自主导航定位、智能传感、姿态估计、Kalman、PINN
+  - name: 刘友江
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 智能传感、智能谱图识别、低空智能感知
+  - name: 陈池来
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 仿生智能、人工智能、行为学习、机器人智能控制
+  - name: 张强
+    batch: 2
+    sent_on: 2026-09-13
+    status: reply_positive_master
+    direction: 多源信息融合、检测与自动化、人工智能、机器人感知决策与控制
+    replied: true
+    reply_summary: 欢迎填报其硕士招生指标，并建议了解机器人跨尺度感知与控制实验室后进一步交流。
+    user_followup: 已回复；用户已在系统中填报张强老师。
+  - name: 杨先军
+    batch: 2
+    sent_on: 2026-09-13
+    status: sent_no_recorded_reply
+    direction: 人工智能、人体运动感知、姿态估计、时序信息处理、智能健康
+
+  - name: 崔超远
+    batch: 3
+    sent_on: 2026-09-15
+    status: closed_phd_only_declined
+    direction: TinyML、量子机器学习、医疗AI、AI可解释性、大模型可信测试与评估
+    replied: true
+    reply_summary: 当前只有直博名额，询问是否考虑读博。
+    user_followup: 已礼貌婉拒，说明当前规划仍是先读硕士；若后续有硕士名额希望继续联系。
+  - name: 陈雷
+    batch: 3
+    sent_on: 2026-09-15
+    status: reply_quota_unknown
+    direction: 人工智能、机器学习、计算机视觉、多模态、大模型、知识图谱、大模型微调
+    replied: true
+    reply_summary: 目前招生指标未知，建议通过科学岛面试之后再联系。
+    user_followup: 已简短致谢，后续通过面试后可再联系。
+  - name: 王红强
+    batch: 3
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 模式识别、智能计算、大数据、生物信息学、深度学习、多模态机器视觉、健康AI
+  - name: 孔斌
+    batch: 3
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、模式识别、机器人环境感知、人工智能行业应用
+  - name: 周林立
+    batch: 3
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 农业物联网、空间数据挖掘、智能决策支持、大数据、时序预测
+  - name: 胡泽林
+    batch: 3
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 智能监测、农业物联网、大数据优化、智能决策、深度学习相关应用
+  - name: 魏圆圆
+    batch: 3
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 数据挖掘、知识工程、农业物联网、精准农业、智能信息处理
+  - name: 张建
+    batch: 3
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 人工智能、农业知识工程、智能农业、环境检测、机器视觉、智能信息处理
+    caution: 公开资料显示资历很老，当前招生资格需谨慎复核。
+
+  - name: 王焕钦
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 深度学习、医学图像分割、智能传感与检测
+  - name: 汪增福
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、模式识别、智能机器人、多模态信息处理
+    caution: 资历较老，后续需确认2027年是否仍亲自招收硕士。
+  - name: 李文波
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 仿生智能、智能系统、复杂系统建模
+  - name: 董翔
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 智能机器人系统、仿生机器人设计与控制
+  - name: 宋全军
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 智能机器人、人机交互、机器人系统
+  - name: 高会议
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 农业物联网、知识工程、模型构建、环境与农业信息智能处理
+  - name: 李淼
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 智能系统、控制、信息处理
+  - name: 周旭
+    batch: 4
+    sent_on: 2026-09-15
+    status: sent_no_recorded_reply
+    direction: 智能检测、生物医疗仪器、传感与信息处理
+
+statistics:
+  total_contacted: 37
+  positive_master: 1
+  quota_unknown: 1
+  phd_only_declined: 1
+  no_recorded_reply: 34
