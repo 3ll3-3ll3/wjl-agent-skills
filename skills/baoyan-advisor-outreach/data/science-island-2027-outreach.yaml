@@ -6,7 +6,15 @@ project:
   program_name: 电子信息
   application_stage: 2027预推免
 purpose: 已联系导师去重与回信状态恢复
-privacy_note: 仅保存导师姓名、批次、方向摘要和联系状态；不保存完整邮件正文、Outlook message id、用户邮箱密码、令牌或附件原件。
+privacy_note: 仅保存导师姓名、批次、方向摘要和联系状态；不保存完整邮件正文、邮箱 message id、用户邮箱密码、令牌或附件原件。
+
+mailbox_workflow:
+  primary_reply_label: 保研-导师回复
+  current_batch_label: 保研-科学岛-本轮投递
+  dedupe_sources:
+    - Microsoft Outlook 已发送邮件
+    - Gmail 已发送邮件
+  note: 发送前需同时检查 Outlook 与 Gmail；任何一侧已成功发送均视为已联系，禁止重复发送首封。
 
 contacts:
   - name: 许桃胜
@@ -209,9 +217,127 @@ contacts:
     status: sent_no_recorded_reply
     direction: 智能检测、生物医疗仪器、传感与信息处理
 
+  - name: 兰婷
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: outlook
+    status: sent_no_recorded_reply
+    direction: 人工智能+物理、机器学习、深度学习、大数据挖掘、模式识别、等离子体智能诊断与预测
+  - name: 李海
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: outlook
+    status: sent_no_recorded_reply
+    direction: 人工智能、医学影像分析、计算机视觉、多模态、智慧医疗
+  - name: 李雪玲
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 机器学习、数据挖掘、生物信息学、组学数据分析、计算生物学
+  - name: 马祖长
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 智慧健康、健康风险预测、信息融合、数据挖掘、智能决策
+  - name: 路巍
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 机器视觉、多光谱/高光谱数据、人工智能赋能智能质选、智能装备
+  - name: 孙怡宁
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 人工智能医疗器械、数字健康、数字心脏、数字孪生、健康大数据
+  - name: 王枫
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 海量科学数据传输与存储、大数据处理、云计算、计算机应用
+  - name: 李实
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 大数据、云计算、高速数据采集、计算机测控、智能数据处理
+  - name: 高理升
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 数字健康、健康状态评价、运动健康、健康数据分析
+  - name: 张祖超
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 计算机应用、系统集成、高速数据采集、信号处理、智能信息处理
+  - name: 王慧
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 仿生感知、人机交互、脑机接口、康复机器人、多源生理信号分析
+    caution: 后续回信或继续跟进前需再次核对当前身份与招生资格。
+  - name: 吴仲城
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 数据驱动行为识别、风险评估、人机交互、智能传感
+    caution: 兼职导师身份，后续需确认是否直接招收2027硕士。
+  - name: 李阳铭
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 激光雷达数据、特征提取、机器人导航定位、智能感知
+    caution: 近期公开研究证据相对有限，回信后需再核当前方向。
+  - name: 罗正平
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 数值模拟、平衡重建、控制、科学计算、状态估计
+  - name: 石建涛
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 机器学习、计算生物学、单细胞与空间多组学、高维生物数据
+    caution: 2027科学岛085400硕士招生资格仍需以正式口径确认。
+  - name: 王贵师
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 多模态神经网络、深度学习、光谱信息分析与分类识别
+    caution: 2027科学岛085400硕士导师资格仍需后续确认。
+  - name: 张文
+    batch: 5
+    sent_on: 2026-09-16
+    send_channel: gmail
+    status: sent_no_recorded_reply
+    direction: 计算机视觉、遥感图像、SAM、LoRA、关键点检测、图像分割
+    caution: 2027科学岛085400硕士导师资格仍需后续确认。
+
+pending_candidates:
+  - name: 王华忠
+    status: pending_email_verification
+    direction: 数据采集、数据分析、等离子体控制
+    reason: 尚未核到足够可靠的个人直达邮箱，因此未发送首封套磁邮件。
+
 statistics:
-  total_contacted: 37
+  total_contacted: 54
   positive_master: 1
   quota_unknown: 1
   phd_only_declined: 1
-  no_recorded_reply: 34
+  no_recorded_reply: 51
+  pending_email_verification: 1
+  sent_via_outlook_on_2026_09_16: 2
+  sent_via_gmail_on_2026_09_16: 15
