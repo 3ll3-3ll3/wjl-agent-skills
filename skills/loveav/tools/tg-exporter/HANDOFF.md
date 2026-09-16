@@ -1,120 +1,134 @@
 # HANDOFF.md
 
-> 当前开发/发布交接快照。任何 Agent 接手前先读 `AGENTS.md`，再读本文件；GitHub 当前事实优先。
+> LoveAV 内嵌 TG Exporter 当前开发交接快照。任何 Agent 接手前先读 `AGENTS.md`、本文件和 `docs/FORWARD_PROTOCOL.md`；GitHub 当前 branch/PR/CI 事实优先。
 
-更新时间：2026-09-06
+更新时间：2026-09-11
 
-# LoveAV 内嵌开发状态
+# 当前开发真源
 
-- 本目录已完整迁入 `3ll3-3ll3/wjl-agent-skills/skills/loveav/tools/tg-exporter`，后续以此处为开发真源。
-- 迁入来源提交：`4af25ad5e35d671cd6401a534767b1656c43944d`。
-- 原独立仓库正式 v0.3.2、历史 Tag 与 Release 保持不变，不做归档或反向修改。
-- 当前内嵌开发版本：v0.3.3，新增 `tgctl version --json` 与增强的 `tgctl status --json`，供 LoveAV 自动适配器检查版本、Schema、IPC 和能力。
-- LoveAV 自动定位和多页读取逻辑位于上级 `scripts/tg_exporter_adapter.py`；TG Exporter 仍保持通用 Telegram 层，不内置 LoveAV/PikPak 业务分类。
-- v0.3.3 当前是源码开发状态，不是正式 Release；必须通过完整测试和 Windows 构建后才能称为 Candidate。
+- Repository: `3ll3-3ll3/wjl-agent-skills`
+- Embedded path: `skills/loveav/tools/tg-exporter/`
+- Embedded version: **v0.3.3**
+- Active branch: `codex/loveav-tg-photo-forward`
+- Branch base: `2a063a8423ed99518789f7deb7de1a3aba6abc98` (`main` at task start)
+- Historical standalone repository `3ll3-3ll3/tg-exporter` is out of scope for this work. Do not modify, merge, tag, archive or publish it.
+- This branch is Candidate-only. Do not merge `main`, create a tag, or publish a Release without a later explicit user authorization.
 
-# Current Project State
+The embedded source originally came from standalone post-v0.3.2 state, but LoveAV now treats this directory as the development truth. Historical standalone v0.3.2 remains immutable traceability only.
 
-- Repository: `3ll3-3ll3/tg-exporter`
-- Current Production: **v0.3.2**
-- Production release commit/tag: `79649668b9b45fad2783a0f8c6cc673205a9266a` / `v0.3.2`
-- Formal Release: `https://github.com/3ll3-3ll3/tg-exporter/releases/tag/v0.3.2`
-- Release PR: `#26` / source branch `codex/v0.3.2-sender-role-fix` / **merged**
-- Current active candidate: **none for v0.3.2**
-- Historical `v0.3.1` tag/Release remains immutable and was not moved or overwritten.
-- A post-release docs-only main commit may sit after the release commit; Production binaries and the `v0.3.2` tag stay anchored to `79649668...`.
+# Current feature: native photo and album forward
 
-# What v0.3.2 shipped
+The existing `tgctl forward --from --to --ids ...` CLI is kept compatible. The implementation now plans and executes Telegram-native forwarding for:
 
-v0.3.2 is a narrow sender-identification / `--sender-role` filtering patch on top of v0.3.1. It is **not** a broad reader redesign and is not LoveAV/PikPak-specific.
+- existing text/web-preview messages;
+- standalone Telegram photos, with or without caption;
+- complete `grouped_id` photo albums;
+- mixed standalone photos, text and multiple albums from one source.
 
-The shipped behavior:
+The forward write path calls Telegram/Telethon `forward_messages` only. It does not download media, create local image files, or rebuild photos/captions with `send_message`.
 
-1. before returning `unknown`, use Telegram-structured sender evidence including raw peer fields;
-2. only a `messages.search` request with `--sender-role` may enable bounded sender-entity recovery;
-3. cache sender resolution per request, including failed lookups, so one peer is not fetched once per message;
-4. Telegram-explicit anonymous administrator → `sender_type=anonymous_admin`, `anonymous_admin=true`, `is_admin=true`, without guessing a user id;
-5. Telegram-explicit current-chat send-as records the chat identity and can match admin role without claiming a specific individual;
-6. current admin/owner matching still uses Telegram participant/admin truth;
-7. `forward_origin` stays separate and cannot make the actual sender an admin;
-8. textual `post_author` alone is not identity evidence;
-9. no sender evidence still returns `unknown`;
-10. ordinary GUI/manual export, ordinary history, and searches without `--sender-role` do not enable the patch's additional sender resolver.
+## Album invariant
 
-Current-unread, Session ownership, IPC, daemon lifecycle, GUI export format/directories and media behavior are unchanged.
+A requested message that belongs to a `grouped_id` album causes a bounded neighboring-ID discovery. The whole observed album is inserted as one atomic forward unit in source order. Album units are never split across Telegram forward batches.
 
-# Final PR validation
+If completeness cannot be established within the bounded scan, or one album member is protected/service/unsupported, the whole album is excluded rather than partially forwarded.
 
-Final release-ready PR head:
+The existing 20-message default / 200-message explicit-large limit applies after album completion. `--allow-large-batch` remains the existing opt-in flag.
+
+## Structured result
+
+The historical `ForwardResult` fields remain. New machine-readable fields include:
 
 ```text
-head: b86966544daf6be8b10a5324af2f6368b722d211
-Windows PR run: 33396287090 = SUCCESS
-full pytest: 147 passed in 2.07s
-focused v0.3.1 baseline regressions: 45 passed in 0.65s
-compileall: PASS
-git diff --check: PASS
-imports: PASS
-source search-filter smoke: PASS
-one-file GUI build: PASS
-portable GUI build: PASS
-tgctl build: PASS
-packaged search-filter smoke: PASS
-packaged SESSION_BUSY JSON/native exit=8: PASS
-packaged GUI/tgctl smoke: PASS
-tracked-worktree clean: PASS
+requested_count
+forwardable_count
+photo_count
+album_count
+planned_ids
+expanded_ids
+failures[]
+albums[]
+target_message_ids
+forwarded[]
 ```
 
-Final v0.3.2 Candidate from that head:
+`failures[]` is per-message and uses stable codes such as:
 
 ```text
-artifact: 9759610996
-outer artifact ZIP SHA-256: ec8defa8bc69168283b47b6846fda8b4645e35585d04046bc70c13653773ff10
-TGExporter-v0.3.2-windows-x64.exe: 3a50b5f4523d3dde15ecf05c7c1778cacdeb71e3c031fb4cfe25c6478fed551a
-TGExporter-v0.3.2-windows-x64-portable.zip: 526b21a6c676f989d889b03078a6bc7ef05c21e14864cd97d326d1bcea882cf6
-tgctl.exe: 98c92eeb0638537198b79f61b3941c1a3cff308a8a60025eba59ac5299d0da40
+MESSAGE_NOT_FOUND
+CONTENT_PROTECTED
+SERVICE_MESSAGE
+UNSUPPORTED_MESSAGE
+ALBUM_INCOMPLETE
 ```
 
-Candidate hashes are traceability only; Production was rebuilt from merged main.
+For a source with Telegram `noforwards` / protected content enabled, every requested item is `CONTENT_PROTECTED` and no write is attempted. There is no download-and-reupload bypass.
 
-# Formal v0.3.2 Release evidence
+Dry-run performs the same planning/album expansion but never calls `forward_messages`.
+
+A confirmed real write returns every destination-side generated message ID plus source→target mapping. If the transport/result becomes ambiguous, the command returns existing `WRITE_OUTCOME_UNKNOWN` semantics and never automatically replays the write. FloodWait remains structured and non-retrying.
+
+# forward.capture decision
+
+This Candidate does **not** advertise or implement `forward.capture` yet. Instead it provides a generic reconciliation contract:
+
+1. `forward` returns `target_message_ids` and `forwarded` source→target pairs;
+2. LoveAV can immediately call rich `messages get` on those destination IDs;
+3. destination message IDs and `forward_origin` can be used for native-forward reconciliation;
+4. later bot replies can be read with existing bounded history/search and caller-maintained before/after boundaries.
+
+No PikPak name, group name, bot identity or success phrase is hard-coded in TG Exporter.
+
+Advertised generic capabilities:
 
 ```text
-merge/release commit: 79649668b9b45fad2783a0f8c6cc673205a9266a
-Release workflow: 33396907992 = SUCCESS
-tag: v0.3.2 -> 79649668b9b45fad2783a0f8c6cc673205a9266a
-Release id: 379778987
-draft: false
-prerelease: false
+forward.photos
+forward.albums.atomic
+forward.target_message_ids
 ```
 
-Formal Release assets and GitHub-reported SHA-256 digests:
+See `docs/FORWARD_PROTOCOL.md` for the protocol contract.
+
+# Privacy and safety
+
+Do not commit or log real Telegram group names, chat IDs, message/caption bodies, URLs, media filenames, API credentials, phone/OTP/2FA, Session contents, access hashes, file references or IPC secrets.
+
+New native-forward logs are aggregate-count only. Tests use synthetic IDs/messages only. No real Telegram write is required or permitted for automated CI.
+
+# Required automated acceptance
+
+Before calling this branch a Candidate, the final PR head must pass:
 
 ```text
-TGExporter-v0.3.2-windows-x64.exe
-  4a7809b706ad3ce4e6f4acb0f635cda811e34cdac651bd8268c90102e85a9c03
-TGExporter-v0.3.2-windows-x64-portable.zip
-  61017e8ef0a90c6bf17cdbd54bec9f10238fb29bb062ec6eed06a748e582935f
-tgctl.exe
-  28518a3cf15cc7751cafdfa058d2674e25b36d44c65b873c6bdc32bcf3264745
-SHA256SUMS.txt asset digest
-  f4597564152631d706aeb2f226cc3dd8e3e357f327926fde4515b5f9fd21301e
+full embedded TG Exporter pytest
+LoveAV tgctl adapter pytest
+explicit v0.3.1 baseline regressions
+photo/album forward regressions
+compileall
+git diff --check
+GUI + daemon + reader + CLI import check
+source search-filter smoke
+one-file GUI build
+portable GUI build
+tgctl.exe build
+packaged search-filter smoke
+packaged machine-readable version contract
+packaged SESSION_BUSY native exit=8
+packaged TGExporter/tgctl smoke (including forward planner import/smoke)
+clean tracked worktree
+Candidate asset generation + SHA-256
 ```
 
-The formal Release workflow rebuilt one-file GUI, portable GUI and tgctl from merged main, re-ran full pytest, import/source search-filter checks, packaged search-filter regression, packaged `SESSION_BUSY` native exit=8, packaged smoke tests, prepared `SHA256SUMS.txt`, and created the Release while refusing to overwrite an existing historical tag/Release.
+Feature regressions must cover at least: photo+caption, complete album, multiple albums plus standalone photo, dry-run no write, no `download_media`, protected content, partial missing message, service message exclusion, FloodWait, `WRITE_OUTCOME_UNKNOWN`, target message IDs, and legacy text-forward behavior.
 
-# Real Telegram status
+# Current validation status
 
-A bounded read-only live Svip aggregate re-test was recommended but was **not executed** from the build environment. On 2026-08-31 the user explicitly authorized merging PR #26 and publishing v0.3.2 without waiting for that aggregate check. This is not a claim that the live Svip check passed.
-
-Optional post-release read-only comparison:
-
-```powershell
-tgctl messages search --chat <Svip-ref> --sender-role admin --url-domain mypikpak.com --limit 500 --json
-```
-
-Only compare aggregate counts; do not publish real message bodies, URLs or media names. No send/forward/read-ack/media download/group mutation/Session reset is needed.
+Implementation is in progress on `codex/loveav-tg-photo-forward`. Do not copy transient intermediate commit hashes into downstream tooling. The PR body should be updated with the final green head, workflow run, Candidate artifact ID and SHA-256 after CI is complete.
 
 # Resume order
 
-Read `AGENTS.md` → `HANDOFF.md` → `docs/CODEX_TGCTL.md` → verify GitHub `main`, latest Release and latest workflow. GitHub facts override this snapshot.
+1. Verify `wjl-agent-skills/main` and branch head.
+2. Read `AGENTS.md`, this file, and `docs/FORWARD_PROTOCOL.md`.
+3. Inspect the latest PR CI rather than old standalone release CI.
+4. Keep all work inside the LoveAV embedded TG Exporter unless a narrowly necessary LoveAV adapter compatibility change is separately justified.
+5. Do not merge/tag/release this branch during the current task.

@@ -22,6 +22,7 @@ from .bridge_errors import (
     TelegramBridgeError,
 )
 from .dialog_filters import apply_folder_memberships
+from .forwarding import forward_messages_native, forwardable_message_kind
 from .models import AccountInfo, ForwardResult, GroupInfo, SendResult, TelegramMessageInfo
 from .proxy import ProxyConfig, detect_windows_system_proxy
 from .session_lock import SessionLease
@@ -90,12 +91,9 @@ def _chat_candidate(group: GroupInfo) -> dict:
 
 
 def _forwardable_text_only(message: Message) -> bool:
-    if not (message.message or ""):
-        return False
-    media = getattr(message, "media", None)
-    if media is None:
-        return True
-    return media.__class__.__name__ in {"MessageMediaEmpty", "MessageMediaWebPage"}
+    # Historical name kept for compatibility. The native forward surface now
+    # intentionally accepts Telegram photo messages too; no media is downloaded.
+    return forwardable_message_kind(message) in {"text", "photo"}
 
 
 class TelegramService:
@@ -365,78 +363,15 @@ class TelegramService:
         ids: Iterable[int],
         *,
         dry_run: bool = False,
+        max_messages: int = 20,
     ) -> ForwardResult:
-        requested = tuple(dict.fromkeys(int(value) for value in ids))
-        if not requested:
-            raise TelegramBridgeError(INVALID_ARGUMENT, "至少需要一个 message_id。")
-        groups = await self.list_groups()
-        source = await self.resolve_group(source_chat, groups)
-        source_entity = await self.client.get_entity(source.chat_id)
-
-        destination_raw = str(destination_chat).strip()
-        if destination_raw.casefold() == "me":
-            destination_entity = "me"
-            destination_id: int | str = "me"
-        else:
-            destination = await self.resolve_group(destination_raw, groups)
-            destination_entity = await self.client.get_entity(destination.chat_id)
-            destination_id = destination.chat_id
-
-        messages = await self.client.get_messages(source_entity, ids=list(requested))
-        by_id = {
-            int(message.id): message
-            for message in messages
-            if isinstance(message, Message)
-        }
-        eligible: list[int] = []
-        failed: list[int] = []
-        for message_id in requested:
-            message = by_id.get(message_id)
-            if message is None or not _forwardable_text_only(message):
-                failed.append(message_id)
-            else:
-                eligible.append(message_id)
-
-        if dry_run:
-            logger.info(
-                "Telegram write dry-run: forward source_chat_id=%s destination_chat_id=%s count=%s ids=%s failed=%s",
-                source.chat_id,
-                destination_id,
-                len(eligible),
-                eligible,
-                failed,
-            )
-            return ForwardResult(
-                source_chat_id=source.chat_id,
-                destination_chat_id=destination_id,
-                requested_ids=requested,
-                successful_ids=tuple(eligible),
-                failed_ids=tuple(failed),
-                dry_run=True,
-            )
-
-        if eligible:
-            logger.info(
-                "Telegram write: forward source_chat_id=%s destination_chat_id=%s count=%s ids=%s",
-                source.chat_id,
-                destination_id,
-                len(eligible),
-                eligible,
-            )
-            await self.client.forward_messages(destination_entity, eligible, from_peer=source_entity)
-            logger.info(
-                "Telegram write succeeded: forward source_chat_id=%s destination_chat_id=%s count=%s",
-                source.chat_id,
-                destination_id,
-                len(eligible),
-            )
-        return ForwardResult(
-            source_chat_id=source.chat_id,
-            destination_chat_id=destination_id,
-            requested_ids=requested,
-            successful_ids=tuple(eligible),
-            failed_ids=tuple(failed),
-            dry_run=False,
+        return await forward_messages_native(
+            self,
+            source_chat,
+            destination_chat,
+            ids,
+            dry_run=dry_run,
+            max_messages=max_messages,
         )
 
     async def send_text_message(self, destination_chat: str | int, text: str, *, dry_run: bool = False) -> SendResult:
