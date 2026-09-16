@@ -39,6 +39,8 @@
 - **D-030 Accepted** — daemon 按需启动、托盘可见、空闲退出；不是 Windows Service。
 - **D-031 Accepted** — auth interaction 仅 GUI；tgctl/Codex 调 auth → `AUTH_GUI_ONLY`。
 - **D-032 Accepted** — write request 已送 daemon 后 transport 中断 → `WRITE_OUTCOME_UNKNOWN`；绝不自动 replay。
+- **D-047 Accepted / v0.3.3 unreleased** — `send.capture` 只在同一 daemon 请求内先订阅、后发送、有界捕获；不建设长连接规则引擎。
+- **D-048 Accepted / v0.3.3 unreleased** — `messages.unread` 使用同一 HMAC 游标冻结 `lower/upper`；`messages.mark_read` 只接受同会话签名 token 及范围内 `max_id`。
 
 ## v0.3 Personal Account Reader
 
@@ -71,3 +73,4 @@
 | Migrated logical chat identity | ADR-005 |
 | Human E2E release gate | ADR-006 |
 | Current-unread export-start snapshot | ADR-007 |
+| Bounded send-capture / snapshot read acknowledgement | ADR-008 |

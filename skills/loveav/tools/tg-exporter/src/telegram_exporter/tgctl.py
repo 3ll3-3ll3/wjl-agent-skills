@@ -146,6 +146,28 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("--until")
     _add_page_output_flags(history)
 
+    replies = messages_sub.add_parser("replies")
+    replies.add_argument("--chat", required=True)
+    replies.add_argument("--message-id", required=True, type=int)
+    replies.add_argument("--cursor")
+    replies.add_argument("--limit", type=int, default=100)
+    replies.add_argument("--since")
+    replies.add_argument("--until")
+    _add_page_output_flags(replies)
+
+    unread = messages_sub.add_parser("unread")
+    unread.add_argument("--chat", required=True)
+    unread.add_argument("--cursor")
+    unread.add_argument("--limit", type=int, default=500)
+    _add_json_flag(unread)
+
+    mark_read = messages_sub.add_parser("mark-read")
+    mark_read.add_argument("--chat", required=True)
+    mark_read.add_argument("--snapshot-token", required=True)
+    mark_read.add_argument("--max-id", type=int, required=True)
+    mark_read.add_argument("--confirm", required=True)
+    _add_json_flag(mark_read)
+
     get = messages_sub.add_parser("get")
     get.add_argument("--chat", required=True)
     get.add_argument("--ids", nargs="+", type=int, required=True)
@@ -192,6 +214,16 @@ def build_parser() -> argparse.ArgumentParser:
     send.add_argument("--text", required=True)
     send.add_argument("--dry-run", action="store_true")
     _add_json_flag(send)
+
+    send_capture = sub.add_parser("send-capture")
+    send_capture.add_argument("--to", dest="destination_chat", required=True)
+    send_capture.add_argument("--text", required=True)
+    send_capture.add_argument("--first-reply-timeout", type=float, default=8.0)
+    send_capture.add_argument("--settle-seconds", type=float, default=2.0)
+    send_capture.add_argument("--max-messages", type=int, default=20)
+    send_capture.add_argument("--url-domain")
+    send_capture.add_argument("--dry-run", action="store_true")
+    _add_json_flag(send_capture)
     return parser
 
 
@@ -471,6 +503,46 @@ async def run_command(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
 
+    if args.command == "messages" and args.messages_command == "replies":
+        since = _parse_iso(args.since)
+        until = _parse_iso(args.until)
+        return success(
+            await proxy.ipc.request(
+                "messages.replies",
+                {
+                    "chat": args.chat,
+                    "message_id": args.message_id,
+                    "cursor": args.cursor,
+                    "limit": args.limit,
+                    "since": since.isoformat() if since else None,
+                    "until": until.isoformat() if until else None,
+                },
+            )
+        )
+
+    if args.command == "messages" and args.messages_command == "unread":
+        return success(
+            await proxy.ipc.request(
+                "messages.unread",
+                {"chat": args.chat, "cursor": args.cursor, "limit": args.limit},
+            )
+        )
+
+    if args.command == "messages" and args.messages_command == "mark-read":
+        return success(
+            await proxy.ipc.request(
+                "messages.mark_read",
+                {
+                    "chat": args.chat,
+                    "snapshot_token": args.snapshot_token,
+                    "max_id": args.max_id,
+                    "confirmation": args.confirm,
+                },
+                side_effect_after_send=True,
+                retry_read_once=False,
+            )
+        )
+
     if args.command == "messages" and args.messages_command == "get":
         if args.legacy_schema:
             return success(await proxy.get_messages(args.chat, args.ids))
@@ -543,6 +615,24 @@ async def run_command(args: argparse.Namespace) -> dict[str, Any]:
         if args.dry_run:
             data["text"] = args.text
         return success(data)
+
+    if args.command == "send-capture":
+        return success(
+            await proxy.ipc.request(
+                "send.capture",
+                {
+                    "destination_chat": args.destination_chat,
+                    "text": args.text,
+                    "first_reply_timeout_seconds": args.first_reply_timeout,
+                    "settle_seconds": args.settle_seconds,
+                    "max_messages": args.max_messages,
+                    "url_domain": args.url_domain,
+                    "dry_run": args.dry_run,
+                },
+                side_effect_after_send=not args.dry_run,
+                retry_read_once=args.dry_run,
+            )
+        )
 
     raise TelegramBridgeError(INVALID_ARGUMENT, "未知命令。")
 

@@ -78,7 +78,7 @@ TG daemon（唯一 Telegram Session / Telethon owner）
 - GUI 正常关闭必须先完成 async cleanup，再结束 Qt/qasync event loop；不得用 `loop.stop()` 掩盖未完成任务。
 - GUI 初始化/job monitor/heartbeat 等本地任务必须 cancel + await，避免 `Task was destroyed` / un-awaited coroutine。
 - GUI 没开时 tgctl/Codex 可按需唤醒 daemon。
-- export 活跃时 Telegram reader 等待；真实 send/forward 立即 `EXPORT_IN_PROGRESS`，绝不排队后偷偷发送。
+- export 活跃时 Telegram reader 等待；真实 send/forward/send-capture/mark-read 立即 `EXPORT_IN_PROGRESS`，绝不排队后偷偷发送。
 - daemon 为用户态按需进程，不注册 Windows Service；无 lease/job/request/queued read 后可按既定 idle timeout 退出。
 
 ## 5. GUI 导出不变量
@@ -118,6 +118,7 @@ dialogs.list
 chats.get
 chats.members
 messages.history
+messages.replies
 messages.search
 messages.get
 topics.list
@@ -126,6 +127,8 @@ media metadata
 ```
 
 读取不得 send/forward/delete/leave/change-folder/vote/mark-read/自动下载媒体。
+
+频道评论必须使用 `messages.replies --chat <频道> --message-id <频道帖子>`。它与 Forum 的 `topics.history` 是两套语义：不得要求频道开启 Forum，也不得为了读取评论直接打开或复制第二份 Session。结构化消息可包含公开 URL 按钮的 `text/url/type`，但不得暴露 callback data。
 
 Reader 独立模型，不机械扩大 GUI `GroupInfo`。分页 default 100 / max 500；全局候选 scan 受现有 cap 限制；cursor 必须 opaque/HMAC/query-bound，不含 `access_hash`、`file_reference`、Session/credential。
 
@@ -149,11 +152,13 @@ Reader 独立模型，不机械扩大 GUI `GroupInfo`。分页 default 100 / max
 
 显式 `media download` 为本地磁盘副作用，必须：plan → confirmation token → download；normal 20 files / 500 MiB；explicit large hard cap 200 files / 5 GiB；`.part` 成功后原子 rename；confirmed outcome unknown 不自动 retry。
 
-现有 Telegram write 只有既有批准边界：
+现有 Telegram write 只有已批准边界：
 
 - `forward`：Telegram true forward；dry-run；默认 20，explicit large hard cap 200；
 - `send`：纯文本，`parse_mode=None`；dry-run；
 - GUI optional read-ack：仅 current-unread Option B。
+- `send.capture`：同 daemon 请求内先订阅、后发送、有界捕获；不是后台 listener；
+- `messages.mark_read`：只能使用与会话及冻结 `lower/upper` 绑定的签名 token，且要求精确确认词。
 
 `AMBIGUOUS_CHAT` 不 first-match；FloodWait structured stop；write transport outcome unknown → `WRITE_OUTCOME_UNKNOWN`，绝不自动 replay。
 
@@ -192,7 +197,7 @@ Candidate asset naming读取根目录 `VERSION`，不得把新 patch 的 Candida
 
 ## 11. 明确非目标
 
-除非用户重新明确授权并重新评估安全设计，不新增：Secret Chat、已删除内容恢复、绕权读取、Bot API、24/7 listener、自动转发规则、AI 自主分类、联系人/群/管理员管理、删除消息、退群、修改 Chat Folder、媒体发送/媒体转发、MCP Server、Web/TCP/cloud server。
+除非用户重新明确授权并重新评估安全设计，不新增：Secret Chat、已删除内容恢复、绕权读取、Bot API、24/7 listener、超出明确调用的自动转发规则、AI 自主分类、联系人/群/管理员管理、删除消息、退群、修改 Chat Folder、媒体发送/媒体转发、MCP Server、Web/TCP/cloud server。
 
 ## 12. 交接纪律
 
