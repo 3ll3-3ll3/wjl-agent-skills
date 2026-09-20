@@ -5,6 +5,7 @@ import asyncio
 from . import __version__
 from .bridge_errors import (
     IPC_PROTOCOL_ERROR,
+    UNKNOWN_OUTCOME,
     WRITE_OUTCOME_UNKNOWN,
     TelegramBridgeError,
 )
@@ -50,8 +51,9 @@ class DaemonIPCClient:
                     raise
             except IPCTransportError as exc:
                 if exc.stage == "after_send" and side_effect_after_send:
+                    code = UNKNOWN_OUTCOME if method == "forward" else WRITE_OUTCOME_UNKNOWN
                     raise TelegramBridgeError(
-                        WRITE_OUTCOME_UNKNOWN,
+                        code,
                         "请求已交给 TG daemon，但连接在返回结果前中断。请先检查 Telegram 目标聊天，勿自动重试。",
                         {"method": method},
                     ) from exc
