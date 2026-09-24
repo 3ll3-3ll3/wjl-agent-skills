@@ -7,6 +7,7 @@ const path = require("node:path");
 const DEFAULT_VAULT = String.raw`E:\Desktop\codex项目\whostv-current`;
 const DEFAULT_DIRECTORY = path.join(DEFAULT_VAULT, "脚本归档");
 const DEFAULT_STATE = path.join(DEFAULT_VAULT, ".loveav", "whostv-state.json");
+const DEFAULT_OUTPUT_DIRECTORY_HINT = path.join(DEFAULT_VAULT, ".loveav", "imports");
 
 function usage(message = "") {
   if (message) console.error(message);
@@ -69,8 +70,12 @@ function buildConsoleScript(config) {
   let pagesProcessed = 0;
   let activeController = null;
   let cancelDelay = null;
+  let cancelAuthorization = null;
   let cancelRequested = false;
-  let downloaded = false;
+  let commitStarted = false;
+  let saved = false;
+  let savedFileName = '';
+  let saveOutcome = '未开始';
   let finalStatus = '失败';
 
   if (runtimeScope[runtimeKey]?.active) {
@@ -78,8 +83,8 @@ function buildConsoleScript(config) {
   }
   const runState = { active: true };
   runtimeScope[runtimeKey] = runState;
-  const cancellationError = () => {
-    const error = new Error('抓取已由用户取消，停止且不下载。');
+  const cancellationError = (message = '抓取已由用户取消，停止且不保存。') => {
+    const error = new Error(message);
     error.name = 'WhosTvCancellationError';
     return error;
   };
@@ -92,6 +97,10 @@ function buildConsoleScript(config) {
       console.log('[Whos.tv] 当前没有正在运行的抓取任务。');
       return false;
     }
+    if (commitStarted) {
+      console.warn('[Whos.tv] JSON 正在提交，无法安全取消；请稍后检查最终保存结果。');
+      return false;
+    }
     if (cancelRequested) {
       console.log('[Whos.tv] 取消请求已经收到，正在安全停止。');
       return false;
@@ -99,7 +108,8 @@ function buildConsoleScript(config) {
     cancelRequested = true;
     if (activeController) activeController.abort();
     if (cancelDelay) cancelDelay();
-    console.warn('[Whos.tv] 已收到取消请求；将停止抓取，不下载任何文件。');
+    if (cancelAuthorization) cancelAuthorization();
+    console.warn('[Whos.tv] 已收到取消请求；将停止抓取，不保存任何文件。');
     return true;
   };
   console.log('[Whos.tv] 抓取已启动；控制台显示 Promise {<pending>} 属于正常现象，请以进度日志为准。', {
@@ -138,12 +148,12 @@ function buildConsoleScript(config) {
     } catch { return false; }
   });
   if (!solvedTabLink) {
-    throw new Error('找不到求助社区的“已解决”入口，页面结构可能已经变化，停止且不下载。');
+    throw new Error('找不到求助社区的“已解决”入口，页面结构可能已经变化，停止且不保存。');
   }
   const solvedListBaseUrl = new URL(solvedTabLink.getAttribute('href'), location.href);
   const solvedListBasePath = solvedListBaseUrl.pathname.replace(/\/page-\d+\/?$/, '').replace(/\/$/, '');
   if (!/\/helps$/.test(solvedListBasePath)) {
-    throw new Error('“已解决”入口路径不符合预期，停止且不下载。');
+    throw new Error('“已解决”入口路径不符合预期，停止且不保存。');
   }
   const buildSolvedPageUrl = (page) => {
     const pageUrl = new URL(solvedListBaseUrl.href);
@@ -153,6 +163,210 @@ function buildConsoleScript(config) {
     pageUrl.hash = '';
     return pageUrl;
   };
+
+  const OUTPUT_DB_NAME = 'loveav-whostv-runner-v1';
+  const OUTPUT_STORE_NAME = 'directory-handles';
+  const OUTPUT_DIRECTORY_KEY = 'imports-directory';
+  const validateOutputDirectory = (handle) => {
+    if (!handle || handle.kind !== 'directory' || handle.name !== 'imports' || typeof handle.getFileHandle !== 'function') {
+      throw new Error('请选择名为 imports 的 JSON 保存目录。目标路径提示：' + CONFIG.outputDirectoryHint + '；浏览器只能核对目录名，请自行确认所选绝对路径。');
+    }
+    return handle;
+  };
+  const openOutputDb = () => new Promise((resolve, reject) => {
+    if (!runtimeScope.indexedDB) {
+      reject(new Error('当前浏览器不支持保存目录句柄所需的 IndexedDB，抓取尚未开始。'));
+      return;
+    }
+    const request = runtimeScope.indexedDB.open(OUTPUT_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(OUTPUT_STORE_NAME)) db.createObjectStore(OUTPUT_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(new Error('无法打开 JSON 保存目录权限库：' + (request.error?.message || request.error || '未知错误')));
+  });
+  const directoryHandleStore = async (mode, operation) => {
+    const db = await openOutputDb();
+    try {
+      return await new Promise((resolve, reject) => {
+        const transaction = db.transaction(OUTPUT_STORE_NAME, mode);
+        const request = operation(transaction.objectStore(OUTPUT_STORE_NAME));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(new Error('JSON 保存目录权限库操作失败：' + (request.error?.message || request.error || '未知错误')));
+        transaction.onabort = () => reject(new Error('JSON 保存目录权限库事务已中止。'));
+      });
+    } finally {
+      db.close();
+    }
+  };
+  const restoreOutputDirectory = async () => {
+    const handle = await directoryHandleStore('readonly', (store) => store.get(OUTPUT_DIRECTORY_KEY));
+    return handle ? validateOutputDirectory(handle) : null;
+  };
+  const rememberOutputDirectory = (handle) => directoryHandleStore('readwrite', (store) => store.put(handle, OUTPUT_DIRECTORY_KEY));
+  const queryWritePermission = async (handle) => {
+    if (typeof handle.queryPermission !== 'function') throw new Error('当前浏览器目录句柄不支持写入权限检查。');
+    return handle.queryPermission({ mode: 'readwrite' });
+  };
+  const requestWritePermission = async (handle) => {
+    if (typeof handle.requestPermission !== 'function') throw new Error('当前浏览器目录句柄不支持写入授权。');
+    return handle.requestPermission({ mode: 'readwrite' });
+  };
+  const waitForOutputAuthorization = (storedHandle) => new Promise((resolve, reject) => {
+    if (typeof runtimeScope.showDirectoryPicker !== 'function') {
+      reject(new Error('当前浏览器不支持目录选择，无法把 JSON 保存到项目 imports 目录；抓取尚未开始。'));
+      return;
+    }
+    const panel = document.createElement('div');
+    panel.id = 'loveav-whostv-output-authorization';
+    Object.assign(panel.style, {
+      position: 'fixed', right: '20px', bottom: '20px', zIndex: '2147483647', width: '360px',
+      padding: '16px', borderRadius: '12px', background: '#111827', color: '#f9fafb',
+      boxShadow: '0 12px 32px rgba(0,0,0,.35)', font: '14px/1.5 system-ui,sans-serif',
+    });
+    const title = document.createElement('strong');
+    title.textContent = '运行前授权 JSON 保存目录';
+    const description = document.createElement('p');
+    description.textContent = '请选择 E:\\Desktop\\codex项目\\whostv-current\\.loveav\\imports。浏览器只能核对目录名 imports，请自行确认绝对路径。';
+    const status = document.createElement('p');
+    status.textContent = '授权成功后才会开始抓取。';
+    const actions = document.createElement('div');
+    Object.assign(actions.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+    const makeButton = (label) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      Object.assign(button.style, { padding: '8px 12px', cursor: 'pointer' });
+      actions.appendChild(button);
+      return button;
+    };
+    const storedButton = storedHandle ? makeButton('重新授权已保存的 imports') : null;
+    const chooseButton = makeButton('选择 imports 目录');
+    const cancelButton = makeButton('取消');
+    panel.append(title, description, status, actions);
+    document.body.appendChild(panel);
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      cancelAuthorization = null;
+      panel.remove();
+      callback(value);
+    };
+    const approve = async (handle, requestPermission) => {
+      try {
+        validateOutputDirectory(handle);
+        const permission = requestPermission ? await requestWritePermission(handle) : await queryWritePermission(handle);
+        if (permission !== 'granted') throw new Error('JSON 保存目录没有获得读写权限，抓取尚未开始。');
+        await rememberOutputDirectory(handle);
+        finish(resolve, handle);
+      } catch (error) {
+        finish(reject, error);
+      }
+    };
+    storedButton?.addEventListener('click', () => { void approve(storedHandle, true); }, { once: true });
+    chooseButton.addEventListener('click', () => {
+      let selection;
+      try {
+        selection = runtimeScope.showDirectoryPicker({ id: 'loveav-whostv-imports', mode: 'readwrite' });
+      } catch (error) {
+        finish(reject, error);
+        return;
+      }
+      void Promise.resolve(selection).then((handle) => approve(handle, true), (error) => finish(reject, error));
+    }, { once: true });
+    cancelButton.addEventListener('click', () => finish(reject, cancellationError('用户取消了 JSON 保存目录授权，抓取尚未开始。')), { once: true });
+    cancelAuthorization = () => finish(reject, cancellationError('抓取已由用户取消，JSON 保存目录尚未授权。'));
+  });
+  const uniqueOutputName = (fileName) => {
+    const dot = fileName.toLowerCase().endsWith('.json') ? fileName.length - 5 : fileName.length;
+    const random = runtimeScope.crypto?.randomUUID
+      ? runtimeScope.crypto.randomUUID().replace(/-/g, '')
+      : Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+    return fileName.slice(0, dot) + '_' + Date.now() + '_' + random + '.json';
+  };
+  const writeJsonToDirectory = async (handle, options) => {
+    validateOutputDirectory(handle);
+    const { fileName, content, outputDirectoryHint, checkCancelled = () => {}, onCommitStart = () => {} } = options;
+    if (!/^whos_tv_solved_answers_[a-z0-9_-]+\.json$/i.test(String(fileName || '')) ||
+        outputDirectoryHint !== CONFIG.outputDirectoryHint || typeof content !== 'string') {
+      throw new Error('JSON 保存参数无效。');
+    }
+    const completePayload = JSON.parse(content);
+    if (!Array.isArray(completePayload.entries) || !completePayload.entries.length || completePayload.count !== completePayload.entries.length) {
+      throw new Error('JSON 不是完整的 Whos.tv 抓取结果，停止保存。');
+    }
+    if (await queryWritePermission(handle) !== 'granted') throw new Error('JSON 保存目录权限已失效，请重新授权后运行。');
+    checkCancelled();
+    let actualName = fileName;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        await handle.getFileHandle(actualName);
+        actualName = uniqueOutputName(fileName);
+      } catch (error) {
+        if (error?.name !== 'NotFoundError') throw error;
+        break;
+      }
+      if (attempt === 19) throw new Error('无法分配新的 JSON 文件名，旧文件没有被覆盖。');
+    }
+    checkCancelled();
+    const file = await handle.getFileHandle(actualName, { create: true });
+    let writable;
+    let localCommitStarted = false;
+    try {
+      writable = await file.createWritable();
+      checkCancelled();
+      await writable.write(content);
+      checkCancelled();
+      onCommitStart();
+      localCommitStarted = true;
+      await writable.close();
+      const savedFile = await file.getFile();
+      const savedText = await savedFile.text();
+      const expectedBytes = new TextEncoder().encode(content).byteLength;
+      if (savedText !== content || savedFile.size !== expectedBytes) throw new Error('保存后内容或字节数核验不一致。');
+      return { ok: true, saved: true, fileName: actualName, bytes: expectedBytes, directoryName: handle.name };
+    } catch (error) {
+      try { if (writable) await writable.abort(); } catch { /* 已关闭的流不能再取消。 */ }
+      let fileMayExist = localCommitStarted;
+      if (!localCommitStarted) {
+        try { await handle.removeEntry(actualName); } catch { fileMayExist = true; }
+      }
+      const failure = new Error(
+        'JSON 保存失败：' + (error?.message || error) + (fileMayExist ? '；请检查 imports 中的实际文件，保存结果尚未确认。' : ''),
+        { cause: error }
+      );
+      failure.fileMayExist = fileMayExist;
+      throw failure;
+    }
+  };
+  const prepareJsonWriter = async () => {
+    if (CONFIG.outputMode !== 'project-imports-v1' || !CONFIG.outputDirectoryHint) {
+      throw new Error('脚本缺少项目 imports 保存配置，抓取尚未开始。');
+    }
+    if (typeof runtimeScope.__loveavWhosTvWriteJson === 'function') {
+      saveOutcome = '宿主保存器已就绪';
+      return runtimeScope.__loveavWhosTvWriteJson;
+    }
+    if (!runtimeScope.indexedDB) throw new Error('当前浏览器不支持 IndexedDB，无法恢复 JSON 保存目录；抓取尚未开始。');
+    let handle = null;
+    try { handle = await restoreOutputDirectory(); }
+    catch (error) { console.warn('[Whos.tv] 无法恢复已保存的 imports 目录，将请求重新授权。', error); }
+    if (handle && await queryWritePermission(handle) === 'granted') {
+      saveOutcome = '已恢复 imports 写入权限';
+      return (options) => writeJsonToDirectory(handle, options);
+    }
+    handle = await waitForOutputAuthorization(handle);
+    saveOutcome = 'imports 写入权限已授权';
+    return (options) => writeJsonToDirectory(handle, options);
+  };
+  const jsonWriter = await prepareJsonWriter();
+  throwIfCancelled();
+  console.log('[Whos.tv] JSON 保存目录权限已确认；现在开始抓取。', {
+    outputDirectoryHint: CONFIG.outputDirectoryHint,
+    note: '绝对路径仅为提示，浏览器已核对目录名和读写权限。',
+  });
 
   const sleep = (milliseconds) => new Promise((resolve, reject) => {
     throwIfCancelled();
@@ -185,7 +399,7 @@ function buildConsoleScript(config) {
   const parsePage = (html, page, pageUrl) => {
     const documentForPage = new DOMParser().parseFromString(html, 'text/html');
     const articles = [...documentForPage.querySelectorAll('article[data-help-id], article[data-post-href]')];
-    if (!articles.length) throw new Error('第 ' + page + ' 页解析为 0 条，停止且不下载。');
+    if (!articles.length) throw new Error('第 ' + page + ' 页解析为 0 条，停止且不保存。');
     const rows = [];
     const ignored = [];
     for (const [index, article] of articles.entries()) {
@@ -205,7 +419,7 @@ function buildConsoleScript(config) {
       if (!answerRegion) {
         throw new Error(
           '第 ' + page + ' 页第 ' + (index + 1) + ' 条（' + title +
-          '）没有已采纳答案区域。为避免漏抓，停止且不下载；请确认网站“已解决”筛选和页面结构。'
+          '）没有已采纳答案区域。为避免漏抓，停止且不保存；请确认网站“已解决”筛选和页面结构。'
         );
       }
       let answer = '';
@@ -218,10 +432,10 @@ function buildConsoleScript(config) {
         const fallback = (article.textContent || '').match(/答案[：:]\s*([\s\S]+)$/u);
         answer = fallback ? fallback[1].trim() : '';
       }
-      if (!answer) throw new Error('第 ' + page + ' 页第 ' + (index + 1) + ' 条答案为空，停止且不下载。');
+      if (!answer) throw new Error('第 ' + page + ' 页第 ' + (index + 1) + ' 条答案为空，停止且不保存。');
       rows.push({ page, position: index + 1, title, answer, url, pageUrl });
     }
-    if (!rows.length) throw new Error('第 ' + page + ' 页没有可提取的已解决答案，停止且不下载。');
+    if (!rows.length) throw new Error('第 ' + page + ' 页没有可提取的已解决答案，停止且不保存。');
     return { rows, ignored };
   };
   const fetchPage = async (page) => {
@@ -247,7 +461,7 @@ function buildConsoleScript(config) {
       });
       throwIfCancelled();
       if (!response.ok) {
-        const error = new Error('第 ' + page + ' 页请求失败：HTTP ' + response.status + '，停止且不下载。');
+        const error = new Error('第 ' + page + ' 页请求失败：HTTP ' + response.status + '，停止且不保存。');
         error.name = 'WhosTvHttpError';
         throw error;
       }
@@ -257,10 +471,10 @@ function buildConsoleScript(config) {
     } catch (error) {
       if (cancelRequested || error?.name === 'WhosTvCancellationError') throw cancellationError();
       if (timedOut) {
-        throw new Error('第 ' + page + ' 页请求超过 ' + CONFIG.requestTimeoutMs + ' 毫秒，停止且不下载。');
+        throw new Error('第 ' + page + ' 页请求超过 ' + CONFIG.requestTimeoutMs + ' 毫秒，停止且不保存。');
       }
       if (error?.name === 'WhosTvHttpError') throw error;
-      throw new Error('第 ' + page + ' 页网络请求失败：' + (error?.message || String(error)) + '，停止且不下载。');
+      throw new Error('第 ' + page + ' 页网络请求失败：' + (error?.message || String(error)) + '，停止且不保存。');
     } finally {
       clearTimeout(timeout);
       if (activeController === controller) activeController = null;
@@ -269,7 +483,7 @@ function buildConsoleScript(config) {
   let stopFound = CONFIG.mode !== 'incremental';
   const append = (row, page) => {
     if (seenUrls.has(row.url)) {
-      throw new Error('第 ' + page + ' 页未取得分页进展：发现重复帖子 URL ' + row.url + '，停止且不下载。');
+      throw new Error('第 ' + page + ' 页未取得分页进展：发现重复帖子 URL ' + row.url + '，停止且不保存。');
     }
     seenUrls.add(row.url);
     entries.push(row);
@@ -291,7 +505,7 @@ function buildConsoleScript(config) {
     if (repeatedFromPage !== undefined) {
       throw new Error(
         '第 ' + page + ' 页与第 ' + repeatedFromPage +
-        ' 页返回相同帖子列表，分页可能失效，停止且不下载。'
+        ' 页返回相同帖子列表，分页可能失效，停止且不保存。'
       );
     }
     seenPageSignatures.set(signature, page);
@@ -300,7 +514,7 @@ function buildConsoleScript(config) {
     const rowsBeforeStop = cutoffIndex >= 0 ? parsed.rows.slice(0, cutoffIndex) : parsed.rows;
     if (rowsBeforeStop.length && rowsBeforeStop.every((row) => seenUrls.has(row.url))) {
       throw new Error(
-        '第 ' + page + ' 页没有带来新记录：该页待收录帖子 URL 全部已在前页出现，分页没有进展，停止且不下载。'
+        '第 ' + page + ' 页没有带来新记录：该页待收录帖子 URL 全部已在前页出现，分页没有进展，停止且不保存。'
       );
     }
     let acceptedOnPage = 0;
@@ -334,7 +548,7 @@ function buildConsoleScript(config) {
       durationMs: Date.now() - pageStartedAt,
     });
     if (!foundCutoffOnPage && acceptedOnPage === 0) {
-      throw new Error('第 ' + page + ' 页没有带来任何新记录，分页没有进展，停止且不下载。');
+      throw new Error('第 ' + page + ' 页没有带来任何新记录，分页没有进展，停止且不保存。');
     }
     return { foundCutoffOnPage };
   };
@@ -350,11 +564,11 @@ function buildConsoleScript(config) {
       if (result.foundCutoffOnPage) break;
       if (page < CONFIG.maxPages) await sleep(CONFIG.delayMs);
     }
-    if (!stopFound) throw new Error('抓取到安全页数上限仍未找到截止帖 ' + CONFIG.cutoffPath + '，停止且不下载。');
+    if (!stopFound) throw new Error('抓取到安全页数上限仍未找到截止帖 ' + CONFIG.cutoffPath + '，停止且不保存。');
   }
 
   if (!entries.length) throw new Error('没有抓到截止帖之前的新答案，不生成空文件。');
-  if (entries.some((entry) => !entry.answer.trim())) throw new Error('结果中存在空答案，不下载。');
+  if (entries.some((entry) => !entry.answer.trim())) throw new Error('结果中存在空答案，不保存。');
   const payload = {
     mode: CONFIG.mode,
     count: entries.length,
@@ -368,17 +582,36 @@ function buildConsoleScript(config) {
     ignoredNonAnswerCards,
     entries,
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-  const downloadUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = downloadUrl;
-  anchor.download = CONFIG.outputFile;
-  document.body.appendChild(anchor);
-  anchor.click();
-  downloaded = true;
+  const content = JSON.stringify(payload, null, 2);
+  const expectedBytes = new TextEncoder().encode(content).byteLength;
+  throwIfCancelled();
+  saveOutcome = '正在写入并核验';
+  const saveResult = await jsonWriter({
+    fileName: CONFIG.outputFile,
+    content,
+    mimeType: 'application/json;charset=utf-8',
+    outputDirectoryHint: CONFIG.outputDirectoryHint,
+    checkCancelled: throwIfCancelled,
+    onCommitStart: () => {
+      commitStarted = true;
+      saveOutcome = '正在提交，稍后检查保存结果';
+      console.log('[Whos.tv] JSON 已写入临时流，正在提交并核验；此阶段无法安全取消。');
+    },
+  });
+  const actualName = String(saveResult?.fileName || '');
+  const expectedStem = CONFIG.outputFile.replace(/\.json$/i, '');
+  const validActualName = actualName === CONFIG.outputFile ||
+    (actualName.startsWith(expectedStem + '_') && /^whos_tv_solved_answers_[a-z0-9_-]+\.json$/i.test(actualName));
+  if (saveResult?.ok !== true || saveResult?.saved !== true || !validActualName ||
+      saveResult.bytes !== expectedBytes || saveResult.directoryName !== 'imports') {
+    const evidenceError = new Error('保存器没有返回完整且一致的 JSON 落盘证据，不能报告成功。');
+    evidenceError.fileMayExist = commitStarted || saveResult?.saved === true;
+    throw evidenceError;
+  }
+  saved = true;
+  savedFileName = actualName;
+  saveOutcome = '已保存并核验';
   finalStatus = '成功';
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   console.log('[Whos.tv] 抓取完成', {
     count: entries.length,
     pages: pagesProcessed,
@@ -386,10 +619,14 @@ function buildConsoleScript(config) {
     ignoredNonAnswerCards: ignoredNonAnswerCards.length,
     first: entries[0].url,
     last: entries.at(-1).url,
-    output: CONFIG.outputFile,
+    output: savedFileName,
+    outputDirectory: saveResult.directoryName,
+    bytes: saveResult.bytes,
   });
   } catch (error) {
-    finalStatus = cancelRequested || error?.name === 'WhosTvCancellationError' ? '已取消' : '失败';
+    const cancelledBeforeCommit = !commitStarted && (cancelRequested || error?.name === 'WhosTvCancellationError' || error?.name === 'AbortError');
+    finalStatus = cancelledBeforeCommit ? '已取消' : '失败';
+    if (!saved) saveOutcome = error?.fileMayExist ? '保存结果尚未确认' : '未保存';
     const report = {
       status: finalStatus,
       reason: error?.message || String(error),
@@ -397,11 +634,15 @@ function buildConsoleScript(config) {
       pagesProcessed,
       count: entries.length,
       durationMs: elapsedMs(),
-      downloaded: false,
+      saved: false,
+      output: savedFileName || null,
+      saveOutcome,
+      fileMayExist: Boolean(error?.fileMayExist),
       stateUpdated: false,
     };
-    if (finalStatus === '已取消') console.warn('[Whos.tv] 抓取已取消；未下载文件，也未更新状态。', report);
-    else console.error('[Whos.tv] 抓取失败；未下载文件，也未更新状态。', report);
+    if (error?.fileMayExist) console.error('[Whos.tv] 保存结果尚未确认；请检查 imports 目录。状态未更新。', report);
+    else if (finalStatus === '已取消') console.warn('[Whos.tv] 抓取已取消；未保存文件，也未更新状态。', report);
+    else console.error('[Whos.tv] 抓取失败；未保存文件，也未更新状态。', report);
     throw error;
   } finally {
     runState.active = false;
@@ -413,7 +654,9 @@ function buildConsoleScript(config) {
       pagesProcessed,
       count: entries.length,
       durationMs: elapsedMs(),
-      downloaded,
+      saved,
+      output: savedFileName || null,
+      saveOutcome,
       stateUpdated: false,
     });
   }
@@ -455,6 +698,7 @@ function main() {
     const outputFile = String(state.nextJsonName || `whos_tv_solved_answers_since_${state.lastProcessedDate || time.date}.json`);
     config = {
       mode: "incremental", fromPage: 1, toPage: null, cutoffPath, outputFile,
+      outputMode: "project-imports-v1", outputDirectoryHint: DEFAULT_OUTPUT_DIRECTORY_HINT,
       delayMs: options.delay, requestTimeoutMs: options.timeout, maxPages: 500,
     };
     metadata = {
@@ -466,6 +710,7 @@ function main() {
     const outputFile = `whos_tv_solved_answers_pages_${options.from}-${options.to}.json`;
     config = {
       mode: "pages", fromPage: options.from, toPage: options.to, cutoffPath: "", outputFile,
+      outputMode: "project-imports-v1", outputDirectoryHint: DEFAULT_OUTPUT_DIRECTORY_HINT,
       delayMs: options.delay, requestTimeoutMs: options.timeout, maxPages: options.to,
     };
     metadata = {

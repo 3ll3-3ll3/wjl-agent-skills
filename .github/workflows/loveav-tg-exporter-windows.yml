@@ -6,13 +6,21 @@ on:
     paths:
       - "skills/loveav/tools/tg-exporter/**"
       - "skills/loveav/scripts/tg_exporter_adapter.py"
-      - "skills/loveav/tests/test_tg_exporter_adapter.py"
+      - "skills/loveav/scripts/pikpak_resources.py"
+      - "skills/loveav/scripts/archive_pikpak_channel.py"
+      - "skills/loveav/scripts/plan_pikpak_notification_redeem.py"
+      - "skills/loveav/scripts/run_pikpak_notification_redeem.py"
+      - "skills/loveav/tests/**"
       - ".github/workflows/loveav-tg-exporter-windows.yml"
   pull_request:
     paths:
       - "skills/loveav/tools/tg-exporter/**"
       - "skills/loveav/scripts/tg_exporter_adapter.py"
-      - "skills/loveav/tests/test_tg_exporter_adapter.py"
+      - "skills/loveav/scripts/pikpak_resources.py"
+      - "skills/loveav/scripts/archive_pikpak_channel.py"
+      - "skills/loveav/scripts/plan_pikpak_notification_redeem.py"
+      - "skills/loveav/scripts/run_pikpak_notification_redeem.py"
+      - "skills/loveav/tests/**"
       - ".github/workflows/loveav-tg-exporter-windows.yml"
   workflow_dispatch:
 
@@ -44,9 +52,9 @@ jobs:
       - name: Full pytest
         run: .\.venv\Scripts\python.exe -m pytest -q
 
-      - name: LoveAV tgctl adapter pytest
+      - name: LoveAV integration pytest
         working-directory: .
-        run: skills\loveav\tools\tg-exporter\.venv\Scripts\python.exe -m pytest -q skills\loveav\tests\test_tg_exporter_adapter.py
+        run: skills\loveav\tools\tg-exporter\.venv\Scripts\python.exe -m pytest -q skills\loveav\tests
 
       - name: Explicit v0.3.1 regressions
         run: .\.venv\Scripts\python.exe -m pytest -q tests/test_domain_filter_v031.py tests/test_search_regex_v031.py tests/test_time_boundaries_v031.py tests/test_gui_shutdown_v031.py tests/test_reader_sender_v031.py tests/test_acceptance_regressions_v031.py
@@ -58,7 +66,7 @@ jobs:
         run: git diff --check
 
       - name: GUI + daemon + reader + CLI import check
-        run: .\.venv\Scripts\python.exe -c "import telegram_exporter.daemon_gui; import telegram_exporter.daemon_main; import telegram_exporter.tgctl; import telegram_exporter.reader_service; import telegram_exporter.reader_runtime; import telegram_exporter.reader_search; import telegram_exporter.reader_topics; import telegram_exporter.reader_media; print('GUI + daemon + tgctl + reader import OK')"
+        run: .\.venv\Scripts\python.exe -c "import telegram_exporter.daemon_gui; import telegram_exporter.daemon_main; import telegram_exporter.tgctl; import telegram_exporter.reader_service; import telegram_exporter.reader_runtime; import telegram_exporter.reader_search; import telegram_exporter.reader_topics; import telegram_exporter.reader_media; import telegram_exporter.reader_unread; import telegram_exporter.live_capture; print('GUI + daemon + tgctl + reader import OK')"
 
       - name: Source search-filter offline smoke
         run: .\.venv\Scripts\python.exe tgctl_launcher.py --smoke-test-search-filters

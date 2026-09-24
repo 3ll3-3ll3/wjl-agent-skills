@@ -182,6 +182,15 @@ def test_single_password_elsewhere_in_message_is_bound() -> None:
     }
 
 
+def test_pwd_inside_share_token_is_not_bound_as_password() -> None:
+    row = message(14, reply=9, photo=True)
+    row["text"] = "资源 https://mypikpak.com/s/VOpWD9FOgelsUicSi8wYrl60o2"
+    result = classify(row)
+    resource = result["results"]["main"][0]["pikpak_resources"][0]
+    assert resource["password"] is None
+    assert result["results"]["main"][0]["password_status"] == "not_provided"
+
+
 def test_multiple_unassigned_passwords_are_not_guessed() -> None:
     row = message(12, reply=9, photo=True)
     row["text"] = "密码: abcd\n备用密码: efgh\nhttps://mypikpak.com/s/abc"
@@ -228,6 +237,12 @@ def test_hidden_entity_url_is_appended_to_complete_copy_text() -> None:
     record = result["results"]["main"][0]
     assert record["message_text"] == "点击这里查看资源"
     assert record["message_copy_text"] == "点击这里查看资源\nhttps://mypikpak.com/s/hidden"
+
+
+def test_source_name_is_preserved_for_non_svip_sources() -> None:
+    result = MODULE.classify_messages([message(15)], CHAT_ID, "vip分类数据库")
+    assert result["source"]["name"] == "vip分类数据库"
+    assert result["results"]["main"][0]["source_name"] == "vip分类数据库"
 
 
 class TestSvipResourceReplies(unittest.TestCase):

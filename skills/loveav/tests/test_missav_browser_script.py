@@ -18,8 +18,13 @@ class MissavBrowserScriptTest(unittest.TestCase):
     def test_bundled_assets_match_v0513_baseline(self) -> None:
         template = ROOT / "assets" / "missav-browser-script.txt"
         boundaries = ROOT / "assets" / "missav-type-boundary-tags.txt"
-        self.assertEqual(hashlib.sha256(template.read_bytes()).hexdigest(), "32b928f1b3ba310c3a5c0f56a393c47ee628d1ca1822e42dc09665e9ba81c505")
-        self.assertEqual(hashlib.sha256(boundaries.read_bytes()).hexdigest(), "b872f9fde88f64feb6ab2181b5223cd5e8d8a09a9b348cce928b903b3f1bb4aa")
+        # Git may materialize the same text asset with LF or CRLF.  The
+        # v0.5.13 contract is the script text, not the checkout's newline
+        # convention, so hash its canonical LF representation.
+        template_bytes = template.read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
+        boundary_bytes = boundaries.read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
+        self.assertEqual(hashlib.sha256(template_bytes).hexdigest(), "f6e00d62cc0df9ee0b7a266f3278f1d3fb1685efe13144117e7081867bccdb5c")
+        self.assertEqual(hashlib.sha256(boundary_bytes).hexdigest(), "7afbc6e0d1d9607ba60700478288c64d4c62d5687d7d34dd3422857bd3a25ea4")
 
     def test_blacklist_comment_lines_are_not_tags(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -100,13 +105,42 @@ class MissavBrowserScriptTest(unittest.TestCase):
 
             self.assertEqual(report["codes_injected"], 2)
             self.assertEqual(report["runtime_optimization"], "safe-fetch-v1")
+            self.assertEqual(report["workspace_launcher"], "remembered-results-v3-project-only")
             self.assertEqual(report["actress_tags_before_blacklist"], 3)
             self.assertEqual(report["reference_blacklist_matches"], 1)
             self.assertEqual(report["reference_tags_injected"], 2)
             self.assertIn("ABF-123", generated)
             self.assertIn("FC2-PPV-1234567", generated)
-            self.assertIn("选择当前女优 Tag 合集 CSV", generated)
+            self.assertIn("手动选择当前女优 Tag 合集", generated)
             self.assertNotIn("选择旧女优 tag 合集 CSV", generated)
+            self.assertIn("loveav-missav-workspace-v1", generated)
+            self.assertIn("LOVEAV_DEFAULT_RESULTS_PATH_HINT", generated)
+            self.assertIn(r"E:\\Desktop\\codex项目\\LoveAV-Data\\missav\\results", generated)
+            self.assertIn("授权 / 更换默认工作目录", generated)
+            self.assertIn("重新扫描最新女优 Tag 合集", generated)
+            self.assertIn("正在打开目录选择器", generated)
+            self.assertIn("正在重新扫描最新女优 Tag 合集", generated)
+            self.assertIn("目录已更新；扫描完成", generated)
+            self.assertIn("重新扫描完成", generated)
+            workspace_handler = generated.split(
+                "panel.querySelector('#missav-pick-workspace').onclick", 1
+            )[1].split("panel.querySelector('#missav-rescan').onclick", 1)[0]
+            self.assertIn("await chooseAndRememberResultsDirectory()", workspace_handler)
+            self.assertNotIn("readRememberedResultsDirectory", workspace_handler)
+            permission_helper = generated.split(
+                "async function hasDirectoryPermission", 1
+            )[1].split("function isCollectionCsvName", 1)[0]
+            self.assertLess(
+                permission_helper.index("handle.requestPermission"),
+                permission_helper.index("handle.queryPermission"),
+            )
+            self.assertIn("indexedDB.open(LOVEAV_WORKSPACE_DB, 1)", generated)
+            self.assertIn("await findLatestCollectionCsv(handle)", generated)
+            self.assertIn("await createOutputDirectory(state.baseDirHandle)", generated)
+            self.assertIn("为避免文件落入浏览器 Downloads", generated)
+            self.assertNotIn("a.download = filename", generated)
+            self.assertNotIn("console.log('已下载：'", generated)
+            self.assertNotIn("请选择基础输出文件夹：E:\\Desktop\\王家乐", generated)
             self.assertIn('"女优甲"', generated)
             self.assertIn('"女优丙"', generated)
             self.assertNotIn('"女优乙"', generated)

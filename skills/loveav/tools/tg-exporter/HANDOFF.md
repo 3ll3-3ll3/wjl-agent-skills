@@ -2,7 +2,15 @@
 
 > 当前开发/发布交接快照。任何 Agent 接手前先读 `AGENTS.md`，再读本文件；GitHub 当前事实优先。
 
-更新时间：2026-09-06
+更新时间：2026-09-08
+
+## 2026-09-10 频道评论只读能力
+
+- 内嵌 v0.3.3 新增 `messages.replies` / `tgctl messages replies`，用于读取频道帖子评论或普通消息回复，不再错误复用只支持 Forum 的 `topics.history`。
+- 返回结构保持 Rich MessageInfoV3，并增加 `discussion_parent_message_id` 和公开 URL 按钮 `buttons[text,url,type]`；`source_chat_id` 使用评论消息的实际 peer，callback data 不导出。
+- LoveAV 功能 8 可由私人来源配置 `include_comments=true` 启用逐帖完整评论归档，父帖说明与评论中的 PikPak URL/密码一起进入资源记录。
+- LoveAV 功能 8 只归档消息和评论中已经存在的 PikPak 直链；Bot start 按钮不点击、不兑换，也不继续追踪 Bot 返回的其他 Telegram 频道。
+- 普通历史、评论和直链归档严格只读，不发送、不下载媒体、不转发、不标记已读。
 
 # LoveAV 内嵌开发状态
 
@@ -11,7 +19,37 @@
 - 原独立仓库正式 v0.3.2、历史 Tag 与 Release 保持不变，不做归档或反向修改。
 - 当前内嵌开发版本：v0.3.3，新增 `tgctl version --json` 与增强的 `tgctl status --json`，供 LoveAV 自动适配器检查版本、Schema、IPC 和能力。
 - LoveAV 自动定位和多页读取逻辑位于上级 `scripts/tg_exporter_adapter.py`；TG Exporter 仍保持通用 Telegram 层，不内置 LoveAV/PikPak 业务分类。
-- v0.3.3 当前是源码开发状态，不是正式 Release；必须通过完整测试和 Windows 构建后才能称为 Candidate。
+- v0.3.3 当前是 LoveAV 仓库 PR #1 的 Candidate，不是正式 Release；不得修改或覆盖独立仓库的 v0.3.2 Release。
+
+## 2026-09-08 LoveAV 第七功能执行层
+
+当前开发分支：`codex/loveav-pikpak-redeem-executor`。尚未合并、未发布 Release、未对真实 Telegram 账号执行写入 E2E。
+
+已实现：
+
+1. `messages unread`：冻结 current-unread `lower/upper`，后续页复用 HMAC/query-bound cursor 和 snapshot token；
+2. `send-capture`：在同一 daemon 请求内先订阅、再发送，有界等待并可选按 URL domain 过滤；
+3. `messages mark-read`：只接受与会话及冻结边界绑定的签名 token，不允许越界 max-id；
+4. 上级 LoveAV `run_pikpak_notification_redeem.py`：双来源冻结、关键词交集去重、即时兑换、URL+密码去重、收藏查重/写入、失败安全已读；
+5. 第七功能默认只 dry-run，真实运行要求 `RUN_PIKPAK_REDEEM`；`WRITE_OUTCOME_UNKNOWN` 立即停止且不确认已读；
+6. 测试环境的 daemon 任务与检查点被强制隔离到 `tmp_path`，不再触及用户真实 APPDATA。
+
+本地自动化结果：
+
+```text
+LoveAV tests: 61 passed
+embedded TG Exporter tests: 155 passed
+compileall: PASS
+git diff --check: PASS
+real Telegram E2E: PASS (9/9 keyword jobs; 1 new resource saved; 9 already present; 0 review; 0 unknown write outcome)
+read acknowledgement: one frozen source explicitly acknowledged; the other was deliberately not acknowledged because its frozen count proof was incomplete
+Windows packaged build/smoke: PASS
+GitHub Actions push run: 34226158199 = SUCCESS
+GitHub Actions PR run: 34226163539 = SUCCESS
+candidate code head: da4e5430634bc298d64123c2dcb8f4b26ae5c846
+```
+
+After the real E2E, a separate read-only snapshot reported zero current unread in both sources. Do not infer that LoveAV acknowledged the second source: the executor report explicitly says it did not; another Telegram client/state transition may have changed that source afterwards.
 
 # Current Project State
 

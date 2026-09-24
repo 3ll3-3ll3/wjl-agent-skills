@@ -61,6 +61,42 @@ def test_unambiguous_single_hashtag_is_allowed() -> None:
     assert not plan["review"]
 
 
+def test_multiline_resource_notification_extracts_reply_hashtag() -> None:
+    text = (
+        "资源更新通知：\n\n"
+        "#苏小涵 (写真合集)\n\n"
+        "点击下方按钮回复 #苏小涵 机器人自动推送网盘链接。"
+    )
+    plan = MODULE.build_plan([("pikpak_notice_share", [row(-1002, 30, text)])])
+
+    assert plan["summary"]["unique_keywords"] == 1
+    assert plan["jobs"][0]["send_text"] == "#苏小涵"
+    assert not plan["review"]
+
+
+def test_reply_hashtag_wins_when_title_uses_a_different_spelling() -> None:
+    text = (
+        "资源更新通知：\n\n"
+        "#huahua_love 新资源\n\n"
+        "点击下方按钮回复 #huahua-love 机器人自动推送网盘链接。"
+    )
+    plan = MODULE.build_plan([("pikpak_notice_share", [row(-1002, 31, text)])])
+
+    assert plan["summary"]["keyword_occurrences"] == 1
+    assert plan["summary"]["unique_keywords"] == 1
+    assert plan["jobs"][0]["send_text"] == "#huahua-love"
+    assert not plan["review"]
+
+
+def test_multiline_update_title_is_used_when_no_reply_instruction_exists() -> None:
+    text = "资源更新通知：\n\n#隔壁老王 新资源已经发布"
+    plan = MODULE.build_plan([("pikpak_notice_share", [row(-1002, 32, text)])])
+
+    assert plan["summary"]["unique_keywords"] == 1
+    assert plan["jobs"][0]["send_text"] == "#隔壁老王"
+    assert not plan["review"]
+
+
 def test_ambiguous_or_missing_keyword_goes_to_review_without_body_persistence() -> None:
     plan = MODULE.build_plan(
         [

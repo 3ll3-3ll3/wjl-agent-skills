@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -254,6 +255,23 @@ def _entity_payload(entity: Any) -> dict[str, Any]:
     return payload
 
 
+def _button_payloads(message: Any) -> tuple[dict[str, Any], ...]:
+    """只导出按钮的可见文字和公开 URL，不暴露 callback data。"""
+    rows: list[dict[str, Any]] = []
+    for button_row in getattr(message, "buttons", None) or ():
+        for button in button_row or ():
+            text = getattr(button, "text", None)
+            url = getattr(button, "url", None)
+            payload: dict[str, Any] = {"text": str(text or "")}
+            if isinstance(url, str) and url:
+                payload["url"] = url
+                payload["type"] = "url"
+            else:
+                payload["type"] = "callback_or_other"
+            rows.append(payload)
+    return tuple(rows)
+
+
 def _reaction_key(reaction: Any) -> dict[str, Any]:
     if reaction is None:
         return {"type": "unknown"}
@@ -428,6 +446,7 @@ class PersonalAccountReader:
         self.client = telegram_service.client
         self.cursor = cursor_codec or CursorCodec.from_local_identity()
         self._role_cache: dict[int, tuple[float, dict[int, ParticipantInfo], bool]] = {}
+        self._dialog_resolution_cache: dict[str, tuple[DialogInfo, Any]] = {}
 
     async def account_profile(self) -> AccountProfile:
         me = await self.client.get_me()
@@ -602,10 +621,14 @@ class PersonalAccountReader:
         )
 
     async def resolve_dialog(self, reference: str | int) -> tuple[DialogInfo, Any]:
-        rows, entities = await self._dialog_catalogue()
         raw = str(reference).strip()
         if not raw:
             raise TelegramBridgeError(INVALID_ARGUMENT, "聊天标识不能为空。")
+        cache_key = raw.casefold()
+        cached = self._dialog_resolution_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        rows, entities = await self._dialog_catalogue()
         if raw.casefold() == "me":
             matches = [row for row in rows if row.dialog_type == "saved"]
         elif raw.lstrip("-").isdigit():
@@ -636,7 +659,13 @@ class PersonalAccountReader:
                 entity = await self.client.get_entity("me" if row.dialog_type == "saved" else row.chat_id)
             except Exception as exc:
                 raise CursorCodec.stale("会话存在于目录，但 Telegram entity 已无法恢复。") from exc
-        return row, entity
+        resolved = (row, entity)
+        self._dialog_resolution_cache[cache_key] = resolved
+        self._dialog_resolution_cache[str(row.chat_id)] = resolved
+        if row.username:
+            self._dialog_resolution_cache[row.username.casefold()] = resolved
+            self._dialog_resolution_cache[f"@{row.username.casefold()}"] = resolved
+        return resolved
 
     async def _basic_chat_participants(self, entity: Any) -> tuple[list[ParticipantInfo], Any]:
         result = await self.client(functions.messages.GetFullChatRequest(chat_id=int(getattr(entity, "id", 0) or 0)))
@@ -987,6 +1016,8 @@ class PersonalAccountReader:
             pinned=bool(getattr(message, "pinned", False)),
             media=media,
             availability="available",
+            buttons=_button_payloads(message),
+            reply_count=int(getattr(getattr(message, "replies", None), "replies", 0) or 0),
         )
 
     async def _history_source(
@@ -1114,6 +1145,90 @@ class PersonalAccountReader:
             has_more=has_more,
             timing={"network_ms": network_ms, "local_filter_ms": 0, "serialization_ms": 0},
             scanned_count=len(items),
+            matched_count=len(items),
+        )
+
+    async def messages_replies_page(
+        self,
+        chat: str | int,
+        message_id: int,
+        *,
+        cursor: str | None = None,
+        limit: int = DEFAULT_PAGE_LIMIT,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> Page:
+        """读取频道帖子或群消息的直接评论/回复，不把它误当作 Forum Topic。"""
+        limit = _validate_limit(limit)
+        parent_id = int(message_id)
+        if parent_id <= 0:
+            raise TelegramBridgeError(INVALID_ARGUMENT, "message id 必须大于 0。")
+        if since and until and since >= until:
+            raise TelegramBridgeError(INVALID_ARGUMENT, "since 必须早于 until。")
+        row, entity = await self.resolve_dialog(chat)
+        if row.dialog_type not in {"group", "supergroup", "channel"}:
+            raise TelegramBridgeError(INVALID_ARGUMENT, "只有群组、超级群组或频道消息支持回复读取。")
+
+        query = {
+            "chat_id": row.chat_id,
+            "message_id": parent_id,
+            "since": since.isoformat() if since else None,
+            "until": until.isoformat() if until else None,
+        }
+        position = self.cursor.decode(cursor, "messages.replies", query) or {}
+        before_id = int(position.get("before_message_id", 0) or 0)
+        kwargs: dict[str, Any] = {
+            "limit": limit + 1,
+            "offset_id": before_id,
+            "reply_to": parent_id,
+        }
+        if until is not None:
+            kwargs["offset_date"] = until
+
+        network_started = time.perf_counter()
+        raw_rows: list[Message] = []
+        try:
+            async for message in self.client.iter_messages(entity, **kwargs):
+                if not isinstance(message, Message):
+                    continue
+                date = getattr(message, "date", None)
+                if date is None:
+                    continue
+                if until is not None and date >= until:
+                    continue
+                if since is not None and date < since:
+                    break
+                raw_rows.append(message)
+                if len(raw_rows) >= limit + 1:
+                    break
+        except RPCError as exc:
+            raise TelegramBridgeError(
+                ACCESS_DENIED,
+                "Telegram 未向当前账号开放该消息的评论/回复。",
+                {"telegram_error": type(exc).__name__},
+            ) from exc
+
+        has_more = len(raw_rows) > limit
+        raw_rows = raw_rows[:limit]
+        items: list[MessageInfoV3] = []
+        for message in raw_rows:
+            actual_source_id = _safe_peer_id(getattr(message, "peer_id", None)) or row.chat_id
+            mapped = await self._message_info_v3(row, actual_source_id, message, {}, False)
+            items.append(replace(mapped, discussion_parent_message_id=parent_id))
+        next_cursor = None
+        if has_more and items:
+            next_cursor = self.cursor.encode(
+                "messages.replies",
+                query,
+                {"before_message_id": items[-1].message_id},
+            )
+        network_ms = int((time.perf_counter() - network_started) * 1000)
+        return Page(
+            items=items,
+            next_cursor=next_cursor,
+            has_more=has_more,
+            timing={"network_ms": network_ms, "local_filter_ms": 0, "serialization_ms": 0},
+            scanned_count=len(raw_rows),
             matched_count=len(items),
         )
 

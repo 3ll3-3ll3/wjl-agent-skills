@@ -57,11 +57,11 @@ account_id + chat_id + message_id
 
 消息内容被编辑时，应更新同一身份，而不是创建全新消息身份。
 
-原始正文只允许临时存在。只有用户明确要求可复制片段时，才可在当前预览或当前回复中展示。原始正文不得进入永久历史、日志、备份、规则包或遥测。唯一例外是用户明确选中保留的 Svip PikPak 资源消息，其完整命中文字可以写入 Raindrop 导入 CSV 的 `note` 字段。
+原始正文只允许临时存在。只有用户明确要求可复制片段时，才可在当前预览或当前回复中展示。原始正文不得进入永久历史、日志、备份、规则包或遥测。唯一例外是用户明确选中保留的第六或第八功能 PikPak 资源消息，其完整命中文字可以写入 Raindrop 导入 CSV 的 `note` 字段。
 
-## Svip 来源专用处理
+## 第六功能 PikPak 来源处理
 
-Svip PikPak 链接功能接受含 `chat_id`、`message_id`、正文或 caption、富文本 entity 和时间的 `tgctl` JSON/JSONL。私人配置中的精确 `chat_id` 必须匹配；标题相似不能替代稳定键。发送者字段可以存在也可以缺失，但只作为上下文，绝不参与筛选。
+PikPak 链接功能接受含 `chat_id`、`message_id`、正文或 caption、富文本 entity 和时间的 `tgctl` JSON/JSONL。来源必须同时属于 TG Exporter 的 `pikpak消息` 分类并匹配私人配置中的精确 `chat_id`；标题相似不能替代稳定键。发送者字段可以存在也可以缺失，但只作为上下文，绝不参与筛选。
 
 精确来源中所有合法 PikPak URL 都进入主结果；伪造域名、非 HTTP(S) URL 和无链接消息才排除。每条主结果保留完整命中消息、消息 ID、日期、PikPak URL、绑定密码和可复制资源行。密码无法可靠绑定时仍保留链接并标记 `密码待确认`。详细规则见 `svip-resource-replies.md`。
 
@@ -99,7 +99,7 @@ Bad.news 的可复制结果每个代码块最多放 25 个规范化帖子 URL。
 - 当前女优 Tag 合集：首次运行选择从正式主体库生成的 `初始女优Tag合集.csv`；后续选择上次生成的最新 `*_女优tag合集.csv`。该文件只用于跳过已处理番号和延续女优映射，不是正式主体库，也不得自动写回主体库。
 - MissAV Raindrop CSV：默认使用已验证的脚本结果结构，正确引用 URL、标题、Tags 和三目录字段；第二层黑名单命中项不得写入导入 CSV。
 - 主体库 CSV：接受 Raindrop 官方 11 列和 MissAV 脚本 14 列输入，先预览后合并到唯一 `missav-library.csv`；详细规则见 `curated-library.md`。
-- Svip Raindrop CSV：固定为 `folder,url,title,note,tags,created` 六列，每个 PikPak URL 一行，收藏夹固定为 `Svip PikPak链接消息`；完整命中消息和密码进入 `note`，已有 URL 的密码补全或冲突进入单独复核 CSV。
+- 第六功能 Raindrop CSV：固定为 `folder,url,title,note,tags,created` 六列，每个 PikPak URL 一行，收藏夹按来源私人配置分别指定；完整命中消息和密码进入 `note`，已有 URL 的密码补全或冲突进入单独复核 CSV。
 - 规则包：只有用户明确要求时生成，包含清单版本、创建时间、记录数量、SHA-256 和规则版本；不得把主体库或 Telegram 原文混入规则包。
 
 所有可复制结果都应避免混入额外解释文字。

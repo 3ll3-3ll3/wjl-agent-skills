@@ -22,8 +22,12 @@ KEYWORD_LABEL_RE = re.compile(
     r"(?:回复|发送|提取|搜索)?\s*(?:关键词|口令|代码|提取码)\s*[:：=]\s*#?([^\s，。；;、（）()【】\[\]<>]{1,100})",
     re.IGNORECASE,
 )
+REPLY_HASHTAG_RE = re.compile(
+    r"回复\s*#([^\s，。；;、（）()【】\[\]<>]{1,100})",
+    re.IGNORECASE,
+)
 UPDATE_HASHTAG_RE = re.compile(
-    r"(?:资源更新|新增资源|更新通知)[^\n\r#]{0,80}#([^\s，。；;、（）()【】\[\]<>]{1,100})",
+    r"(?:资源更新|新增资源|更新通知)[^#]{0,160}#([^\s，。；;、（）()【】\[\]<>]{1,100})",
     re.IGNORECASE,
 )
 HASHTAG_RE = re.compile(r"(?<![\w#])#([^\s，。；;、（）()【】\[\]<>]{1,100})")
@@ -94,9 +98,13 @@ def keyword_key(value: str) -> str:
 
 
 def extract_keywords(text: str) -> list[str]:
-    candidates: list[str] = []
-    for pattern in (KEYWORD_LABEL_RE, UPDATE_HASHTAG_RE):
-        candidates.extend(match.group(1) for match in pattern.finditer(text))
+    candidates = [match.group(1) for match in KEYWORD_LABEL_RE.finditer(text)]
+    candidates.extend(match.group(1) for match in REPLY_HASHTAG_RE.finditer(text))
+
+    # “回复 #关键词”是通知给出的实际机器人输入，优先于标题中的展示 hashtag。
+    # 只有没有明确操作词时，才从资源更新标题中提取，避免两种拼写并存时重复兑换。
+    if not candidates:
+        candidates.extend(match.group(1) for match in UPDATE_HASHTAG_RE.finditer(text))
 
     if not candidates:
         hashtags = [match.group(1) for match in HASHTAG_RE.finditer(text)]

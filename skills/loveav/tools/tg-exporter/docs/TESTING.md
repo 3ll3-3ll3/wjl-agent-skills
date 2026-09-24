@@ -214,6 +214,18 @@ Windows package test 必须检查 native Process ExitCode，不只看 PowerShell
 
 普通日志不得包含：api_id/api_hash、phone/OTP/2FA、Session/credentials、IPC secret、access_hash/file_reference、message body/caption/URL text/media filename、send/forward dry-run body。
 
+## 11.1 有界 send-capture 与快照已读
+
+自动化至少覆盖：
+
+1. `messages.unread` 多页复用同一 lower/upper/token，快照后消息不进入本轮；
+2. 服务消息和无文字媒体的 ID 不丢失，上层可阻止越过它们确认已读；
+3. 篡改 token、错会话、错确认词、越界 max-id 都在 Telegram write 前失败；
+4. `send.capture` 先注册 handler 再发送，只收目标会话与可选域名命中，dry-run 不订阅也不发送；
+5. 导出活跃时真实 send-capture/mark-read 返回 `EXPORT_IN_PROGRESS`；
+6. IPC after-send 失败映射为 `WRITE_OUTCOME_UNKNOWN`，CLI 不 retry；
+7. 日志不含发送正文、捕获正文或 URL。
+
 用户明确调用 history/search/get 时正文可在 stdout JSON/JSONL，但不能进入 app.log。代理只允许记录脱敏后的类型/endpoint；带认证信息的 proxy URL 不得记录用户名、密码、query。
 
 真实日志审计只报告匹配计数，禁止把日志正文复制到 Issue/PR/聊天。

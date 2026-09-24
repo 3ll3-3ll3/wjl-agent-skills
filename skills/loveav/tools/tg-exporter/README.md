@@ -166,6 +166,16 @@ tgctl forward --from <chat> --to me --ids 123 --dry-run --json
 tgctl send --to me --text "test" --dry-run --json
 ```
 
+LoveAV 内嵌 v0.3.3 开发版新增三个受限原语：
+
+```powershell
+tgctl messages unread --chat <ref> --limit 500 --json
+tgctl send-capture --to <ref> --text "#keyword" --url-domain mypikpak.com --dry-run --json
+tgctl messages mark-read --chat <ref> --snapshot-token <token> --max-id <id> --confirm MARK_READ_FROZEN_SNAPSHOT --json
+```
+
+它们不建设后台监听器：仅在一次显式请求内冻结范围、发送后短时捕获，或使用签名快照精确确认已读。业务分类仍在 LoveAV。
+
 - forward 必须是真正 Telegram forward；
 - send 第一代能力仍限纯文本；
 - forward 默认最多 20 条，显式大批量最多 200；
