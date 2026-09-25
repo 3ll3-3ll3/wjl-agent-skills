@@ -43,6 +43,16 @@ wjl-agent-skills/
 
 不再维护英文版 README，也不再采用“英文骨架 + 中文规则”的写法。除必要技术标识外，正文全部写中文。
 
+## 第三方上游 Skills
+
+以下 Skill 来自公开第三方仓库。为保持上游行为与后续同步能力，主体文件按上游原样镜像；每个目录中的 `UPSTREAM.md` 记录来源、固定 commit 与许可证信息。
+
+- `skills/humanizer-zh`：中文文本去模板化、去空话与自然化润色。
+- `skills/content-research-writer`：研究、引用、提纲、Hook 与协作式写作。
+- `skills/hot-topics`：聚合微博、知乎、百度、抖音、今日头条、B站等中文平台热点。
+- `skills/content-calendar-sms`：周/月社媒内容日历与发布节奏规划。
+- `skills/social-media-generator`：面向 Twitter/X、Instagram、LinkedIn、Facebook 的平台化内容生成。
+
 ## 当前 Skills
 
 - `skills/loveav`
