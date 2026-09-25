@@ -7,6 +7,12 @@
 ```text
 wjl-agent-skills/
 ├── skills/
+│   ├── content-creation/
+│   │   ├── humanizer-zh/
+│   │   ├── content-research-writer/
+│   │   ├── hot-topics/
+│   │   ├── content-calendar-sms/
+│   │   └── social-media-generator/
 │   ├── loveav/
 │   ├── grad-application-filler/
 │   ├── university-form-ppt-skill/
@@ -15,13 +21,13 @@ wjl-agent-skills/
 └── README.md
 ```
 
-`skills/` 下的每个目录都是一个可独立安装或调用的 Skill。
+`skills/` 下既可以直接放独立 Skill，也可以先按主题建立分类目录；`skills/content-creation/` 专门收纳自媒体与内容创作相关 Skill。
 
 `skills/loveav/tools/tg-exporter/` 是 LoveAV 的完整本地 Telegram 助手源码。从内嵌 v0.3.3 起，它随 LoveAV 在本仓库维护和构建；原独立 TG Exporter 仓库及其历史 Tag/Release 保持不变。
 
 ## 管理约定
 
-- 新的个人 Skill 默认添加到 `skills/<skill-name>/`，不再为每个 Skill 单独创建仓库。
+- 新的个人 Skill 默认添加到 `skills/<skill-name>/`；同一主题形成多个 Skill 时，可统一归入 `skills/<category>/<skill-name>/`，不再为每个 Skill 单独创建仓库。
 - 每个 Skill 必须保留自己的 `SKILL.md`，并把只属于该 Skill 的脚本、参考资料、资源、测试和文档放在其目录内。
 - 只有两个或更多 Skill 确实复用同一套实现时，才考虑抽取到 `shared/`。
 - 不提交运行时私有数据、凭据、令牌、会话、浏览器资料、本地数据库、Telegram 导出或用户生成记录；若某个 Skill 经用户明确要求版本化维护非秘密、结构化业务状态，则只能保存最小必要字段，且不得包含认证信息、完整私人正文或原始附件。
@@ -47,11 +53,11 @@ wjl-agent-skills/
 
 以下 Skill 来自公开第三方仓库。为保持上游行为与后续同步能力，主体文件按上游原样镜像；每个目录中的 `UPSTREAM.md` 记录来源、固定 commit 与许可证信息。
 
-- `skills/humanizer-zh`：中文文本去模板化、去空话与自然化润色。
-- `skills/content-research-writer`：研究、引用、提纲、Hook 与协作式写作。
-- `skills/hot-topics`：聚合微博、知乎、百度、抖音、今日头条、B站等中文平台热点。
-- `skills/content-calendar-sms`：周/月社媒内容日历与发布节奏规划。
-- `skills/social-media-generator`：面向 Twitter/X、Instagram、LinkedIn、Facebook 的平台化内容生成。
+- `skills/content-creation/humanizer-zh`：中文文本去模板化、去空话与自然化润色。
+- `skills/content-creation/content-research-writer`：研究、引用、提纲、Hook 与协作式写作。
+- `skills/content-creation/hot-topics`：聚合微博、知乎、百度、抖音、今日头条、B站等中文平台热点。
+- `skills/content-creation/content-calendar-sms`：周/月社媒内容日历与发布节奏规划。
+- `skills/content-creation/social-media-generator`：面向 Twitter/X、Instagram、LinkedIn、Facebook 的平台化内容生成。
 
 ## 当前 Skills
 
