@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 from telethon import TelegramClient
-from telethon.errors import SessionPasswordNeededError
+from telethon.errors import FloodWaitError, SessionPasswordNeededError
 from telethon.tl import functions
 from telethon.tl.custom.message import Message
 from telethon.utils import get_peer_id
@@ -17,22 +17,50 @@ from .avatar_cache import read_cached_avatar, write_cached_avatar
 from .bridge_errors import (
     AMBIGUOUS_CHAT,
     CHAT_NOT_FOUND,
+    CONTENT_PROTECTED,
+    FLOOD_WAIT,
     INVALID_ARGUMENT,
     MESSAGE_NOT_FOUND,
+    UNKNOWN_OUTCOME,
+    UNSUPPORTED_MESSAGE,
+    WRITE_FAILED,
     TelegramBridgeError,
 )
 from .dialog_filters import apply_folder_memberships
-from .models import AccountInfo, ForwardResult, GroupInfo, SendResult, TelegramMessageInfo
+from .models import (
+    AccountInfo,
+    ForwardAlbumInfo,
+    ForwardFailure,
+    ForwardResult,
+    ForwardedMessageRef,
+    GroupInfo,
+    SendResult,
+    TelegramMessageInfo,
+)
 from .proxy import ProxyConfig, detect_windows_system_proxy
 from .session_lock import SessionLease
 
 logger = logging.getLogger("telegram_exporter.telegram_service")
+
+TELEGRAM_ALBUM_MAX_ITEMS = 10
+TELEGRAM_FORWARD_RPC_LIMIT = 100
+MAX_FORWARD_EXPANDED_ITEMS = 200
+ALBUM_INCOMPLETE = "ALBUM_INCOMPLETE"
+ALBUM_UNSUPPORTED_MEDIA = "ALBUM_UNSUPPORTED_MEDIA"
+SERVICE_MESSAGE = "SERVICE_MESSAGE"
 
 
 @dataclass(slots=True)
 class ApiCredentials:
     api_id: int
     api_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class _ForwardUnit:
+    message_ids: tuple[int, ...]
+    grouped_id: int | None
+    photo_count: int
 
 
 def _dialog_is_muted(dialog) -> bool:
@@ -89,13 +117,62 @@ def _chat_candidate(group: GroupInfo) -> dict:
     }
 
 
-def _forwardable_text_only(message: Message) -> bool:
-    if not (message.message or ""):
-        return False
+def _grouped_id(message: Message) -> int | None:
+    value = getattr(message, "grouped_id", None)
+    return int(value) if value is not None else None
+
+
+def _is_photo(message: Message) -> bool:
     media = getattr(message, "media", None)
-    if media is None:
+    if media is not None and media.__class__.__name__ == "MessageMediaPhoto":
         return True
-    return media.__class__.__name__ in {"MessageMediaEmpty", "MessageMediaWebPage"}
+    return getattr(message, "photo", None) is not None
+
+
+def _forwardable_kind(message: Message, *, source_protected: bool = False) -> tuple[str | None, str | None]:
+    """只基于 Telegram 原始消息类型决定是否可做原生服务端转发。"""
+    if getattr(message, "action", None) is not None:
+        return None, SERVICE_MESSAGE
+    if source_protected or bool(getattr(message, "noforwards", False)):
+        return None, CONTENT_PROTECTED
+    if _is_photo(message):
+        return "photo", None
+    media = getattr(message, "media", None)
+    if (message.message or "") and (
+        media is None or media.__class__.__name__ in {"MessageMediaEmpty", "MessageMediaWebPage"}
+    ):
+        return "text", None
+    return None, UNSUPPORTED_MESSAGE
+
+
+def _as_messages(value) -> list[Message]:
+    if isinstance(value, Message):
+        return [value]
+    if value is None:
+        return []
+    try:
+        return [item for item in value if isinstance(item, Message)]
+    except TypeError:
+        return []
+
+
+def _chunk_forward_units(units: list[_ForwardUnit]) -> list[tuple[int, ...]]:
+    chunks: list[tuple[int, ...]] = []
+    current: list[int] = []
+    for unit in units:
+        if len(unit.message_ids) > TELEGRAM_FORWARD_RPC_LIMIT:
+            raise TelegramBridgeError(
+                INVALID_ARGUMENT,
+                "单个相册超过 Telegram 原生 forward 批次上限。",
+                {"grouped_id": unit.grouped_id, "count": len(unit.message_ids)},
+            )
+        if current and len(current) + len(unit.message_ids) > TELEGRAM_FORWARD_RPC_LIMIT:
+            chunks.append(tuple(current))
+            current = []
+        current.extend(unit.message_ids)
+    if current:
+        chunks.append(tuple(current))
+    return chunks
 
 
 class TelegramService:
@@ -358,6 +435,32 @@ class TelegramService:
             )
         return [await self._message_info(group, by_id[message_id]) for message_id in requested]
 
+    async def _album_members(self, source_entity, seed: Message) -> list[Message]:
+        grouped_id = _grouped_id(seed)
+        if grouped_id is None:
+            return [seed]
+        seed_id = int(seed.id)
+        low = max(1, seed_id - TELEGRAM_ALBUM_MAX_ITEMS)
+        high = seed_id + TELEGRAM_ALBUM_MAX_ITEMS
+        nearby = await self.client.get_messages(source_entity, ids=list(range(low, high + 1)))
+        members = {
+            int(message.id): message
+            for message in _as_messages(nearby)
+            if _grouped_id(message) == grouped_id
+        }
+        members[seed_id] = seed
+        return [members[message_id] for message_id in sorted(members)]
+
+    async def _latest_message_id(self, destination_entity) -> int | None:
+        try:
+            latest = await self.client.get_messages(destination_entity, limit=1)
+        except Exception:
+            return None
+        rows = _as_messages(latest)
+        ids = [int(getattr(message, "id", 0) or 0) for message in rows]
+        ids = [message_id for message_id in ids if message_id > 0]
+        return max(ids) if ids else None
+
     async def forward_messages(
         self,
         source_chat: str | int,
@@ -383,60 +486,310 @@ class TelegramService:
             destination_id = destination.chat_id
 
         messages = await self.client.get_messages(source_entity, ids=list(requested))
-        by_id = {
-            int(message.id): message
-            for message in messages
-            if isinstance(message, Message)
-        }
-        eligible: list[int] = []
-        failed: list[int] = []
+        by_id = {int(message.id): message for message in _as_messages(messages)}
+        source_protected = bool(getattr(source_entity, "noforwards", False))
+        processed_groups: set[int] = set()
+        units: list[_ForwardUnit] = []
+        albums: list[ForwardAlbumInfo] = []
+        excluded_by_id: dict[int, ForwardFailure] = {}
+        excluded_order: list[int] = []
+
+        def exclude(message_id: int, reason: str, grouped_id: int | None = None) -> None:
+            if message_id in excluded_by_id:
+                return
+            excluded_by_id[message_id] = ForwardFailure(
+                message_id=message_id,
+                reason=reason,
+                grouped_id=grouped_id,
+            )
+            excluded_order.append(message_id)
+
         for message_id in requested:
             message = by_id.get(message_id)
-            if message is None or not _forwardable_text_only(message):
-                failed.append(message_id)
+            if message is None:
+                exclude(message_id, MESSAGE_NOT_FOUND)
+                continue
+
+            grouped_id = _grouped_id(message)
+            if grouped_id is None:
+                kind, reason = _forwardable_kind(message, source_protected=source_protected)
+                if reason is not None:
+                    exclude(message_id, reason)
+                    continue
+                units.append(
+                    _ForwardUnit(
+                        message_ids=(message_id,),
+                        grouped_id=None,
+                        photo_count=1 if kind == "photo" else 0,
+                    )
+                )
+                continue
+
+            if grouped_id in processed_groups:
+                continue
+            processed_groups.add(grouped_id)
+            members = await self._album_members(source_entity, message)
+            member_ids = tuple(int(item.id) for item in members)
+            expected_ids = tuple(range(member_ids[0], member_ids[-1] + 1)) if member_ids else ()
+            if (
+                len(member_ids) < 2
+                or len(member_ids) > TELEGRAM_ALBUM_MAX_ITEMS
+                or member_ids != expected_ids
+            ):
+                for member_id in member_ids or (message_id,):
+                    exclude(member_id, ALBUM_INCOMPLETE, grouped_id)
+                continue
+
+            classifications = [
+                _forwardable_kind(item, source_protected=source_protected)
+                for item in members
+            ]
+            reasons = [reason for _, reason in classifications if reason is not None]
+            kinds = [kind for kind, reason in classifications if reason is None]
+            if CONTENT_PROTECTED in reasons:
+                album_reason = CONTENT_PROTECTED
+            elif reasons or any(kind != "photo" for kind in kinds):
+                album_reason = ALBUM_UNSUPPORTED_MEDIA
             else:
-                eligible.append(message_id)
+                album_reason = None
+
+            if album_reason is not None:
+                for member_id in member_ids:
+                    exclude(member_id, album_reason, grouped_id)
+                continue
+
+            units.append(
+                _ForwardUnit(
+                    message_ids=member_ids,
+                    grouped_id=grouped_id,
+                    photo_count=len(member_ids),
+                )
+            )
+            albums.append(ForwardAlbumInfo(grouped_id=grouped_id, message_ids=member_ids))
+
+        planned_ids = tuple(message_id for unit in units for message_id in unit.message_ids)
+        if len(planned_ids) > MAX_FORWARD_EXPANDED_ITEMS:
+            raise TelegramBridgeError(
+                INVALID_ARGUMENT,
+                "相册补全后的原生 forward 消息数量超过 200 条安全上限。",
+                {
+                    "requested_count": len(requested),
+                    "expanded_count": len(planned_ids),
+                    "limit": MAX_FORWARD_EXPANDED_ITEMS,
+                },
+            )
+        planned_set = set(planned_ids)
+        failed_ids = tuple(message_id for message_id in requested if message_id not in planned_set)
+        excluded = tuple(excluded_by_id[message_id] for message_id in excluded_order)
+        photo_count = sum(unit.photo_count for unit in units)
 
         if dry_run:
             logger.info(
-                "Telegram write dry-run: forward source_chat_id=%s destination_chat_id=%s count=%s ids=%s failed=%s",
-                source.chat_id,
-                destination_id,
-                len(eligible),
-                eligible,
-                failed,
+                "Telegram write dry-run: forward requested=%s forwardable=%s photos=%s albums=%s excluded=%s",
+                len(requested),
+                len(planned_ids),
+                photo_count,
+                len(albums),
+                len(excluded),
             )
             return ForwardResult(
                 source_chat_id=source.chat_id,
                 destination_chat_id=destination_id,
                 requested_ids=requested,
-                successful_ids=tuple(eligible),
-                failed_ids=tuple(failed),
+                successful_ids=planned_ids,
+                failed_ids=failed_ids,
                 dry_run=True,
+                planned_ids=planned_ids,
+                requested_count=len(requested),
+                forwardable_count=len(planned_ids),
+                photo_count=photo_count,
+                album_count=len(albums),
+                albums=tuple(albums),
+                excluded=excluded,
             )
 
-        if eligible:
-            logger.info(
-                "Telegram write: forward source_chat_id=%s destination_chat_id=%s count=%s ids=%s",
-                source.chat_id,
-                destination_id,
-                len(eligible),
-                eligible,
+        if not planned_ids:
+            return ForwardResult(
+                source_chat_id=source.chat_id,
+                destination_chat_id=destination_id,
+                requested_ids=requested,
+                successful_ids=(),
+                failed_ids=failed_ids,
+                dry_run=False,
+                planned_ids=(),
+                requested_count=len(requested),
+                forwardable_count=0,
+                photo_count=0,
+                album_count=0,
+                albums=(),
+                excluded=excluded,
             )
-            await self.client.forward_messages(destination_entity, eligible, from_peer=source_entity)
-            logger.info(
-                "Telegram write succeeded: forward source_chat_id=%s destination_chat_id=%s count=%s",
-                source.chat_id,
-                destination_id,
-                len(eligible),
+
+        before_id = await self._latest_message_id(destination_entity)
+        grouped_by_source = {
+            message_id: unit.grouped_id
+            for unit in units
+            for message_id in unit.message_ids
+        }
+        confirmed_source_ids: list[int] = []
+        destination_message_ids: list[int] = []
+        forwarded_messages: list[ForwardedMessageRef] = []
+        chunks = _chunk_forward_units(units)
+        logger.info(
+            "Telegram write: native forward requested=%s planned=%s photos=%s albums=%s rpc_batches=%s",
+            len(requested),
+            len(planned_ids),
+            photo_count,
+            len(albums),
+            len(chunks),
+        )
+
+        for index, chunk in enumerate(chunks):
+            try:
+                result = await self.client.forward_messages(
+                    destination_entity,
+                    list(chunk),
+                    from_peer=source_entity,
+                )
+            except FloodWaitError as exc:
+                seconds = int(getattr(exc, "seconds", 0) or 0)
+                raise TelegramBridgeError(
+                    FLOOD_WAIT,
+                    f"Telegram 要求等待 {seconds} 秒后再试。" if seconds else "Telegram 触发 Flood Wait。",
+                    {
+                        "retry_after_seconds": seconds,
+                        "confirmed_source_ids": confirmed_source_ids,
+                        "not_attempted_source_ids": [
+                            message_id
+                            for later in chunks[index:]
+                            for message_id in later
+                        ],
+                    },
+                ) from exc
+            except Exception as exc:
+                if type(exc).__name__ == "ChatForwardsRestrictedError":
+                    protected_ids = [
+                        message_id
+                        for later in chunks[index:]
+                        for message_id in later
+                    ]
+                    merged_excluded = list(excluded)
+                    known = {item.message_id for item in merged_excluded}
+                    for protected_id in protected_ids:
+                        if protected_id not in known:
+                            merged_excluded.append(
+                                ForwardFailure(
+                                    message_id=protected_id,
+                                    reason=CONTENT_PROTECTED,
+                                    grouped_id=grouped_by_source.get(protected_id),
+                                )
+                            )
+                    requested_failed = tuple(
+                        message_id
+                        for message_id in requested
+                        if message_id not in set(confirmed_source_ids)
+                    )
+                    after_id = await self._latest_message_id(destination_entity)
+                    return ForwardResult(
+                        source_chat_id=source.chat_id,
+                        destination_chat_id=destination_id,
+                        requested_ids=requested,
+                        successful_ids=tuple(confirmed_source_ids),
+                        failed_ids=requested_failed,
+                        dry_run=False,
+                        planned_ids=planned_ids,
+                        requested_count=len(requested),
+                        forwardable_count=len(planned_ids),
+                        photo_count=photo_count,
+                        album_count=len(albums),
+                        albums=tuple(albums),
+                        excluded=tuple(merged_excluded),
+                        destination_message_ids=tuple(destination_message_ids),
+                        forwarded_messages=tuple(forwarded_messages),
+                        destination_before_message_id=before_id,
+                        destination_after_message_id=after_id,
+                    )
+                if isinstance(exc, (ConnectionError, TimeoutError, OSError)):
+                    uncertain = list(chunk)
+                    not_attempted = [
+                        message_id
+                        for later in chunks[index + 1 :]
+                        for message_id in later
+                    ]
+                    raise TelegramBridgeError(
+                        UNKNOWN_OUTCOME,
+                        "Telegram 原生转发请求已发出，但写入结果无法确认；请先检查目标聊天，勿自动重试。",
+                        {
+                            "confirmed_source_ids": confirmed_source_ids,
+                            "confirmed_destination_ids": destination_message_ids,
+                            "uncertain_source_ids": uncertain,
+                            "not_attempted_source_ids": not_attempted,
+                        },
+                    ) from exc
+                raise TelegramBridgeError(
+                    WRITE_FAILED,
+                    f"Telegram 转发失败：{type(exc).__name__}",
+                    {
+                        "confirmed_source_ids": confirmed_source_ids,
+                        "confirmed_destination_ids": destination_message_ids,
+                    },
+                ) from exc
+
+            returned = _as_messages(result)
+            returned_ids = [int(getattr(message, "id", 0) or 0) for message in returned]
+            if len(returned_ids) != len(chunk) or any(message_id <= 0 for message_id in returned_ids):
+                raise TelegramBridgeError(
+                    UNKNOWN_OUTCOME,
+                    "Telegram 已返回原生转发结果，但目标消息 ID 不完整；请先检查目标聊天，勿自动重试。",
+                    {
+                        "confirmed_source_ids": confirmed_source_ids,
+                        "confirmed_destination_ids": destination_message_ids,
+                        "uncertain_source_ids": list(chunk),
+                        "returned_destination_ids": [message_id for message_id in returned_ids if message_id > 0],
+                        "not_attempted_source_ids": [
+                            message_id
+                            for later in chunks[index + 1 :]
+                            for message_id in later
+                        ],
+                    },
+                )
+
+            confirmed_source_ids.extend(chunk)
+            destination_message_ids.extend(returned_ids)
+            forwarded_messages.extend(
+                ForwardedMessageRef(
+                    source_message_id=source_id,
+                    destination_message_id=destination_message_id,
+                    grouped_id=grouped_by_source.get(source_id),
+                )
+                for source_id, destination_message_id in zip(chunk, returned_ids, strict=True)
             )
+
+        after_id = await self._latest_message_id(destination_entity)
+        logger.info(
+            "Telegram write succeeded: native forward forwarded=%s photos=%s albums=%s",
+            len(confirmed_source_ids),
+            photo_count,
+            len(albums),
+        )
         return ForwardResult(
             source_chat_id=source.chat_id,
             destination_chat_id=destination_id,
             requested_ids=requested,
-            successful_ids=tuple(eligible),
-            failed_ids=tuple(failed),
+            successful_ids=tuple(confirmed_source_ids),
+            failed_ids=failed_ids,
             dry_run=False,
+            planned_ids=planned_ids,
+            requested_count=len(requested),
+            forwardable_count=len(planned_ids),
+            photo_count=photo_count,
+            album_count=len(albums),
+            albums=tuple(albums),
+            excluded=excluded,
+            destination_message_ids=tuple(destination_message_ids),
+            forwarded_messages=tuple(forwarded_messages),
+            destination_before_message_id=before_id,
+            destination_after_message_id=after_id,
         )
 
     async def send_text_message(self, destination_chat: str | int, text: str, *, dry_run: bool = False) -> SendResult:

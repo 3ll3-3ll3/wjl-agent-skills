@@ -44,6 +44,9 @@ jobs:
       - name: Full pytest
         run: .\.venv\Scripts\python.exe -m pytest -q
 
+      - name: Native photo and album forward regressions
+        run: .\.venv\Scripts\python.exe -m pytest -q tests/test_forward_native_media_v034.py tests/test_tgctl.py
+
       - name: LoveAV tgctl adapter pytest
         working-directory: .
         run: skills\loveav\tools\tg-exporter\.venv\Scripts\python.exe -m pytest -q skills\loveav\tests\test_tg_exporter_adapter.py
@@ -90,12 +93,14 @@ jobs:
       - name: Packaged machine-readable version contract
         shell: pwsh
         run: |
+          $expected = (Get-Content VERSION -Raw).Trim()
+          if ($expected.StartsWith('v')) { $expected = $expected.Substring(1) }
           $standalone = & .\dist\tgctl\tgctl.exe version --json | ConvertFrom-Json
-          if ($standalone.ok -ne $true -or $standalone.data.tgctl_version -ne "0.3.3" -or $standalone.data.reader_schema -ne "tgctl.reader.v1") {
+          if ($standalone.ok -ne $true -or $standalone.data.tgctl_version -ne $expected -or $standalone.data.reader_schema -ne "tgctl.reader.v1") {
             throw "standalone tgctl version contract failed"
           }
           $portable = & .\dist\portable\TGExporter\tgctl.exe version --json | ConvertFrom-Json
-          if ($portable.ok -ne $true -or $portable.data.tgctl_version -ne "0.3.3" -or $portable.data.reader_schema -ne "tgctl.reader.v1") {
+          if ($portable.ok -ne $true -or $portable.data.tgctl_version -ne $expected -or $portable.data.reader_schema -ne "tgctl.reader.v1") {
             throw "portable tgctl version contract failed"
           }
 
