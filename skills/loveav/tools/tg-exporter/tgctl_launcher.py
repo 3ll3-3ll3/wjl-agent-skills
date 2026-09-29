@@ -9,7 +9,9 @@ def run() -> int:
         import telegram_exporter.ipc_client  # noqa: F401
         import telegram_exporter.reader_search  # noqa: F401
         import telegram_exporter.tgctl  # noqa: F401
-        return 0
+        from telegram_exporter.forwarding import forward_plan_smoke_test
+
+        return 0 if forward_plan_smoke_test() else 1
 
     if "--smoke-test-url-domain" in sys.argv:
         from telegram_exporter.reader_search import domain_filter_smoke_test
