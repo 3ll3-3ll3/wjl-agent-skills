@@ -98,15 +98,17 @@ Secret Chat、已删除内容恢复、账号无权访问内容不尝试绕过。
 
 ## Existing Telegram writes
 
-已批准的 Telegram write 仍只有既有边界：
+已批准的 Telegram write 只有下列显式边界：
 
 - `forward`：真正 Telethon forward，dry-run，默认 20、显式大批量 200，同名歧义拒绝；
 - `send`：纯文本，dry-run，`parse_mode=None`；
+- `send-capture`：同 daemon 请求中先订阅、后发送并有界捕获；
+- `messages mark-read`：仅允许签名冻结未读范围内的精确 max-id；
 - GUI optional read-ack：仅用户明确开启 current-unread Option B，严格 `JSON success → checkpoint → optional read ack`。
 
-v0.3 Reader 不扩大上述授权，不新增隐式 mark-read。
+v0.3 Reader 不新增隐式 mark-read。新命令默认 dry-run 或需要签名快照与精确确认词；普通 history/search 不会触发它们。
 
-Export 活跃时真实 send/forward 立即 `EXPORT_IN_PROGRESS`，不得排队后自动发出。已发送 write 请求若返回前 transport 中断 → `WRITE_OUTCOME_UNKNOWN`，不得自动 retry。
+Export 活跃时真实 send/forward/send-capture/mark-read 立即 `EXPORT_IN_PROGRESS`，不得排队后自动发出。已发送 write 请求若返回前 transport 中断 → `WRITE_OUTCOME_UNKNOWN`，不得自动 retry。
 
 FloodWait 返回 `retry_after_seconds`，不 retry storm。
 

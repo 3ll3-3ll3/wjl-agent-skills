@@ -66,11 +66,13 @@ class FakeClient:
             FakeDialog(self.entities[CHANNEL_ID], "Svip", archived=True, message_id=20),
         ]
         self.messages = []
+        self.dialog_iterations = 0
 
     async def get_me(self):
         return self.me
 
     def iter_dialogs(self, **_kwargs):
+        self.dialog_iterations += 1
         async def iterator():
             for dialog in self.dialogs:
                 yield dialog
@@ -121,6 +123,7 @@ class FakeMessage:
         self.reactions = None
         self.action = None
         self.pinned = False
+        self.replies = None
         self.via_bot_id = None
         self.post_author = None
         self.photo = None
@@ -130,6 +133,7 @@ class FakeMessage:
         self.sticker = None
         self.gif = None
         self.file = None
+        self.buttons = None
 
     async def get_sender(self):
         return self.sender
@@ -230,8 +234,76 @@ def test_tgctl_parser_accepts_v3_reader_commands() -> None:
     assert args.jsonl is True
     history = parser.parse_args(["messages", "history", "--chat", "me", "--limit", "100", "--json"])
     assert history.messages_command == "history"
+    replies = parser.parse_args(
+        ["messages", "replies", "--chat", str(CHANNEL_ID), "--message-id", "183", "--limit", "100", "--json"]
+    )
+    assert replies.messages_command == "replies"
+    assert replies.message_id == 183
     members = parser.parse_args(["chats", "members", "--chat", "-1001", "--role", "admin", "--json"])
     assert members.chats_command == "members"
+
+
+def test_message_replies_are_not_rejected_as_forum_topics(monkeypatch) -> None:
+    reader = _reader()
+    monkeypatch.setattr(reader_module, "Message", FakeMessage)
+    sender = reader.client.entities[1]
+    reply = FakeMessage(501, "https://mypikpak.com/s/demo", sender)
+    reply.peer_id = Channel(99, "Discussion", megagroup=True)
+    reader.client.messages = [reply]
+
+    page = asyncio.run(reader.messages_replies_page(CHANNEL_ID, 183, limit=10))
+
+    assert page.count == 1
+    assert page.items[0].discussion_parent_message_id == 183
+    assert page.items[0].source_chat_id == -(10**12 + 99)
+    assert page.items[0].text == "https://mypikpak.com/s/demo"
+
+
+def test_repeated_reply_reads_reuse_resolved_dialog(monkeypatch) -> None:
+    reader = _reader()
+    monkeypatch.setattr(reader_module, "Message", FakeMessage)
+    sender = reader.client.entities[1]
+    reply = FakeMessage(501, "https://mypikpak.com/s/demo", sender)
+    reply.peer_id = Channel(99, "Discussion", megagroup=True)
+    reader.client.messages = [reply]
+
+    asyncio.run(reader.messages_replies_page(CHANNEL_ID, 183, limit=10))
+    asyncio.run(reader.messages_replies_page(CHANNEL_ID, 184, limit=10))
+
+    assert reader.client.dialog_iterations == 1
+
+
+def test_message_reply_count_is_exposed(monkeypatch) -> None:
+    reader = _reader()
+    monkeypatch.setattr(reader_module, "Message", FakeMessage)
+    message = FakeMessage(183, "评论区查看", reader.client.entities[1])
+    message.replies = SimpleNamespace(replies=27)
+    reader.client.messages = [message]
+
+    page = asyncio.run(reader.messages_history_page(CHANNEL_ID, limit=10))
+
+    assert page.items[0].reply_count == 27
+
+
+def test_message_replies_keep_public_button_urls_without_callback_data(monkeypatch) -> None:
+    reader = _reader()
+    monkeypatch.setattr(reader_module, "Message", FakeMessage)
+    sender = reader.client.entities[1]
+    reply = FakeMessage(502, "插眼成功！", sender)
+    reply.peer_id = Channel(99, "Discussion", megagroup=True)
+    reply.buttons = [[
+        SimpleNamespace(text="打开资源", url="https://mypikpak.com/s/button", data=None),
+        SimpleNamespace(text="刷新", url=None, data=b"private-callback"),
+    ]]
+    reader.client.messages = [reply]
+
+    page = asyncio.run(reader.messages_replies_page(CHANNEL_ID, 183, limit=10))
+
+    assert page.items[0].buttons == (
+        {"text": "打开资源", "url": "https://mypikpak.com/s/button", "type": "url"},
+        {"text": "刷新", "type": "callback_or_other"},
+    )
+    assert "private-callback" not in json.dumps(reader_module.Page(items=page.items), default=lambda value: getattr(value, "__dict__", str(value)))
 
 
 def test_jsonl_contract_meta_item_end(capsys) -> None:

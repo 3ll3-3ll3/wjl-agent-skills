@@ -8,6 +8,7 @@ from .reader_media import media_download
 from .reader_runtime import PersonalAccountReaderV3
 from .reader_search import search_messages_page
 from .reader_topics import topic_history_page, topics_page
+from .reader_unread import unread_snapshot_page
 
 READER_METHODS = {
     "account.get",
@@ -15,6 +16,8 @@ READER_METHODS = {
     "chats.get",
     "chats.members",
     "messages.history",
+    "messages.replies",
+    "messages.unread",
     "topics.list",
     "topics.history",
     "media.download",
@@ -74,6 +77,22 @@ async def dispatch_reader(server: Any, method: str, params: dict[str, Any]) -> A
                 limit=int(params.get("limit", 100)),
                 since=_parse_iso(params.get("since")),
                 until=_parse_iso(params.get("until")),
+            )
+        if method == "messages.replies":
+            return await reader.messages_replies_page(
+                params.get("chat", ""),
+                int(params.get("message_id", 0)),
+                cursor=params.get("cursor"),
+                limit=int(params.get("limit", 100)),
+                since=_parse_iso(params.get("since")),
+                until=_parse_iso(params.get("until")),
+            )
+        if method == "messages.unread":
+            return await unread_snapshot_page(
+                reader,
+                params.get("chat", ""),
+                cursor=params.get("cursor"),
+                limit=int(params.get("limit", 500)),
             )
         if method == "messages.search" and params.get("schema") == "v3":
             sender_id = params.get("sender_id")

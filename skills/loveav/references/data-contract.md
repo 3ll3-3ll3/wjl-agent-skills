@@ -6,7 +6,7 @@ LoveAV 长期重要数据以三类为准：
 
 - Whos.tv 已解决答案的既有 Markdown、截止点状态和必要备份；
 - 用户明确选择入库的 MissAV 精华数据，以及每批最终 Raindrop 导入 CSV。
-- 用户明确选择保留的 Svip PikPak 资源 Raindrop 导入 CSV，以及用于去重的 Raindrop 官方导出 CSV；不另建 Svip 数据库。
+- 用户明确选择保留的第六功能 PikPak 资源 Raindrop 导入 CSV，以及用于去重的 Raindrop 官方导出 CSV；不另建消息数据库。
 
 规则文件维持现状；普通处理记录、临时预览、Telegram 原文和每次运行流水不属于必须长期保存的数据。
 
@@ -25,7 +25,7 @@ MissAV 的唯一权威主体库、字段、两种 CSV 来源、目录过滤和�
 
 不得把以下内容写入主体库、结果 CSV、日志、备份或 GitHub：
 
-- Telegram 消息正文，但用户明确选择保留的 Svip PikPak 资源消息可作为对应书签的 `note` 写入 Raindrop 导入 CSV；
+- Telegram 消息正文，但用户明确选择保留的第六或第八功能 PikPak 资源消息可作为对应书签的 `note` 写入 Raindrop 导入 CSV；
 - OTP、密码、API hash、Bot Token、Cookie、浏览器存储或 Session；
 - 浏览器登录数据；
 - 用户未选择保留的普通候选；
@@ -66,7 +66,7 @@ v0.5.13 旧库始终只读打开。可以提取状态明确的番号、可信 UR
 - 不使用“最后写入者自动覆盖”；
 - GitHub 不保存私人 CSV、备份或运行数据。
 
-Svip 私人数据建议放在 `LoveAV-Data/svip/`：`outputs/` 保存新增 Raindrop 导入批次，`update-review/` 保存密码补全或冲突复核，`library/` 可保存用户导出的 Raindrop 参考 CSV。最近读取的其余 Telegram 消息和临时分类 JSON 不属于长期数据。
+第六功能私人数据按来源放在 `LoveAV-Data/pikpak-messages/<source_key>/`：`outputs/` 保存新增 Raindrop 导入批次和密码补全或冲突复核；需要 Raindrop 官方导出作查重时，可在来源目录内单独保存参考 CSV。最近读取的其余 Telegram 消息和临时分类 JSON 不属于长期数据。
 
 ## UI 边界
 

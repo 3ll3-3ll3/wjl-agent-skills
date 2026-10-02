@@ -13,6 +13,7 @@ dependencies = [
   "Telethon==1.44.0",
   "python-socks[asyncio]>=2.7,<3",
   "qasync==0.28.0",
+  "tzdata>=2025.2; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]

@@ -11,6 +11,7 @@
 | [ADR-005](005-migrated-group-logical-identity.md) | Accepted / Production | Current Supergroup 是 logical chat；legacy Basic Group 仅 historical source |
 | [ADR-006](006-human-e2e-release-gate.md) | Accepted | CI 不能替代真实 Telegram/Windows acceptance；v0.3.0 已履行，v0.3.1 复用 |
 | [ADR-007](007-current-unread-snapshot-at-export-start.md) | Accepted / implemented / released | Current-unread 每群在自身 export start 冻结 lower/upper |
+| [ADR-008](008-bounded-send-capture-and-snapshot-read-ack.md) | Accepted / implemented / unreleased | 同 daemon 发送即时捕获；已读与签名冻结范围绑定 |
 
 ## When to add an ADR
 

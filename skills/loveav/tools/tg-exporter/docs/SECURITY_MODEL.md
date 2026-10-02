@@ -66,13 +66,13 @@ tgctl┘
 status/job/heartbeat/cursor validation 等。
 
 ### TELEGRAM_READ
-account/dialogs/chat/members/history/search/get/topics/media metadata。不得 send/forward/delete/leave/改 Folder/vote/mark-read/自动下载。
+account/dialogs/chat/members/history/search/get/topics/media metadata。普通 reader 不得 send/forward/delete/leave/改 Folder/vote/mark-read/自动下载。v0.3.3 的显式 `messages.unread` / `send.capture` / token-bound `messages.mark_read` 是受限执行面，不改变默认读取面。
 
 ### LOCAL_DISK_WRITE
 GUI JSON export；用户显式确认的 media download。
 
 ### TELEGRAM_WRITE
-仅既有批准边界：forward、send、GUI current-unread optional read acknowledgement。
+仅批准边界：forward、send、GUI current-unread optional read acknowledgement，以及 v0.3.3 的有界 send-capture / 快照 token 绑定 read acknowledgement。
 
 ### GUI_AUTH
 phone/OTP/2FA/API 配置只属于 GUI。
@@ -81,9 +81,11 @@ phone/OTP/2FA/API 配置只属于 GUI。
 
 - forward = Telegram true forward；dry-run；默认 <=20，explicit large <=200；
 - send = plain text / `parse_mode=None`；dry-run；
+- send-capture = 先订阅再发送，只捕获目标会话的有界时间窗，可选离线域名过滤；
+- mark-read = 会话/query-bound HMAC token + 冻结范围内 max-id + 精确确认词；
 - ambiguous target → `AMBIGUOUS_CHAT`，不 first-match；
 - FloodWait structured stop，不 retry storm；
-- export 活跃时 real send/forward → `EXPORT_IN_PROGRESS`，不排队；
+- export 活跃时 real send/forward/send-capture/mark-read → `EXPORT_IN_PROGRESS`，不排队；
 - write request 已送 daemon、response 前 transport 中断 → `WRITE_OUTCOME_UNKNOWN`，绝不自动 replay。
 
 ## 7. Read acknowledgement
